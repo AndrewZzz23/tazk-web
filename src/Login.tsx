@@ -1,34 +1,29 @@
 import { supabase } from './supabaseClient'
 
 function Login() {
-  
   const handleGoogleLogin = async () => {
-    console.log('Intentando login con Google...')
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'http://localhost:5173'
+        redirectTo: window.location.origin
       }
     })
-    console.log('Respuesta:', data)
-    if (error) console.error('Error:', error)
+    if (error) console.error('Error Google:', error)
   }
 
-const handleMicrosoftLogin = async () => {
-  console.log('=== INICIANDO LOGIN MICROSOFT ===')
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'azure',
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      scopes: 'openid email profile',
-      queryParams: {
-        prompt: 'select_account',
+  const handleMicrosoftLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'openid email profile',
+        queryParams: {
+          prompt: 'select_account',
+        }
       }
-    }
-  })
-  console.log('Data Microsoft:', data)
-  if (error) console.error('Error Microsoft:', error)
-}
+    })
+    if (error) console.error('Error Microsoft:', error)
+  }
 
   return (
     <div style={{ 

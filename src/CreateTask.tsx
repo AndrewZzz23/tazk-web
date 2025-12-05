@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
+import { TaskStatus, Profile } from './types/database.types'
 
-function CreateTask({ onTaskCreated, currentUserId }) {
+interface CreateTaskProps {
+  onTaskCreated?: () => void
+  currentUserId: string
+  teamId?: string | null
+}
+
+function CreateTask({ onTaskCreated, currentUserId, teamId }: CreateTaskProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [statusId, setStatusId] = useState('')
   const [assignedTo, setAssignedTo] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [dueDate, setDueDate] = useState('')
+  const [startDate, setStartDate] = useState<Date | null>(null)
+  const [dueDate, setDueDate] = useState<Date | null>(null)
   
-  const [statuses, setStatuses] = useState([])
-  const [users, setUsers] = useState([])
+  const [statuses, setStatuses] = useState<TaskStatus[]>([])
+  const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadStatuses = async () => {
@@ -22,7 +31,6 @@ function CreateTask({ onTaskCreated, currentUserId }) {
     
     if (data && data.length > 0) {
       setStatuses(data)
-      // Si no hay estado seleccionado, seleccionar el primero
       if (!statusId) {
         setStatusId(data[0].id)
       }
@@ -35,16 +43,15 @@ function CreateTask({ onTaskCreated, currentUserId }) {
       .select('id, email, full_name')
       .order('email')
     
-    setUsers(data || [])
+    setUsers((data as Profile[]) || [])
   }
 
-useEffect(() => {
+  useEffect(() => {
     loadStatuses()
     loadUsers()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!title.trim()) {
@@ -61,9 +68,10 @@ useEffect(() => {
         description: description.trim() || null,
         status_id: statusId,
         assigned_to: assignedTo || null,
-        start_date: startDate || null,
-        due_date: dueDate || null,
-        created_by: currentUserId
+        start_date: startDate?.toISOString() || null,
+        due_date: dueDate?.toISOString() || null,
+        created_by: currentUserId,
+        team_id: teamId || null
       })
 
     setLoading(false)
@@ -76,11 +84,12 @@ useEffect(() => {
       setTitle('')
       setDescription('')
       setAssignedTo('')
-      setStartDate('')
-      setDueDate('')
+      setStartDate(null)
+      setDueDate(null)
       if (onTaskCreated) onTaskCreated()
     }
   }
+
 
   return (
     <div style={{
@@ -120,7 +129,7 @@ useEffect(() => {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Detalles de la tarea..."
-            rows="3"
+            rows={3}
             style={{
               width: '100%',
               padding: '8px',
@@ -183,37 +192,36 @@ useEffect(() => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Fecha de inicio
+              Fecha y hora de inicio
             </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '16px',
-                borderRadius: '4px',
-                border: '1px solid #ccc'
-              }}
+            <DatePicker
+              selected={startDate}
+              onChange={(date) => setStartDate(date)}
+              showTimeSelect
+              timeFormat="HH:mm"
+              timeIntervals={15}
+              dateFormat="dd/MM/yyyy HH:mm"
+              placeholderText="Seleccionar fecha y hora"
+              className="datepicker-input"
+              isClearable
             />
           </div>
 
           <div>
             <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Fecha límite
+              Fecha y hora límite
             </label>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px',
-                fontSize: '16px',
-                borderRadius: '4px',
-                border: '1px solid #ccc'
-              }}
+            <DatePicker
+              selected={dueDate}
+              onChange={(date) => setDueDate(date)}
+              showTimeSelect
+              timeFormat="HH:mm"
+              timeIntervals={15}
+              dateFormat="dd/MM/yyyy HH:mm"
+              placeholderText="Seleccionar fecha y hora"
+              className="datepicker-input"
+              minDate={startDate || undefined}
+              isClearable
             />
           </div>
         </div>
