@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, TaskStatus, Profile, UserRole } from './types/database.types'
+import EditTask from './EditTask'
 
 interface TaskWithRelations extends Task {
   task_statuses: TaskStatus
@@ -14,11 +15,12 @@ interface TaskListProps {
   onTaskUpdated?: () => void
 }
 
-function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
-  const [tasks, setTasks] = useState<TaskWithRelations[]>([])
+function TaskList({ currentUserId, teamId }: TaskListProps) {
+  const [allTasks, setAllTasks] = useState<TaskWithRelations[]>([]) // Todas las tareas
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
-  const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [filter, setFilter] = useState<string>('all')
+  const [editingTask, setEditingTask] = useState<TaskWithRelations | null>(null)
 
   const loadStatuses = useCallback(async () => {
     const { data } = await supabase
@@ -30,8 +32,8 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
     if (data) setStatuses(data)
   }, [])
 
-  const loadTasks = useCallback(async () => {
-    setLoading(true)
+    const loadTasks = useCallback(async (showLoading = false) => {
+    if (showLoading) setInitialLoading(true)
     
     let query = supabase
       .from('tasks')
@@ -48,30 +50,48 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
       query = query.eq('team_id', teamId)
     }
 
-    if (filter !== 'all') {
-      query = query.eq('status_id', filter)
-    }
-
+    // NO aplicamos el filtro aquí - cargamos TODAS las tareas
     const { data, error } = await query
 
     if (error) {
       console.error('Error cargando tareas:', error)
     } else {
-      setTasks(data as TaskWithRelations[] || [])
+      setAllTasks(data as TaskWithRelations[] || [])
     }
     
-    setLoading(false)
-  }, [currentUserId, teamId, filter])
+    setInitialLoading(false)
+  }, [currentUserId, teamId])
 
   useEffect(() => {
     loadStatuses()
   }, [loadStatuses])
 
   useEffect(() => {
-    loadTasks()
-  }, [loadTasks])
+    loadTasks(true)
+  }, [currentUserId, teamId])
+
+  // Filtrar tareas localmente (sin llamar a la base de datos)
+  const filteredTasks = useMemo(() => {
+    if (filter === 'all') {
+      return allTasks
+    }
+    return allTasks.filter(task => task.status_id === filter)
+  }, [allTasks, filter])
+
+  // Contar tareas por estado
+  const getTaskCountByStatus = useCallback((statusId: string): number => {
+    return allTasks.filter(task => task.status_id === statusId).length
+  }, [allTasks])
 
   const handleStatusChange = async (taskId: string, newStatusId: string) => {
+    // Actualizar localmente primero (optimista)
+    setAllTasks(prev => prev.map(task => 
+      task.id === taskId 
+        ? { ...task, status_id: newStatusId, task_statuses: statuses.find(s => s.id === newStatusId)! }
+        : task
+    ))
+
+    // Luego guardar en BD
     const { error } = await supabase
       .from('tasks')
       .update({ status_id: newStatusId })
@@ -80,9 +100,7 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
     if (error) {
       console.error('Error actualizando estado:', error)
       alert('Error al actualizar el estado')
-    } else {
-      loadTasks()
-      if (onTaskUpdated) onTaskUpdated()
+      loadTasks() // Recargar solo si hay error
     }
   }
 
@@ -91,6 +109,13 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
       return
     }
 
+    // Guardar copia por si falla
+    const taskBackup = allTasks.find(t => t.id === taskId)
+    
+    // Eliminar de la UI inmediatamente
+    setAllTasks(prev => prev.filter(task => task.id !== taskId))
+
+    // Luego eliminar en BD
     const { error } = await supabase
       .from('tasks')
       .delete()
@@ -99,9 +124,10 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
     if (error) {
       console.error('Error eliminando tarea:', error)
       alert('Error al eliminar la tarea: ' + error.message)
-    } else {
-      loadTasks()
-      if (onTaskUpdated) onTaskUpdated()
+      // Restaurar si falló
+      if (taskBackup) {
+        setAllTasks(prev => [...prev, taskBackup])
+      }
     }
   }
 
@@ -121,7 +147,7 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
     return new Date(dueDate) < new Date()
   }
 
-  if (loading) {
+  if (initialLoading) {
     return <div style={{ padding: '20px', textAlign: 'center' }}>Cargando tareas...</div>
   }
 
@@ -146,7 +172,7 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
             color: filter === 'all' ? 'white' : 'black'
           }}
         >
-          Todas ({tasks.length})
+          Todas ({allTasks.length})
         </button>
         {statuses.map(status => (
           <button
@@ -161,12 +187,12 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
               color: filter === status.id ? 'white' : 'black'
             }}
           >
-            {status.name}
+            {status.name} ({getTaskCountByStatus(status.id)})
           </button>
         ))}
       </div>
 
-      {tasks.length === 0 ? (
+      {filteredTasks.length === 0 ? (
         <div style={{ 
           padding: '40px', 
           textAlign: 'center', 
@@ -181,7 +207,7 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {tasks.map(task => (
+          {filteredTasks.map(task => (
             <div
               key={task.id}
               style={{
@@ -271,6 +297,22 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
                     ))}
                   </select>
 
+                  {/* Botón editar */}
+                  <button
+                    onClick={() => setEditingTask(task)}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#3498db',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    ✏️ Editar
+                  </button>
+
                   <button
                     onClick={() => handleDelete(task.id, task.title)}
                     style={{
@@ -290,6 +332,20 @@ function TaskList({ currentUserId, teamId, onTaskUpdated }: TaskListProps) {
             </div>
           ))}
         </div>
+      )}
+      {/* Modal editar tarea */}
+      {editingTask && (
+        <EditTask
+          task={editingTask}
+          onTaskUpdated={(updatedTask) => {
+            setAllTasks(prev => prev.map(t => 
+              t.id === updatedTask.id 
+                ? { ...t, ...updatedTask, task_statuses: statuses.find(s => s.id === updatedTask.status_id)! }
+                : t
+            ))
+          }}
+          onClose={() => setEditingTask(null)}
+        />
       )}
     </div>
   )

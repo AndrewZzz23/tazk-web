@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { Team, UserRole } from './types/database.types'
+import CreateTeam from './CreateTeam'
+import InviteMember from './InviteMember'
+import TeamMembers from './TeamMembers'
 
 interface TeamWithRole extends Team {
   role: UserRole
@@ -15,6 +18,9 @@ function TeamSelector({ currentUserId, onTeamChange }: TeamSelectorProps) {
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showMembersModal, setShowMembersModal] = useState(false)
 
   const loadTeams = async () => {
     setLoading(true)
@@ -40,7 +46,9 @@ function TeamSelector({ currentUserId, onTeamChange }: TeamSelectorProps) {
 
     setLoading(false)
   }
-
+  const handleTeamCreated = () => {
+      loadTeams()
+    }
   useEffect(() => {
     loadTeams()
   }, [currentUserId])
@@ -130,11 +138,92 @@ function TeamSelector({ currentUserId, onTeamChange }: TeamSelectorProps) {
         </span>
       )}
 
-      {/* Botón para crear equipo si no tiene ninguno */}
+      {/* Botón para crear equipo */}
+      <button
+        onClick={() => setShowCreateModal(true)}
+        style={{
+          padding: '10px 15px',
+          fontSize: '14px',
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer'
+        }}
+      >
+        + Nuevo Equipo
+      </button>
+
+      {/* Botón invitar - solo si hay equipo seleccionado y eres owner/admin */}
+      {selectedTeamId && ['owner', 'admin'].includes(teams.find(t => t.id === selectedTeamId)?.role || '') && (
+        <button
+          onClick={() => setShowInviteModal(true)}
+          style={{
+            padding: '10px 15px',
+            fontSize: '14px',
+            backgroundColor: '#3498db',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          + Invitar
+        </button>
+      )}
+
+      {/* Botón ver miembros - solo si hay equipo seleccionado */}
+      {selectedTeamId && (
+        <button
+          onClick={() => setShowMembersModal(true)}
+          style={{
+            padding: '10px 15px',
+            fontSize: '14px',
+            backgroundColor: '#9b59b6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          👥 Miembros
+        </button>
+      )}
+
       {teams.length === 0 && (
         <span style={{ color: '#666', fontSize: '14px' }}>
           No perteneces a ningún equipo todavía
         </span>
+      )}
+
+      {/* Modal crear equipo */}
+      {showCreateModal && (
+        <CreateTeam
+          currentUserId={currentUserId}
+          onTeamCreated={handleTeamCreated}
+          onClose={() => setShowCreateModal(false)}
+        />
+      )}
+
+      {/* Modal invitar miembro */}
+      {showInviteModal && selectedTeamId && (
+        <InviteMember
+          teamId={selectedTeamId}
+          teamName={teams.find(t => t.id === selectedTeamId)?.name || ''}
+          onMemberAdded={handleTeamCreated}
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
+      {/* Modal ver miembros */}
+      {showMembersModal && selectedTeamId && (
+        <TeamMembers
+          teamId={selectedTeamId}
+          teamName={teams.find(t => t.id === selectedTeamId)?.name || ''}
+          currentUserId={currentUserId}
+          currentUserRole={teams.find(t => t.id === selectedTeamId)?.role || 'member'}
+          onClose={() => setShowMembersModal(false)}
+          onMembersChanged={handleTeamCreated}
+        />
       )}
     </div>
   )
