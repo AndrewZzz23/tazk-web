@@ -3,6 +3,7 @@
   import { supabase } from './supabaseClient'
   import Login from './Login'
   import Dashboard from './Dashboard'
+  import './index.css'
 
   function App() {
     const [session, setSession] = useState<Session | null>(null)

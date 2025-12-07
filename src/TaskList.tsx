@@ -13,9 +13,10 @@ interface TaskListProps {
   teamId?: string | null
   userRole?: UserRole | null
   onTaskUpdated?: () => void
+  searchTerm?: string
 }
 
-function TaskList({ currentUserId, teamId }: TaskListProps) {
+function TaskList({ currentUserId, teamId, searchTerm = '' }: TaskListProps) {
   const [allTasks, setAllTasks] = useState<TaskWithRelations[]>([]) // Todas las tareas
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [initialLoading, setInitialLoading] = useState(true)
@@ -72,11 +73,26 @@ function TaskList({ currentUserId, teamId }: TaskListProps) {
 
   // Filtrar tareas localmente (sin llamar a la base de datos)
   const filteredTasks = useMemo(() => {
-    if (filter === 'all') {
-      return allTasks
+    let result = allTasks
+
+    // Filtrar por estado
+    if (filter !== 'all') {
+      result = result.filter(task => task.status_id === filter)
     }
-    return allTasks.filter(task => task.status_id === filter)
-  }, [allTasks, filter])
+
+    // Filtrar por búsqueda
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      result = result.filter(task => 
+        task.title.toLowerCase().includes(term) ||
+        task.description?.toLowerCase().includes(term) ||
+        task.assigned_user?.full_name?.toLowerCase().includes(term) ||
+        task.assigned_user?.email?.toLowerCase().includes(term)
+      )
+    }
+
+    return result
+  }, [allTasks, filter, searchTerm])
 
   // Contar tareas por estado
   const getTaskCountByStatus = useCallback((statusId: string): number => {
@@ -337,12 +353,8 @@ function TaskList({ currentUserId, teamId }: TaskListProps) {
       {editingTask && (
         <EditTask
           task={editingTask}
-          onTaskUpdated={(updatedTask) => {
-            setAllTasks(prev => prev.map(t => 
-              t.id === updatedTask.id 
-                ? { ...t, ...updatedTask, task_statuses: statuses.find(s => s.id === updatedTask.status_id)! }
-                : t
-            ))
+          onTaskUpdated={() => {
+            loadTasks()
           }}
           onClose={() => setEditingTask(null)}
         />

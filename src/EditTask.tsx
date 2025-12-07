@@ -6,7 +6,7 @@ import { Task, TaskStatus, Profile } from './types/database.types'
 
 interface EditTaskProps {
   task: Task
-  onTaskUpdated: (updatedTask: Task) => void
+  onTaskUpdated: () => void
   onClose: () => void
 }
 
@@ -48,7 +48,7 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
     loadData()
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!title.trim()) {
@@ -58,19 +58,6 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
 
     setLoading(true)
 
-    // Cerrar modal inmediatamente (optimista)
-    onClose()
-    onTaskUpdated({
-      ...task,
-      title: title.trim(),
-      description: description.trim() || null,
-      status_id: statusId,
-      assigned_to: assignedTo || null,
-      start_date: startDate?.toISOString() || null,
-      due_date: dueDate?.toISOString() || null
-    })
-
-    // Guardar en BD
     const { error } = await supabase
       .from('tasks')
       .update({
@@ -83,9 +70,14 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
       })
       .eq('id', task.id)
 
+    setLoading(false)
+
     if (error) {
       console.error('Error actualizando tarea:', error)
       alert('Error al actualizar: ' + error.message)
+    } else {
+      onTaskUpdated()
+      onClose()
     }
   }
 

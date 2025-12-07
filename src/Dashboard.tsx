@@ -5,16 +5,22 @@ import { Profile, UserRole } from './types/database.types'
 import CreateTask from './CreateTask'
 import TaskList from './TaskList'
 import TeamSelector from './TeamSelector'
+import ActivityLogs from './ActivityLogs'
+import KanbanBoard from './KanbanBoard'
+import CalendarView from './CalendarView'
+import Metrics from './Metrics'
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
-  
-  // Estado del contexto de equipo
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null)
+  const [showActivityLogs, setShowActivityLogs] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>('list')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showMetrics, setShowMetrics] = useState(false)
 
   const loadUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -68,7 +74,7 @@ function Dashboard() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' ,backgroundColor: '#f9f9f9', minHeight: '100vh'}}>
       {/* Header */}
       <div style={{ 
         display: 'flex', 
@@ -83,19 +89,49 @@ function Dashboard() {
           <p style={{ margin: 0, color: '#666' }}>👤 {user?.email}</p>
         </div>
         
-        <button 
-          onClick={handleLogout}
-          style={{
-            padding: '10px 20px',
-            cursor: 'pointer',
-            backgroundColor: '#ff4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px'
-          }}
-        >
-          Cerrar sesión
-        </button>
+       <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => setShowMetrics(true)}
+            style={{
+              padding: '10px 20px',
+              cursor: 'pointer',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px'
+            }}
+          >
+            📊 Métricas
+          </button>
+
+          <button 
+            onClick={() => setShowActivityLogs(true)}
+            style={{
+              padding: '10px 20px',
+              cursor: 'pointer',
+              backgroundColor: '#9c27b0',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px'
+            }}
+          >
+            📋 Actividad
+          </button>
+          
+          <button 
+            onClick={handleLogout}
+            style={{
+              padding: '10px 20px',
+              cursor: 'pointer',
+              backgroundColor: '#ff4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px'
+            }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </div>
 
       {/* Selector de equipo */}
@@ -139,16 +175,112 @@ function Dashboard() {
         
         {/* Lista de tareas */}
         <div style={{ marginTop: '20px' }}>
-          <h3>📋 {currentTeamId ? 'Tareas del Equipo' : 'Mis Tareas'}</h3>
-          <TaskList 
-            key={refreshKey}
-            currentUserId={user!.id}
-            teamId={currentTeamId}
-            userRole={currentRole}
-            onTaskUpdated={handleTaskCreated}
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <h3 style={{ margin: 0 }}>📋 {currentTeamId ? 'Tareas del Equipo' : 'Mis Tareas'}</h3>
+            
+            <input
+              type="text"
+              placeholder="🔍 Buscar tareas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #ddd',
+                fontSize: '14px',
+                width: '200px'
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setViewMode('list')}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: viewMode === 'list' ? '#4CAF50' : '#e0e0e0',
+                  color: viewMode === 'list' ? 'white' : 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                ☰ Lista
+              </button>
+              <button
+                onClick={() => setViewMode('kanban')}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: viewMode === 'kanban' ? '#4CAF50' : '#e0e0e0',
+                  color: viewMode === 'kanban' ? 'white' : 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                ▦ Kanban
+              </button>
+              <button
+                onClick={() => setViewMode('calendar')}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: viewMode === 'calendar' ? '#4CAF50' : '#e0e0e0',
+                  color: viewMode === 'calendar' ? 'white' : 'black',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                📅 Calendario
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'list' && (
+            <TaskList 
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              userRole={currentRole}
+              onTaskUpdated={handleTaskCreated}
+              searchTerm={searchTerm}
+            />
+          )}
+          
+          {viewMode === 'kanban' && (
+            <KanbanBoard
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              userRole={currentRole}
+              onTaskUpdated={handleTaskCreated}
+              searchTerm={searchTerm}
+            />
+          )}
+
+          {viewMode === 'calendar' && (
+            <CalendarView
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              userRole={currentRole}
+              searchTerm={searchTerm}
+            />
+          )}
         </div>
       </div>
+      {showActivityLogs && (
+        <ActivityLogs
+          teamId={currentTeamId}
+          onClose={() => setShowActivityLogs(false)}
+        />
+      )}
+      {showMetrics && (
+        <Metrics
+          currentUserId={user!.id}
+          teamId={currentTeamId}
+          onClose={() => setShowMetrics(false)}
+        />
+      )}
     </div>
   )
 }
