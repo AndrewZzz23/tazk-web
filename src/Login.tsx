@@ -26,52 +26,120 @@ function Login() {
   }
 
   return (
+    <div className="min-h-screen bg-neutral-900 text-white flex justify-center">
+      <div className="max-w-screen-xl m-0 sm:m-10 bg-neutral-800 shadow-2xl sm:rounded-2xl flex justify-center flex-1">
+        
+        {/* Lado izquierdo - Formulario */}
+        <div className="lg:w-1/2 xl:w-5/12 p-6 sm:p-12 flex flex-col justify-center">
+          <div>
+            <h1 className="text-3xl font-bold text-yellow-400 text-center">⚡ Tazk</h1>
+          </div>
 
-    
-    <div className="h-screen flex">
-      {/* Lado izquierdo */}
-      <div className="hidden md:flex md:w-1/2 bg-linear-to-br from-indigo-500 via-purple-500 to-purple-600 p-12 items-center">
-        <div>
-          <h1 className="text-white text-4xl font-bold mb-4">
-            Bienvenido a Tazk
-          </h1>
-          <p className="text-purple-100 text-lg">
-            Gestiona tus tareas y proyectos de forma simple y eficiente. 
-            Colabora con tu equipo en tiempo real.
-          </p>
-          
-        </div>
-      </div>
+          <div className="mt-12 flex flex-col items-center">
+            <h2 className="text-2xl xl:text-3xl font-extrabold text-white">
+              Iniciar Sesión
+            </h2>
+            
+            <div className="w-full flex-1 mt-8">
+              <div className="flex flex-col items-center">
+                {/* Botón Google */}
+                <button
+                  onClick={handleGoogleLogin}
+                  className="w-full max-w-xs font-bold shadow-lg rounded-lg py-3 bg-neutral-700 text-white flex items-center justify-center transition-all duration-300 ease-in-out hover:bg-yellow-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                >
+                  <div className="bg-white p-2 rounded-full">
+                    <svg className="w-4" viewBox="0 0 533.5 544.3">
+                      <path
+                        d="M533.5 278.4c0-18.5-1.5-37.1-4.7-55.3H272.1v104.8h147c-6.1 33.8-25.7 63.7-54.4 82.7v68h87.7c51.5-47.4 81.1-117.4 81.1-200.2z"
+                        fill="#4285f4"
+                      />
+                      <path
+                        d="M272.1 544.3c73.4 0 135.3-24.1 180.4-65.7l-87.7-68c-24.4 16.6-55.9 26-92.6 26-71 0-131.2-47.9-152.8-112.3H28.9v70.1c46.2 91.9 140.3 149.9 243.2 149.9z"
+                        fill="#34a853"
+                      />
+                      <path
+                        d="M119.3 324.3c-11.4-33.8-11.4-70.4 0-104.2V150H28.9c-38.6 76.9-38.6 167.5 0 244.4l90.4-70.1z"
+                        fill="#fbbc04"
+                      />
+                      <path
+                        d="M272.1 107.7c38.8-.6 76.3 14 104.4 40.8l77.7-77.7C405 24.6 339.7-.8 272.1 0 169.2 0 75.1 58 28.9 150l90.4 70.1c21.5-64.5 81.8-112.4 152.8-112.4z"
+                        fill="#ea4335"
+                      />
+                    </svg>
+                  </div>
+                  <span className="ml-4">Continuar con Google</span>
+                </button>
 
-      {/* Lado derecho */}
-      <div className="w-full md:w-1/2 flex items-center justify-center bg-white">
-        <div className="w-full max-w-sm px-8">
-          <h2 className="text-purple-600 text-3xl font-bold text-center mb-4">
-            INICIAR SESIÓN
-          </h2>
+                {/* Botón Microsoft */}
+                <button
+                  onClick={handleMicrosoftLogin}
+                  className="w-full max-w-xs font-bold shadow-lg rounded-lg py-3 bg-neutral-700 text-white flex items-center justify-center transition-all duration-300 ease-in-out hover:bg-yellow-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 mt-5"
+                >
+                  <div className="bg-white p-2 rounded-full">
+                    <svg className="w-4" viewBox="0 0 24 24">
+                      <path fill="#F25022" d="M1 1h10v10H1z"/>
+                      <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                      <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                      <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                    </svg>
+                  </div>
+                  <span className="ml-4">Continuar con Microsoft</span>
+                </button>
+              </div>
 
-          <div className="flex flex-col gap-4">
-           <button onClick={handleGoogleLogin} className="btn-login">
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              Continuar con Google
-            </button>
+              <p className="mt-6 text-sm text-neutral-400 text-center">
+                Al continuar, aceptas nuestros
+                <a href="#" className="text-yellow-400 hover:underline ml-1 font-semibold">
+                  Términos de Servicio
+                </a>
+              </p>
 
-            <button onClick={handleMicrosoftLogin} className="btn-login">
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#F25022" d="M1 1h10v10H1z"/>
-                <path fill="#00A4EF" d="M1 13h10v10H1z"/>
-                <path fill="#7FBA00" d="M13 1h10v10H13z"/>
-                <path fill="#FFB900" d="M13 13h10v10H13z"/>
-              </svg>
-              Continuar con Microsoft
-            </button>
+            </div>
           </div>
         </div>
+
+        {/* Lado derecho - Branding */}
+        <div className="flex-1 bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 text-center hidden lg:flex rounded-r-2xl">
+          <div className="m-12 xl:m-16 w-full flex flex-col items-center justify-center gap-10">
+             <div className="flex flex-col items-center justify-center text-center gap-6">
+              <h2 className="text-4xl font-bold text-neutral-900 mb-4">Bienvenido a Tazk</h2>
+              {/* tarjetas */}
+              <div className="mt-10 relative w-full max-w-xs aspect-video">
+              <div className="absolute inset-x-4 inset-y-2 bg-white/20 rounded-xl transform rotate-6 scale-95 blur-sm"></div>
+              <div className="absolute inset-x-2 inset-y-1 bg-white/40 rounded-xl transform -rotate-3 scale-95 backdrop-blur-sm"></div>
+
+              <div className="relative bg-white/90 dark:bg-background-dark/90 backdrop-blur-md rounded-xl p-4 shadow-2xl flex flex-col gap-3 border border-white/20">
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded-full border-2 border-primary flex items-center justify-center">
+                    <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>
+                  </div>
+                  <div className="h-2.5 bg-gray-200 dark:bg-gray-600 rounded-full w-2/3"></div>
+                </div>
+
+                <div className="flex items-center gap-3 opacity-60">
+                  <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                  <div className="h-2.5 bg-gray-200 dark:bg-gray-600 rounded-full w-1/2"></div>
+                </div>
+
+                <div className="flex items-center gap-3 opacity-40">
+                  <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
+                  <div className="h-2.5 bg-gray-200 dark:bg-gray-600 rounded-full w-3/4"></div>
+                </div>
+
+              </div>
+            </div>
+
+              <p className="mt-12 text-lg font-semibold text-neutral-900 max-w-md drop-shadow-md">
+                Gestiona tus tareas y proyectos de forma simple y eficiente.  
+                Colabora con tu equipo en tiempo real.
+              </p>
+
+
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )

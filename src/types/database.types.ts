@@ -45,12 +45,15 @@ export interface Task {
   description: string | null
   status_id: string
   team_id: string | null
-  start_date: string | null
-  due_date: string | null
   created_by: string
   assigned_to: string | null
+  start_date: string | null
+  due_date: string | null
   created_at: string
   updated_at: string
+  // Relaciones (opcionales, vienen del JOIN)
+  task_statuses?: TaskStatus
+  assigned_user?: Profile | null
 }
 
 export interface ActivityLog {

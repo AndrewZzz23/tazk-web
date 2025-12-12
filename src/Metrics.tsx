@@ -187,8 +187,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ name, count }) => `${name}: ${count}`}
-                    >
+                      label={({ name, value }) => `${name}: ${value}`}                    >
                       {stats.byStatus.map((entry, index) => (
                         <Cell key={index} fill={entry.color} />
                       ))}

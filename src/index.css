@@ -1,7 +1,36 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: system-ui, -apple-system, sans-serif;
+  }
 }
 
 /* Estilos para botones de login */
@@ -11,61 +40,63 @@ body {
   gap: 12px;
   width: 100%;
   padding: 14px 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
   background: white;
-  color: #475569;
+  color: hsl(var(--foreground));
   font-size: 15px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-login:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  background: hsl(var(--secondary));
+  border-color: hsl(var(--primary));
 }
 
 /* Estilos para React DatePicker */
-.datepicker-input {
-  width: 100% !important;
-  padding: 8px !important;
-  font-size: 16px !important;
-  border-radius: 4px !important;
-  border: 1px solid #ccc !important;
-  box-sizing: border-box !important;
-  height: 42px;
-}
-
 .react-datepicker-wrapper {
   width: 100% !important;
-  display: block !important;
-}
-
-.react-datepicker__input-container {
-  width: 100% !important;
-  display: block !important;
 }
 
 .react-datepicker__input-container input {
   width: 100% !important;
-  padding: 8px !important;
-}
-  /* Estilos para React Big Calendar */
-.rbc-toolbar button {
-  cursor: pointer;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
+  padding: 10px !important;
+  border-radius: var(--radius) !important;
+  border: 1px solid hsl(var(--border)) !important;
 }
 
-.rbc-toolbar button:hover {
-  background: #f0f0f0;
+.react-datepicker {
+  font-family: inherit;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.rbc-toolbar button.rbc-active {
-  background: #4CAF50;
+.react-datepicker__header {
+  background-color: hsl(var(--primary));
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding-top: 10px;
+}
+
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker__day-name {
   color: white;
-  border-color: #4CAF50;
+}
+
+.react-datepicker__day--selected {
+  background-color: hsl(var(--primary));
+  border-radius: 50%;
+}
+
+.react-datepicker__day:hover {
+  background-color: hsl(var(--primary) / 0.2);
+  border-radius: 50%;
+}
+
+/* Color Picker */
+.react-colorful {
+  width: 100% !important;
 }

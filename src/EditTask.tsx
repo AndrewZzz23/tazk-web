@@ -24,33 +24,54 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
+    // Animación de entrada
+    setTimeout(() => setIsVisible(true), 10)
+
     const loadData = async () => {
       // Cargar estados
-      const { data: statusData } = await supabase
+      let statusQuery = supabase
         .from('task_statuses')
         .select('*')
         .eq('is_active', true)
         .order('order_position')
-      
+
+      if (task.team_id) {
+        statusQuery = statusQuery.eq('team_id', task.team_id)
+      } else {
+        statusQuery = statusQuery.is('team_id', null)
+      }
+
+      const { data: statusData } = await statusQuery
       if (statusData) setStatuses(statusData)
 
-      // Cargar usuarios
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('id, email, full_name')
-        .order('email')
-      
-      if (userData) setUsers(userData as Profile[])
-    }
-    
-    loadData()
-  }, [])
+      // Cargar usuarios si es tarea de equipo
+      if (task.team_id) {
+        const { data: memberData } = await supabase
+          .from('team_members')
+          .select('user_id, profiles(*)')
+          .eq('team_id', task.team_id)
 
-const handleSubmit = async (e: React.FormEvent) => {
+        if (memberData) {
+          const profiles = memberData.map((m) => m.profiles).filter(Boolean) as Profile[]
+          setUsers(profiles)
+        }
+      }
+    }
+
+    loadData()
+  }, [task.team_id])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!title.trim()) {
       alert('El título es obligatorio')
       return
@@ -66,103 +87,106 @@ const handleSubmit = async (e: React.FormEvent) => {
         status_id: statusId,
         assigned_to: assignedTo || null,
         start_date: startDate?.toISOString() || null,
-        due_date: dueDate?.toISOString() || null
+        due_date: dueDate?.toISOString() || null,
       })
       .eq('id', task.id)
 
     setLoading(false)
 
     if (error) {
-      console.error('Error actualizando tarea:', error)
       alert('Error al actualizar: ' + error.message)
     } else {
       onTaskUpdated()
-      onClose()
+      handleClose()
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('¿Eliminar esta tarea?')) return
+
+    setLoading(true)
+
+    const { error } = await supabase.from('tasks').delete().eq('id', task.id)
+
+    setLoading(false)
+
+    if (error) {
+      alert('Error al eliminar: ' + error.message)
+    } else {
+      onTaskUpdated()
+      handleClose()
     }
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '500px',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-      }}>
-        <h2 style={{ marginTop: 0 }}>✏️ Editar Tarea</h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+      }`}
+      onClick={handleClose}
+    >
+      <div
+        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 transform transition-all duration-200 ${
+          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-neutral-700">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <span className="text-yellow-400">✏️</span> Editar Tarea
+          </h2>
+          <button
+            onClick={handleClose}
+            className="text-neutral-400 hover:text-white transition-colors text-2xl"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6">
+          {/* Título */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
               Título *
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px',
-                fontSize: '16px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box'
-              }}
+              placeholder="¿Qué necesitas hacer?"
+              className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               required
             />
           </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+          {/* Descripción */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
               Descripción
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Agrega detalles..."
               rows={3}
-              style={{
-                width: '100%',
-                padding: '10px',
-                fontSize: '16px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box'
-              }}
+              className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none"
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+          {/* Estado y Asignar */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
                 Estado
               </label>
               <select
                 value={statusId}
                 onChange={(e) => setStatusId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontSize: '16px',
-                  borderRadius: '6px',
-                  border: '1px solid #ccc'
-                }}
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               >
-                {statuses.map(status => (
+                {statuses.map((status) => (
                   <option key={status.id} value={status.id}>
                     {status.name}
                   </option>
@@ -170,34 +194,31 @@ const handleSubmit = async (e: React.FormEvent) => {
               </select>
             </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                Asignar a
-              </label>
-              <select
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  fontSize: '16px',
-                  borderRadius: '6px',
-                  border: '1px solid #ccc'
-                }}
-              >
-                <option value="">Sin asignar</option>
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.email}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {task.team_id && users.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Asignar a
+                </label>
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                >
+                  <option value="">Sin asignar</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.full_name || user.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+          {/* Fechas */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
                 Fecha inicio
               </label>
               <DatePicker
@@ -208,13 +229,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                 timeIntervals={15}
                 dateFormat="dd/MM/yyyy HH:mm"
                 placeholderText="Seleccionar"
-                className="datepicker-input"
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 isClearable
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              <label className="block text-sm font-medium text-neutral-300 mb-2">
                 Fecha límite
               </label>
               <DatePicker
@@ -225,48 +246,44 @@ const handleSubmit = async (e: React.FormEvent) => {
                 timeIntervals={15}
                 dateFormat="dd/MM/yyyy HH:mm"
                 placeholderText="Seleccionar"
-                className="datepicker-input"
+                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 minDate={startDate || undefined}
                 isClearable
               />
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          {/* Botones */}
+          <div className="flex gap-3">
             <button
               type="button"
-              onClick={onClose}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                backgroundColor: '#e0e0e0',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
+              onClick={handleDelete}
+              disabled={loading}
+              className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50"
+            >
+              🗑️ Eliminar
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex-1 px-4 py-3 bg-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-600 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loading}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                backgroundColor: loading ? '#ccc' : '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
-              }}
+              disabled={loading || !title.trim()}
+              className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Guardando...' : 'Guardar'}
+              {loading ? 'Guardando...' : '💾 Guardar'}
             </button>
           </div>
         </form>
+
+        {/* Info */}
+        <div className="px-6 pb-4 text-xs text-neutral-500">
+          Creada: {new Date(task.created_at).toLocaleDateString('es-CO')}
+        </div>
       </div>
     </div>
   )
