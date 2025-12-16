@@ -5,27 +5,27 @@ import CreateTeam from './CreateTeam'
 import InviteMember from './InviteMember'
 import TeamMembers from './TeamMembers'
 
-interface TeamWithRole extends Team {
-  role: UserRole
-}
-
 interface TeamSelectorProps {
   currentUserId: string
-  onTeamChange: (teamId: string | null, role: UserRole | null) => void
+  onTeamChange: (teamId: string | null, role: UserRole | null, teamName?: string) => void
+}
+
+interface TeamWithRole extends Team {
+  role: UserRole
 }
 
 function TeamSelector({ currentUserId, onTeamChange }: TeamSelectorProps) {
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showInviteModal, setShowInviteModal] = useState(false)
-  const [showMembersModal, setShowMembersModal] = useState(false)
+  const [showCreateTeam, setShowCreateTeam] = useState(false)
+  const [showInviteMember, setShowInviteMember] = useState(false)
+  const [showTeamMembers, setShowTeamMembers] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
 
   const loadTeams = async () => {
     setLoading(true)
 
-    // Cargar equipos donde el usuario es miembro, junto con su rol
     const { data, error } = await supabase
       .from('team_members')
       .select(`
@@ -37,192 +37,200 @@ function TeamSelector({ currentUserId, onTeamChange }: TeamSelectorProps) {
     if (error) {
       console.error('Error cargando equipos:', error)
     } else if (data) {
-      const teamsWithRole: TeamWithRole[] = data.map((item: any) => ({
-        ...item.teams,
-        role: item.role as UserRole
-      }))
+      const teamsWithRole: TeamWithRole[] = data
+        .filter((item) => item.teams)
+        .map((item) => {
+          const team = item.teams as unknown as Team
+          return {
+            ...team,
+            role: item.role as UserRole,
+          }
+        })
       setTeams(teamsWithRole)
     }
 
     setLoading(false)
   }
-  const handleTeamCreated = () => {
-      loadTeams()
-    }
+
   useEffect(() => {
     loadTeams()
   }, [currentUserId])
 
-  // Notificar al padre cuando cambia la selección
-  useEffect(() => {
-    if (selectedTeamId === null) {
-      // Tareas personales - no hay rol de equipo
+  const handleTeamSelect = (teamId: string | null) => {
+    setSelectedTeamId(teamId)
+    setIsOpen(false)
+
+    if (teamId === null) {
       onTeamChange(null, null)
     } else {
-      const team = teams.find(t => t.id === selectedTeamId)
-      onTeamChange(selectedTeamId, team?.role || null)
+      const team = teams.find((t) => t.id === teamId)
+      onTeamChange(teamId, team?.role || null, team?.name)
     }
-  }, [selectedTeamId, teams])
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value
-    setSelectedTeamId(value === 'personal' ? null : value)
   }
 
-  const getRoleBadge = (role: UserRole) => {
-    const badges = {
-      owner: { text: 'Owner', color: '#9b59b6' },
-      admin: { text: 'Admin', color: '#3498db' },
-      member: { text: 'Miembro', color: '#95a5a6' }
-    }
-    return badges[role]
-  }
-
-  if (loading) {
-    return <div>Cargando equipos...</div>
-  }
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId)
+  const currentRole = selectedTeam?.role || null
+  const canManageTeam = currentRole === 'owner' || currentRole === 'admin'
 
   return (
-    <div style={{
-      backgroundColor: '#fff',
-      padding: '15px 20px',
-      borderRadius: '8px',
-      marginBottom: '20px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '15px',
-      flexWrap: 'wrap'
-    }}>
-      <label style={{ fontWeight: 'bold', fontSize: '16px' }}>
-        📁 Contexto:
-      </label>
-      
-      <select
-        value={selectedTeamId || 'personal'}
-        onChange={handleChange}
-        style={{
-          padding: '10px 15px',
-          fontSize: '16px',
-          borderRadius: '6px',
-          border: '2px solid #4CAF50',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          minWidth: '200px'
-        }}
-      >
-        <option value="personal">👤 Tareas Personales</option>
-        
-        {teams.length > 0 && (
-          <optgroup label="Mis Equipos">
-            {teams.map(team => (
-              <option key={team.id} value={team.id}>
-                👥 {team.name}
-              </option>
-            ))}
-          </optgroup>
+    <div className="relative">
+      {/* Selector principal */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="flex items-center gap-3 px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl hover:border-yellow-400/50 transition-all min-w-[200px]"
+          >
+            <span className="text-xl">
+              {selectedTeamId ? '👥' : '👤'}
+            </span>
+            <div className="flex-1 text-left">
+              <div className="text-white font-medium">
+                {selectedTeamId ? selectedTeam?.name : 'Tareas Personales'}
+              </div>
+              {selectedTeamId && currentRole && (
+                <div className="text-xs text-neutral-400">
+                  {currentRole === 'owner' ? 'Propietario' : currentRole === 'admin' ? 'Admin' : 'Miembro'}
+                </div>
+              )}
+            </div>
+            <span className={`text-neutral-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+              ▼
+            </span>
+          </button>
+
+          {/* Dropdown menu */}
+          {isOpen && (
+            <>
+              {/* Overlay para cerrar */}
+              <div 
+                className="fixed inset-0 z-10" 
+                onClick={() => setIsOpen(false)} 
+              />
+              
+              <div className="absolute top-full left-0 mt-2 w-72 bg-neutral-800 border border-neutral-700 rounded-xl shadow-2xl z-20 overflow-hidden">
+                {/* Opción personal */}
+                <button
+                  onClick={() => handleTeamSelect(null)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-700 transition-colors ${
+                    selectedTeamId === null ? 'bg-yellow-400/10 border-l-2 border-yellow-400' : ''
+                  }`}
+                >
+                  <span className="text-xl">👤</span>
+                  <div className="text-left">
+                    <div className="text-white font-medium">Tareas Personales</div>
+                    <div className="text-xs text-neutral-400">Solo tú</div>
+                  </div>
+                  {selectedTeamId === null && (
+                    <span className="ml-auto text-yellow-400">✓</span>
+                  )}
+                </button>
+
+                {/* Separador */}
+                {teams.length > 0 && (
+                  <div className="border-t border-neutral-700 my-1" />
+                )}
+
+                {/* Lista de equipos */}
+                {loading ? (
+                  <div className="px-4 py-3 text-neutral-400 text-sm">
+                    Cargando equipos...
+                  </div>
+                ) : (
+                  teams.map((team) => (
+                    <button
+                      key={team.id}
+                      onClick={() => handleTeamSelect(team.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-700 transition-colors ${
+                        selectedTeamId === team.id ? 'bg-yellow-400/10 border-l-2 border-yellow-400' : ''
+                      }`}
+                    >
+                      <span className="text-xl">👥</span>
+                      <div className="text-left flex-1">
+                        <div className="text-white font-medium">{team.name}</div>
+                        <div className="text-xs text-neutral-400">
+                          {team.role === 'owner' ? 'Propietario' : team.role === 'admin' ? 'Admin' : 'Miembro'}
+                        </div>
+                      </div>
+                      {selectedTeamId === team.id && (
+                        <span className="text-yellow-400">✓</span>
+                      )}
+                    </button>
+                  ))
+                )}
+
+                {/* Separador */}
+                <div className="border-t border-neutral-700 my-1" />
+
+                {/* Crear equipo */}
+                <button
+                  onClick={() => {
+                    setIsOpen(false)
+                    setShowCreateTeam(true)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-yellow-400 hover:bg-neutral-700 transition-colors"
+                >
+                  <span className="text-xl">➕</span>
+                  <span className="font-medium">Crear nuevo equipo</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Botones de gestión del equipo */}
+        {selectedTeamId && canManageTeam && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowInviteMember(true)}
+              className="px-4 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-medium hover:bg-yellow-300 transition-colors flex items-center gap-2"
+            >
+              <span>➕</span>
+              <span className="hidden sm:inline">Invitar</span>
+            </button>
+            <button
+              onClick={() => setShowTeamMembers(true)}
+              className="px-4 py-2.5 bg-neutral-700 text-white rounded-xl font-medium hover:bg-neutral-600 transition-colors flex items-center gap-2"
+            >
+              <span>👥</span>
+              <span className="hidden sm:inline">Miembros</span>
+            </button>
+          </div>
         )}
-      </select>
+      </div>
 
-      {/* Mostrar rol en el equipo seleccionado */}
-      {selectedTeamId && (
-        <span style={{
-          padding: '6px 12px',
-          borderRadius: '20px',
-          fontSize: '14px',
-          fontWeight: 'bold',
-          color: 'white',
-          backgroundColor: getRoleBadge(teams.find(t => t.id === selectedTeamId)?.role || 'member').color
-        }}>
-          {getRoleBadge(teams.find(t => t.id === selectedTeamId)?.role || 'member').text}
-        </span>
-      )}
-
-      {/* Botón para crear equipo */}
-      <button
-        onClick={() => setShowCreateModal(true)}
-        style={{
-          padding: '10px 15px',
-          fontSize: '14px',
-          backgroundColor: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: 'pointer'
-        }}
-      >
-        + Nuevo Equipo
-      </button>
-
-      {/* Botón invitar - solo si hay equipo seleccionado y eres owner/admin */}
-      {selectedTeamId && ['owner', 'admin'].includes(teams.find(t => t.id === selectedTeamId)?.role || '') && (
-        <button
-          onClick={() => setShowInviteModal(true)}
-          style={{
-            padding: '10px 15px',
-            fontSize: '14px',
-            backgroundColor: '#3498db',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          + Invitar
-        </button>
-      )}
-
-      {/* Botón ver miembros - solo si hay equipo seleccionado */}
-      {selectedTeamId && (
-        <button
-          onClick={() => setShowMembersModal(true)}
-          style={{
-            padding: '10px 15px',
-            fontSize: '14px',
-            backgroundColor: '#9b59b6',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          👥 Miembros
-        </button>
-      )}
-
-      {teams.length === 0 && (
-        <span style={{ color: '#666', fontSize: '14px' }}>
-          No perteneces a ningún equipo todavía
-        </span>
-      )}
-
-      {/* Modal crear equipo */}
-      {showCreateModal && (
+      {/* Modales */}
+      {showCreateTeam && (
         <CreateTeam
           currentUserId={currentUserId}
-          onTeamCreated={handleTeamCreated}
-          onClose={() => setShowCreateModal(false)}
+          onTeamCreated={() => {
+            loadTeams()
+            setShowCreateTeam(false)
+          }}
+          onClose={() => setShowCreateTeam(false)}
         />
       )}
 
-      {/* Modal invitar miembro */}
-      {showInviteModal && selectedTeamId && (
+      {showInviteMember && selectedTeamId && selectedTeam && (
         <InviteMember
           teamId={selectedTeamId}
-          teamName={teams.find(t => t.id === selectedTeamId)?.name || ''}
-          onMemberAdded={handleTeamCreated}
-          onClose={() => setShowInviteModal(false)}
+          onMemberAdded={() => {
+            loadTeams()
+            setShowInviteMember(false)
+          }}
+          onClose={() => setShowInviteMember(false)}
         />
       )}
-      {/* Modal ver miembros */}
-      {showMembersModal && selectedTeamId && (
+
+      {showTeamMembers && selectedTeamId && selectedTeam && currentRole && (
         <TeamMembers
           teamId={selectedTeamId}
-          teamName={teams.find(t => t.id === selectedTeamId)?.name || ''}
+          teamName={selectedTeam.name}
           currentUserId={currentUserId}
-          currentUserRole={teams.find(t => t.id === selectedTeamId)?.role || 'member'}
-          onClose={() => setShowMembersModal(false)}
-          onMembersChanged={handleTeamCreated}
+          currentUserRole={currentRole}
+          onClose={() => setShowTeamMembers(false)}
+          onMembersChanged={() => loadTeams()}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 
 interface CreateTeamProps {
@@ -10,18 +10,28 @@ interface CreateTeamProps {
 function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    setTimeout(() => setIsVisible(true), 10)
+  }, [])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!name.trim()) {
-      alert('El nombre del equipo es obligatorio')
+      alert('El nombre es obligatorio')
       return
     }
 
     setLoading(true)
 
-    // 1. Crear el equipo
+    // Crear equipo
     const { data: team, error: teamError } = await supabase
       .from('teams')
       .insert({ name: name.trim(), created_by: currentUserId })
@@ -29,59 +39,59 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
       .single()
 
     if (teamError) {
-      console.error('Error creando equipo:', teamError)
-      alert('Error al crear el equipo: ' + teamError.message)
+      alert('Error al crear equipo: ' + teamError.message)
       setLoading(false)
       return
     }
 
-    // 2. Agregar al creador como owner
+    // Agregar al creador como owner
     const { error: memberError } = await supabase
       .from('team_members')
-      .insert({ 
-        team_id: team.id, 
-        user_id: currentUserId, 
-        role: 'owner' 
+      .insert({
+        team_id: team.id,
+        user_id: currentUserId,
+        role: 'owner'
       })
 
     setLoading(false)
 
     if (memberError) {
-      console.error('Error agregando owner:', memberError)
-      alert('Error al configurar el equipo: ' + memberError.message)
+      alert('Error al agregar miembro: ' + memberError.message)
     } else {
-      alert('¡Equipo creado exitosamente!')
       onTeamCreated()
-      onClose()
     }
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '400px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-      }}>
-        <h2 style={{ marginTop: 0 }}>➕ Crear Nuevo Equipo</h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+      }`}
+      onClick={handleClose}
+    >
+      <div
+        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 transform transition-all duration-200 ${
+          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-neutral-700">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <span className="text-yellow-400">👥</span> Crear Equipo
+          </h2>
+          <button
+            onClick={handleClose}
+            className="text-neutral-400 hover:text-white transition-colors text-2xl"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-neutral-300 mb-2">
               Nombre del equipo *
             </label>
             <input
@@ -89,50 +99,26 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Marketing, Desarrollo, Ventas..."
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box'
-              }}
+              className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               autoFocus
+              required
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="flex gap-3">
             <button
               type="button"
-              onClick={onClose}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                backgroundColor: '#e0e0e0',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
+              onClick={handleClose}
+              className="flex-1 px-4 py-3 bg-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-600 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loading}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                backgroundColor: loading ? '#ccc' : '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
-              }}
+              disabled={loading || !name.trim()}
+              className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Creando...' : 'Crear'}
+              {loading ? 'Creando...' : '👥 Crear Equipo'}
             </button>
           </div>
         </form>

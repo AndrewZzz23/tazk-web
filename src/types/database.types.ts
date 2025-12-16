@@ -5,7 +5,8 @@ export type UserRole = 'owner' | 'admin' | 'member'
 export type ProfileRole = 'admin' | 'basic'
 export type EntityType = 'task' | 'team' | 'team_member'
 export type ActionType = 'created' | 'updated' | 'deleted' | 'assigned' | 'unassigned' | 'reassigned' | 'status_changed' | 'role_changed' | 'member_added' | 'member_removed'
-
+export type StatusCategory = 'not_started' | 'in_progress' | 'completed'
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
 export interface Profile {
   id: string
   email: string
@@ -88,4 +89,30 @@ export interface TeamMemberWithProfile extends TeamMember {
 export interface AppContext {
   currentTeamId: string | null
   userRole: UserRole | null
+}
+
+export interface TaskStatus {
+  id: string
+  name: string
+  color: string
+  order_position: number
+  team_id: string | null
+  created_by: string | null
+  is_active: boolean
+  category: StatusCategory
+}
+export interface TeamInvitation {
+  id: string
+  team_id: string
+  email: string
+  role: 'admin' | 'member'
+  invited_by: string
+  status: InvitationStatus
+  token: string
+  created_at: string
+  expires_at: string
+  responded_at: string | null
+  // Relaciones
+  teams?: Team
+  inviter?: Profile
 }

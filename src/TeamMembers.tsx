@@ -1,245 +1,273 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-import { UserRole } from './types/database.types'
+import { UserRole, Profile } from './types/database.types'
+import ConfirmDialog from './ConfirmDialog'
+import Toast from './Toast'
 
-interface Member {
+interface TeamMember {
   id: string
   user_id: string
   role: UserRole
   joined_at: string
-  profile: {
-    email: string
-    full_name: string | null
-  }
+  profiles: Profile
 }
 
 interface TeamMembersProps {
   teamId: string
-  teamName: string
   currentUserId: string
   currentUserRole: UserRole
   onClose: () => void
-  onMembersChanged: () => void
 }
 
-function TeamMembers({ teamId, teamName, currentUserId, currentUserRole, onClose, onMembersChanged }: TeamMembersProps) {
-  const [members, setMembers] = useState<Member[]>([])
+function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMembersProps) {
+  const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
+  const [isVisible, setIsVisible] = useState(false)
+  
+  // Confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    show: boolean
+    memberId: string
+    memberName: string
+  }>({ show: false, memberId: '', memberName: '' })
+  
+  // Toast
+  const [toast, setToast] = useState<{
+    show: boolean
+    message: string
+    type: 'success' | 'error' | 'info'
+  }>({ show: false, message: '', type: 'info' })
+
+  useEffect(() => {
+    setTimeout(() => setIsVisible(true), 10)
+    loadMembers()
+  }, [])
 
   const loadMembers = async () => {
     setLoading(true)
-    
+
     const { data, error } = await supabase
       .from('team_members')
       .select(`
-        id,
-        user_id,
-        role,
-        joined_at,
-        profile:profiles (email, full_name)
+        *,
+        profiles (*)
       `)
       .eq('team_id', teamId)
       .order('joined_at')
 
     if (error) {
-      console.error('Error cargando miembros:', error)
+      console.error('Error:', error)
+      showToast('Error al cargar miembros', 'error')
     } else {
-      setMembers(data as unknown as Member[])
+      setMembers(data || [])
     }
-    
+
     setLoading(false)
   }
 
-  useEffect(() => {
-    loadMembers()
-  }, [teamId])
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ show: true, message, type })
+  }
 
   const handleRoleChange = async (memberId: string, newRole: UserRole) => {
+    const oldMember = members.find(m => m.id === memberId)
+    
+    setMembers(prev => prev.map(m =>
+      m.id === memberId ? { ...m, role: newRole } : m
+    ))
+
     const { error } = await supabase
       .from('team_members')
       .update({ role: newRole })
       .eq('id', memberId)
 
     if (error) {
-      alert('Error al cambiar rol: ' + error.message)
+      if (oldMember) {
+        setMembers(prev => prev.map(m =>
+          m.id === memberId ? oldMember : m
+        ))
+      }
+      showToast('Error al cambiar rol', 'error')
     } else {
-      loadMembers()
-      onMembersChanged()
+      showToast('Rol actualizado', 'success')
     }
   }
 
-  const handleRemove = async (member: Member) => {
-    const name = member.profile.full_name || member.profile.email
-    
-    if (!confirm(`¿Estás seguro de remover a ${name} del equipo?`)) {
-      return
-    }
+  const handleRemoveClick = (memberId: string, memberName: string) => {
+    setConfirmDialog({ show: true, memberId, memberName })
+  }
 
-    const { error } = await supabase
-      .from('team_members')
-      .delete()
-      .eq('id', member.id)
+  const handleRemoveConfirm = async () => {
+    const { memberId } = confirmDialog
+    setConfirmDialog({ show: false, memberId: '', memberName: '' })
 
-    if (error) {
-      alert('Error al remover miembro: ' + error.message)
+    const oldMember = members.find(m => m.id === memberId)
+    setMembers(prev => prev.filter(m => m.id !== memberId))
+
+    const { data, error } = await supabase
+      .rpc('delete_team_member', { member_id: memberId })
+
+    if (error || data === false) {
+      if (oldMember) {
+        setMembers(prev => [...prev, oldMember])
+      }
+      showToast('Error al eliminar miembro', 'error')
     } else {
-      loadMembers()
-      onMembersChanged()
+      showToast('Miembro eliminado', 'success')
     }
   }
 
-  const getRoleBadge = (role: UserRole) => {
-    const config = {
-      owner: { text: 'Owner', color: '#9b59b6' },
-      admin: { text: 'Admin', color: '#3498db' },
-      member: { text: 'Miembro', color: '#95a5a6' }
+  const canManage = currentUserRole === 'owner' || currentUserRole === 'admin'
+
+  const getRoleIcon = (role: UserRole) => {
+    switch (role) {
+      case 'owner': return '👑'
+      case 'admin': return '🛡️'
+      default: return '👤'
     }
-    return config[role]
   }
 
-  const canChangeRole = currentUserRole === 'owner'
-  const canRemove = (member: Member) => {
-    if (member.role === 'owner') return false
-    if (currentUserRole === 'owner') return true
-    if (currentUserRole === 'admin' && member.role === 'member') return true
-    return false
+  const getRoleLabel = (role: UserRole) => {
+    switch (role) {
+      case 'owner': return 'Dueño'
+      case 'admin': return 'Admin'
+      default: return 'Miembro'
+    }
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '500px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0 }}>👥 {teamName}</h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: '#666'
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {loading ? (
-          <p>Cargando miembros...</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {members.map(member => (
-              <div
-                key={member.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px',
-                  backgroundColor: '#f5f5f5',
-                  borderRadius: '8px',
-                  gap: '10px'
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold' }}>
-                    {member.profile.full_name || member.profile.email}
-                    {member.user_id === currentUserId && ' (Tú)'}
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#666' }}>
-                    {member.profile.email}
-                  </div>
-                </div>
-
-                {/* Selector de rol o badge */}
-                {canChangeRole && member.role !== 'owner' ? (
-                  <select
-                    value={member.role}
-                    onChange={(e) => handleRoleChange(member.id, e.target.value as UserRole)}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: '4px',
-                      border: '1px solid #ddd',
-                      backgroundColor: getRoleBadge(member.role).color,
-                      color: 'white',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="admin" style={{ backgroundColor: 'white', color: 'black' }}>Admin</option>
-                    <option value="member" style={{ backgroundColor: 'white', color: 'black' }}>Miembro</option>
-                  </select>
-                ) : (
-                  <span style={{
-                    padding: '6px 12px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    fontWeight: 'bold',
-                    color: 'white',
-                    backgroundColor: getRoleBadge(member.role).color
-                  }}>
-                    {getRoleBadge(member.role).text}
-                  </span>
-                )}
-
-                {/* Botón remover */}
-                {canRemove(member) && (
-                  <button
-                    onClick={() => handleRemove(member)}
-                    style={{
-                      padding: '6px 10px',
-                      backgroundColor: '#ff4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px'
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
+    <>
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+        }`}
+        onClick={handleClose}
+      >
+        <div
+          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden transform transition-all duration-200 ${
+            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-neutral-700">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <span className="text-yellow-400">👥</span> Miembros
+              <span className="text-neutral-500 text-sm font-normal">({members.length})</span>
+            </h2>
+            <button
+              onClick={handleClose}
+              className="text-neutral-400 hover:text-white transition-colors text-2xl"
+            >
+              ×
+            </button>
           </div>
-        )}
 
-        <div style={{ marginTop: '20px', textAlign: 'right' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#e0e0e0',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            Cerrar
-          </button>
+          {/* Lista */}
+          <div className="overflow-y-auto max-h-[calc(80vh-80px)]">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-yellow-400">⚡ Cargando...</div>
+              </div>
+            ) : members.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-4xl mb-2">👻</div>
+                <p className="text-neutral-500">No hay miembros</p>
+              </div>
+            ) : (
+              <div className="p-4 space-y-2">
+                {members.map(member => {
+                  const isCurrentUser = member.user_id === currentUserId
+                  const canModify = canManage && !isCurrentUser && member.role !== 'owner'
+
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 p-3 bg-neutral-700/50 rounded-xl group hover:bg-neutral-700 transition-colors"
+                    >
+                      {/* Avatar */}
+                      <div className="w-10 h-10 bg-yellow-400 text-neutral-900 rounded-full flex items-center justify-center font-bold text-lg">
+                        {member.profiles?.full_name?.[0] || member.profiles?.email?.[0] || '?'}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-medium truncate flex items-center gap-2">
+                          {member.profiles?.full_name || 'Sin nombre'}
+                          {isCurrentUser && (
+                            <span className="text-xs text-yellow-400">(tú)</span>
+                          )}
+                        </div>
+                        <div className="text-neutral-400 text-sm truncate">
+                          {member.profiles?.email}
+                        </div>
+                      </div>
+
+                      {/* Rol */}
+                      {canModify ? (
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleRoleChange(member.id, e.target.value as UserRole)}
+                          className="bg-neutral-600 border border-neutral-500 text-white text-sm px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                        >
+                          <option value="member">👤 Miembro</option>
+                          <option value="admin">🛡️ Admin</option>
+                        </select>
+                      ) : (
+                        <span className="text-neutral-400 text-sm flex items-center gap-1">
+                          {getRoleIcon(member.role)} {getRoleLabel(member.role)}
+                        </span>
+                      )}
+
+                      {/* Eliminar */}
+                      {canModify && (
+                        <button
+                          onClick={() => handleRemoveClick(
+                            member.id,
+                            member.profiles?.full_name || member.profiles?.email || 'este miembro'
+                          )}
+                          className="p-2 text-neutral-500 hover:text-red-400 hover:bg-neutral-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Dialog de confirmación */}
+      {confirmDialog.show && (
+        <ConfirmDialog
+          title="Eliminar miembro"
+          message={`¿Estás seguro de eliminar a ${confirmDialog.memberName} del equipo?`}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+          type="danger"
+          onConfirm={handleRemoveConfirm}
+          onCancel={() => setConfirmDialog({ show: false, memberId: '', memberName: '' })}
+        />
+      )}
+
+      {/* Toast */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
+    </>
   )
 }
 

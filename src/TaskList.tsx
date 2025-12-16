@@ -11,12 +11,12 @@ interface TaskListProps {
   searchTerm: string
 }
 
-function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, searchTerm }: TaskListProps) {
+function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<string>('all')
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set())
 
   const loadTasks = async () => {
     setLoading(true)
@@ -69,33 +69,34 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
     loadStatuses()
   }, [teamId, currentUserId])
 
+  // Filtrar tareas por búsqueda
   const filteredTasks = useMemo(() => {
-    let result = tasks
+    if (!searchTerm.trim()) return tasks
 
-    // Filtrar por estado
-    if (filter !== 'all') {
-      result = result.filter(task => task.status_id === filter)
-    }
+    const term = searchTerm.toLowerCase()
+    return tasks.filter(task =>
+      task.title.toLowerCase().includes(term) ||
+      task.description?.toLowerCase().includes(term) ||
+      task.assigned_user?.full_name?.toLowerCase().includes(term) ||
+      task.assigned_user?.email?.toLowerCase().includes(term)
+    )
+  }, [tasks, searchTerm])
 
-    // Filtrar por búsqueda
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase()
-      result = result.filter(task =>
-        task.title.toLowerCase().includes(term) ||
-        task.description?.toLowerCase().includes(term) ||
-        task.assigned_user?.full_name?.toLowerCase().includes(term) ||
-        task.assigned_user?.email?.toLowerCase().includes(term)
-      )
-    }
-
-    return result
-  }, [tasks, filter, searchTerm])
+  // Agrupar tareas por estado
+  const tasksByStatus = useMemo(() => {
+    const grouped: { [statusId: string]: Task[] } = {}
+    
+    statuses.forEach(status => {
+      grouped[status.id] = filteredTasks.filter(t => t.status_id === status.id)
+    })
+    
+    return grouped
+  }, [filteredTasks, statuses])
 
   const handleStatusChange = async (taskId: string, newStatusId: string) => {
     const oldTask = tasks.find(t => t.id === taskId)
     const newStatus = statuses.find(s => s.id === newStatusId)
 
-    // Optimistic update
     setTasks(prev => prev.map(t =>
       t.id === taskId ? { ...t, status_id: newStatusId, task_statuses: newStatus } : t
     ))
@@ -106,7 +107,6 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
       .eq('id', taskId)
 
     if (error) {
-      // Revertir
       if (oldTask) {
         setTasks(prev => prev.map(t => t.id === taskId ? oldTask : t))
       }
@@ -118,8 +118,6 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
     if (!confirm('¿Eliminar esta tarea?')) return
 
     const oldTask = tasks.find(t => t.id === taskId)
-
-    // Optimistic update
     setTasks(prev => prev.filter(t => t.id !== taskId))
 
     const { error } = await supabase
@@ -135,6 +133,18 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
     } else {
       onTaskUpdated()
     }
+  }
+
+  const toggleCollapse = (statusId: string) => {
+    setCollapsedStatuses(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(statusId)) {
+        newSet.delete(statusId)
+      } else {
+        newSet.add(statusId)
+      }
+      return newSet
+    })
   }
 
   const formatDate = (dateString: string | null) => {
@@ -161,148 +171,138 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
     )
   }
 
+  if (filteredTasks.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-6xl mb-4">📭</div>
+        <p className="text-neutral-400 text-lg">
+          {searchTerm ? 'No se encontraron tareas' : 'No hay tareas aún'}
+        </p>
+        <p className="text-neutral-500 text-sm mt-2">
+          {!searchTerm && 'Haz clic en el botón + para crear una'}
+        </p>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      {/* Filtros por estado */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-            filter === 'all'
-              ? 'bg-yellow-400 text-neutral-900'
-              : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-          }`}
-        >
-          Todas ({tasks.length})
-        </button>
-        {statuses.map(status => {
-          const count = tasks.filter(t => t.status_id === status.id).length
-          return (
+    <div className="space-y-4">
+      {statuses.map(status => {
+        const statusTasks = tasksByStatus[status.id] || []
+        const isCollapsed = collapsedStatuses.has(status.id)
+
+        if (statusTasks.length === 0) return null
+
+        return (
+          <div key={status.id} className="bg-neutral-800/30 rounded-xl overflow-hidden">
+            {/* Header del estado */}
             <button
-              key={status.id}
-              onClick={() => setFilter(status.id)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                filter === status.id
-                  ? 'bg-yellow-400 text-neutral-900'
-                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-              }`}
+              onClick={() => toggleCollapse(status.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-700/30 transition-colors"
             >
-              <span
+              <span className={`text-neutral-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}>
+                ▶
+              </span>
+              <div
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: status.color }}
               />
-              {status.name} ({count})
+              <span className="text-white font-medium">{status.name}</span>
+              <span className="text-neutral-500 text-sm">({statusTasks.length})</span>
             </button>
-          )
-        })}
-      </div>
 
-      {/* Lista de tareas */}
-      {filteredTasks.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📭</div>
-          <p className="text-neutral-400 text-lg">
-            {searchTerm ? 'No se encontraron tareas' : 'No hay tareas aún'}
-          </p>
-          <p className="text-neutral-500 text-sm mt-2">
-            {!searchTerm && 'Haz clic en el botón + para crear una'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredTasks.map(task => (
-            <div
-              key={task.id}
-              className="bg-neutral-800 border border-neutral-700 rounded-xl p-4 hover:border-neutral-600 transition-all group"
-            >
-              <div className="flex items-start gap-4">
-                {/* Indicador de estado */}
-                <div
-                  className="w-4 h-4 rounded-full mt-1 flex-shrink-0"
-                  style={{ backgroundColor: task.task_statuses?.color || '#666' }}
-                  title={task.task_statuses?.name}
-                />
+            {/* Lista de tareas */}
+            {!isCollapsed && (
+              <div className="px-2 pb-2">
+                {statusTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className="bg-neutral-800 border border-neutral-700 rounded-lg p-4 mx-2 mb-2 hover:border-neutral-600 transition-all group"
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Contenido */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h3
+                              className="text-white font-medium cursor-pointer hover:text-yellow-400 transition-colors"
+                              onClick={() => setEditingTask(task)}
+                            >
+                              {task.title}
+                            </h3>
+                            {task.description && (
+                              <p className="text-neutral-400 text-sm mt-1 line-clamp-2">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
 
-                {/* Contenido */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h3
-                        className="text-white font-medium cursor-pointer hover:text-yellow-400 transition-colors"
-                        onClick={() => setEditingTask(task)}
-                      >
-                        {task.title}
-                      </h3>
-                      {task.description && (
-                        <p className="text-neutral-400 text-sm mt-1 line-clamp-2">
-                          {task.description}
-                        </p>
-                      )}
-                    </div>
+                          {/* Acciones */}
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => setEditingTask(task)}
+                              className="p-2 text-neutral-400 hover:text-yellow-400 hover:bg-neutral-700 rounded-lg transition-all"
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDelete(task.id)}
+                              className="p-2 text-neutral-400 hover:text-red-400 hover:bg-neutral-700 rounded-lg transition-all"
+                              title="Eliminar"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
 
-                    {/* Acciones */}
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => setEditingTask(task)}
-                        className="p-2 text-neutral-400 hover:text-yellow-400 hover:bg-neutral-700 rounded-lg transition-all"
-                        title="Editar"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleDelete(task.id)}
-                        className="p-2 text-neutral-400 hover:text-red-400 hover:bg-neutral-700 rounded-lg transition-all"
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
+                        {/* Meta info */}
+                        <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
+                          {/* Cambiar estado */}
+                          <select
+                            value={task.status_id}
+                            onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                            className="bg-neutral-700 border border-neutral-600 text-white text-xs px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                          >
+                            {statuses.map(s => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Asignado a */}
+                          {task.assigned_user && (
+                            <span className="flex items-center gap-1 text-neutral-400">
+                              <span className="w-5 h-5 bg-yellow-400 text-neutral-900 rounded-full flex items-center justify-center text-xs font-bold">
+                                {task.assigned_user.full_name?.[0] || task.assigned_user.email?.[0] || '?'}
+                              </span>
+                              <span className="truncate max-w-[120px]">
+                                {task.assigned_user.full_name || task.assigned_user.email}
+                              </span>
+                            </span>
+                          )}
+
+                          {/* Fecha límite */}
+                          {task.due_date && (
+                            <span className={`flex items-center gap-1 ${
+                              isOverdue(task.due_date) ? 'text-red-400' : 'text-neutral-400'
+                            }`}>
+                              <span>📅</span>
+                              <span>{formatDate(task.due_date)}</span>
+                              {isOverdue(task.due_date) && <span className="text-red-400">⚠️</span>}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Meta info */}
-                  <div className="flex flex-wrap items-center gap-3 mt-3 text-sm">
-                    {/* Cambiar estado */}
-                    <select
-                      value={task.status_id}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                      className="bg-neutral-700 border border-neutral-600 text-white text-xs px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                    >
-                      {statuses.map(status => (
-                        <option key={status.id} value={status.id}>
-                          {status.name}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* Asignado a */}
-                    {task.assigned_user && (
-                      <span className="flex items-center gap-1 text-neutral-400">
-                        <span className="w-5 h-5 bg-yellow-400 text-neutral-900 rounded-full flex items-center justify-center text-xs font-bold">
-                          {task.assigned_user.full_name?.[0] || task.assigned_user.email?.[0] || '?'}
-                        </span>
-                        <span className="truncate max-w-[120px]">
-                          {task.assigned_user.full_name || task.assigned_user.email}
-                        </span>
-                      </span>
-                    )}
-
-                    {/* Fecha límite */}
-                    {task.due_date && (
-                      <span className={`flex items-center gap-1 ${
-                        isOverdue(task.due_date) ? 'text-red-400' : 'text-neutral-400'
-                      }`}>
-                        <span>📅</span>
-                        <span>{formatDate(task.due_date)}</span>
-                        {isOverdue(task.due_date) && <span className="text-red-400">⚠️</span>}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        )
+      })}
 
       {/* Modal de edición */}
       {editingTask && (

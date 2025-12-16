@@ -1,178 +1,491 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { TeamInvitation, Profile } from './types/database.types'
+import Toast from './Toast'
+import ConfirmDialog from './ConfirmDialog'
 
 interface InviteMemberProps {
   teamId: string
-  teamName: string
-  onMemberAdded: () => void
+  onMemberInvited: () => void
   onClose: () => void
 }
 
-function InviteMember({ teamId, teamName, onMemberAdded, onClose }: InviteMemberProps) {
+interface PendingInvitation extends TeamInvitation {
+  inviter?: Profile
+}
+
+function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'admin' | 'member'>('member')
   const [loading, setLoading] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+  
+  // Invitaciones
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([])
+  const [rejectedInvitations, setRejectedInvitations] = useState<PendingInvitation[]>([])
+  const [loadingInvitations, setLoadingInvitations] = useState(true)  
+  
+  // Toast
+  const [toast, setToast] = useState<{
+    show: boolean
+    message: string
+    type: 'success' | 'error' | 'info'
+  }>({ show: false, message: '', type: 'info' })
+
+  // Confirm dialog
+  const [confirmDialog, setConfirmDialog] = useState<{
+    show: boolean
+    invitationId: string
+    email: string
+    type: 'pending' | 'rejected'
+  }>({ show: false, invitationId: '', email: '', type: 'pending' })
+
+  useEffect(() => {
+    setTimeout(() => setIsVisible(true), 10)
+    loadPendingInvitations()
+  }, [])
+
+  const loadPendingInvitations = async () => {
+    setLoadingInvitations(true)
+
+    // Cargar pendientes
+    const { data: pending } = await supabase
+      .from('team_invitations')
+      .select(`
+        *,
+        inviter:profiles!team_invitations_invited_by_fkey (*)
+      `)
+      .eq('team_id', teamId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+
+    if (pending) setPendingInvitations(pending)
+
+    // Cargar rechazadas (últimos 7 días)
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+    const { data: rejected } = await supabase
+      .from('team_invitations')
+      .select(`
+        *,
+        inviter:profiles!team_invitations_invited_by_fkey (*)
+      `)
+      .eq('team_id', teamId)
+      .eq('status', 'rejected')
+      .gte('responded_at', sevenDaysAgo.toISOString())
+      .order('responded_at', { ascending: false })
+
+    if (rejected) setRejectedInvitations(rejected)
+
+    setLoadingInvitations(false)
+  }
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ show: true, message, type })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!email.trim()) {
-      alert('El email es obligatorio')
+
+    const trimmedEmail = email.trim().toLowerCase()
+
+    if (!trimmedEmail) {
+      showToast('El email es obligatorio', 'error')
+      return
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(trimmedEmail)) {
+      showToast('Email inválido', 'error')
       return
     }
 
     setLoading(true)
 
-    // 1. Buscar usuario por email
-    const { data: user, error: userError } = await supabase
-      .from('profiles')
-      .select('id, email')
-      .eq('email', email.trim().toLowerCase())
-      .single()
-
-    if (userError || !user) {
-      alert('No se encontró un usuario con ese email. El usuario debe tener una cuenta en Tazk.')
-      setLoading(false)
-      return
-    }
-
-    // 2. Verificar que no sea ya miembro
-    const { data: existingMember } = await supabase
+    // Verificar si ya es miembro del equipo
+    const { data: members } = await supabase
       .from('team_members')
-      .select('id')
+      .select(`
+        id,
+        profiles!inner (email)
+      `)
       .eq('team_id', teamId)
-      .eq('user_id', user.id)
-      .single()
 
-    if (existingMember) {
-      alert('Este usuario ya es miembro del equipo')
+    const isMember = members?.some(m => 
+      (m.profiles as unknown as Profile)?.email?.toLowerCase() === trimmedEmail
+    )
+
+    if (isMember) {
+      showToast('Este usuario ya es miembro del equipo', 'error')
       setLoading(false)
       return
     }
 
-    // 3. Agregar como miembro
-    const { error: memberError } = await supabase
-      .from('team_members')
+    // Verificar si ya tiene invitación pendiente
+    const hasPendingInvitation = pendingInvitations.some(
+      inv => inv.email.toLowerCase() === trimmedEmail
+    )
+
+    if (hasPendingInvitation) {
+      showToast('Ya existe una invitación pendiente para este email', 'error')
+      setLoading(false)
+      return
+    }
+
+    // Obtener usuario actual
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Crear invitación
+    const { data: newInvitation, error: inviteError } = await supabase
+      .from('team_invitations')
       .insert({
         team_id: teamId,
-        user_id: user.id,
-        role: role
+        email: trimmedEmail,
+        role: role,
+        invited_by: user?.id
       })
+      .select(`
+        *,
+        inviter:profiles!team_invitations_invited_by_fkey (*)
+      `)
+      .single()
 
     setLoading(false)
 
-    if (memberError) {
-      console.error('Error agregando miembro:', memberError)
-      alert('Error al agregar miembro: ' + memberError.message)
+    if (inviteError) {
+      showToast('Error al enviar invitación', 'error')
     } else {
-      alert(`¡${email} ha sido agregado como ${role === 'admin' ? 'Administrador' : 'Miembro'}!`)
-      onMemberAdded()
-      onClose()
+      // Agregar a la lista de pendientes
+      if (newInvitation) {
+        setPendingInvitations(prev => [newInvitation, ...prev])
+      }
+      setEmail('')
+      setRole('member')
+      showToast('✅ Invitación enviada correctamente', 'success')
+      onMemberInvited()
     }
   }
 
+  const handleDeleteInvitation = async () => {
+    const { invitationId, type } = confirmDialog
+    setConfirmDialog({ show: false, invitationId: '', email: '', type: 'pending' })
+
+    // Optimistic update
+    if (type === 'pending') {
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId))
+    } else {
+      setRejectedInvitations(prev => prev.filter(inv => inv.id !== invitationId))
+    }
+
+    const { error } = await supabase
+      .from('team_invitations')
+      .delete()
+      .eq('id', invitationId)
+
+    console.log('Delete invitation error:', error)
+
+    if (error) {
+      // Recargar para restaurar
+      loadPendingInvitations()
+      showToast('Error al eliminar invitación', 'error')
+    } else {
+      showToast('Invitación eliminada', 'success')
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getExpirationText = (expiresAt: string) => {
+    const now = new Date()
+    const expires = new Date(expiresAt)
+    const diff = expires.getTime() - now.getTime()
+    const days = Math.ceil(diff / 86400000)
+
+    if (days <= 0) return 'Expirada'
+    if (days === 1) return 'Expira mañana'
+    return `Expira en ${days} días`
+  }
+
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '400px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-      }}>
-        <h2 style={{ marginTop: 0 }}>👥 Invitar a {teamName}</h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Email del usuario *
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="usuario@ejemplo.com"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                borderRadius: '6px',
-                border: '1px solid #ccc',
-                boxSizing: 'border-box'
-              }}
-              autoFocus
-            />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-              Rol
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'admin' | 'member')}
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                borderRadius: '6px',
-                border: '1px solid #ccc'
-              }}
-            >
-              <option value="member">Miembro - Solo ve y actualiza sus tareas</option>
-              <option value="admin">Admin - Puede crear tareas e invitar</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px' }}>
+    <>
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+        }`}
+        onClick={handleClose}
+      >
+        <div
+          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden transform transition-all duration-200 ${
+            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-neutral-700">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <span className="text-yellow-400">✉️</span> Invitar al Equipo
+            </h2>
             <button
-              type="button"
-              onClick={onClose}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                backgroundColor: '#e0e0e0',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
+              onClick={handleClose}
+              className="text-neutral-400 hover:text-white transition-colors text-2xl"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                backgroundColor: loading ? '#ccc' : '#3498db',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              {loading ? 'Invitando...' : 'Invitar'}
+              ×
             </button>
           </div>
-        </form>
+
+          <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+            {/* Formulario */}
+            <form onSubmit={handleSubmit} className="p-6 border-b border-neutral-700">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="usuario@ejemplo.com"
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                  Rol
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setRole('member')}
+                    className={`px-4 py-3 rounded-xl font-medium transition-all text-left ${
+                      role === 'member'
+                        ? 'bg-yellow-400 text-neutral-900'
+                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">👤</span>
+                      <div>
+                        <div className="font-semibold">Miembro</div>
+                        <div className="text-xs opacity-70">Ver y editar sus tareas</div>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('admin')}
+                    className={`px-4 py-3 rounded-xl font-medium transition-all text-left ${
+                      role === 'admin'
+                        ? 'bg-yellow-400 text-neutral-900'
+                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🛡️</span>
+                      <div>
+                        <div className="font-semibold">Admin</div>
+                        <div className="text-xs opacity-70">Gestionar todo</div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !email.trim()}
+                className="w-full px-4 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  'Enviando...'
+                ) : (
+                  <>
+                    <span>✉️</span> Enviar Invitación
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Invitaciones pendientes */}
+            <div className="p-6">
+              <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+                <span>⏳</span> Invitaciones Pendientes
+                {pendingInvitations.length > 0 && (
+                  <span className="bg-neutral-700 text-neutral-300 text-xs px-2 py-0.5 rounded-full">
+                    {pendingInvitations.length}
+                  </span>
+                )}
+              </h3>
+
+              {loadingInvitations ? (
+                <div className="text-center py-6 text-yellow-400">⚡ Cargando...</div>
+              ) : pendingInvitations.length === 0 ? (
+                <div className="text-center py-6">
+                  <div className="text-3xl mb-2">📭</div>
+                  <p className="text-neutral-500 text-sm">No hay invitaciones pendientes</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingInvitations.map(invitation => (
+                    <div
+                      key={invitation.id}
+                      className="bg-neutral-700/50 rounded-xl p-4 flex items-center gap-4 group"
+                    >
+                      {/* Avatar */}
+                      <div className="w-10 h-10 bg-neutral-600 text-neutral-400 rounded-full flex items-center justify-center font-bold">
+                        {invitation.email[0].toUpperCase()}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-medium truncate">
+                          {invitation.email}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-neutral-400 mt-1">
+                          <span>{invitation.role === 'admin' ? '🛡️ Admin' : '👤 Miembro'}</span>
+                          <span className="text-neutral-600">•</span>
+                          <span>{formatDate(invitation.created_at)}</span>
+                          <span className="text-neutral-600">•</span>
+                          <span className={
+                            new Date(invitation.expires_at) <= new Date() 
+                              ? 'text-red-400' 
+                              : 'text-neutral-400'
+                          }>
+                            {getExpirationText(invitation.expires_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Cancelar */}
+                      <button
+                        onClick={() => setConfirmDialog({
+                          show: true,
+                          invitationId: invitation.id,
+                          email: invitation.email,
+                          type: 'pending'
+                        })}
+                        className="px-3 py-1.5 bg-neutral-600 text-neutral-300 rounded-lg text-sm hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Invitaciones rechazadas */}
+            {rejectedInvitations.length > 0 && (
+              <div className="p-6 border-t border-neutral-700">
+                <h3 className="text-sm font-semibold text-red-400/70 uppercase tracking-wide mb-4 flex items-center gap-2">
+                  <span>❌</span> Rechazadas
+                  <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full">
+                    {rejectedInvitations.length}
+                  </span>
+                </h3>
+
+                <div className="space-y-3">
+                  {rejectedInvitations.map(invitation => (
+                    <div
+                      key={invitation.id}
+                      className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-4"
+                    >
+                      {/* Avatar */}
+                      <div className="w-10 h-10 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center font-bold">
+                        {invitation.email[0].toUpperCase()}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-neutral-300 font-medium truncate">
+                          {invitation.email}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
+                          <span className="text-red-400">Rechazada</span>
+                          <span className="text-neutral-600">•</span>
+                          <span>
+                            {invitation.responded_at && new Date(invitation.responded_at).toLocaleDateString('es-CO', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Acciones */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConfirmDialog({
+                            show: true,
+                            invitationId: invitation.id,
+                            email: invitation.email,
+                            type: 'rejected'
+                          })}
+                          className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEmail(invitation.email)
+                            setRole(invitation.role as 'admin' | 'member')
+                          }}
+                          className="px-3 py-1.5 bg-neutral-700 text-neutral-300 rounded-lg text-sm hover:bg-yellow-400 hover:text-neutral-900 transition-colors"
+                        >
+                          Reenviar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* Confirm Dialog */}
+      {confirmDialog.show && (
+        <ConfirmDialog
+          title={confirmDialog.type === 'pending' ? 'Cancelar invitación' : 'Eliminar invitación'}
+          message={`¿${confirmDialog.type === 'pending' ? 'Cancelar' : 'Eliminar'} la invitación de ${confirmDialog.email}?`}
+          confirmText="Sí, eliminar"
+          cancelText="No"
+          type="danger"
+          onConfirm={handleDeleteInvitation}
+          onCancel={() => setConfirmDialog({ show: false, invitationId: '', email: '', type: 'pending' })}
+        />
+      )}
+
+      {/* Toast */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
+    </>
   )
 }
 

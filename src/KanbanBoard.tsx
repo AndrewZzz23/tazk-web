@@ -118,7 +118,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`bg-neutral-800/50 rounded-xl p-4 min-h-[500px] transition-all ${
+      className={`bg-neutral-800/50 rounded-xl p-4 min-h-[500px] min-w-[280px] w-[280px] flex-shrink-0 transition-all ${
         isOver ? 'ring-2 ring-yellow-400 bg-yellow-400/5' : ''
       }`}
     >
@@ -300,8 +300,13 @@ function KanbanBoard({ currentUserId, teamId, userRole, searchTerm }: KanbanBoar
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${statuses.length}, minmax(280px, 1fr))` }}>
-          {statuses.map((status) => (
+        <div 
+          className="flex gap-4 overflow-x-auto pb-4"
+          style={{ minHeight: '500px' }}
+        >
+          {statuses
+            .sort((a, b) => a.order_position - b.order_position)
+            .map((status) => (
             <DroppableColumn
               key={status.id}
               status={status}

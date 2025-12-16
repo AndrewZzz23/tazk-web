@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { Task, TaskStatus } from './types/database.types'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
 interface MetricsProps {
@@ -8,23 +9,22 @@ interface MetricsProps {
   onClose: () => void
 }
 
-interface TaskStats {
-  total: number
-  completed: number
-  overdue: number
-  byStatus: { name: string; count: number; color: string }[]
-  byUser: { name: string; count: number }[]
-}
-
 function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
-  const [stats, setStats] = useState<TaskStats | null>(null)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
+  const [isVisible, setIsVisible] = useState(false)
 
-  const loadStats = async () => {
+  useEffect(() => {
+    setTimeout(() => setIsVisible(true), 10)
+    loadData()
+  }, [])
+
+  const loadData = async () => {
     setLoading(true)
 
     // Cargar tareas
-    let query = supabase
+    let taskQuery = supabase
       .from('tasks')
       .select(`
         *,
@@ -32,224 +32,260 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         assigned_user:profiles!tasks_assigned_to_fkey (*)
       `)
 
-    if (teamId === null) {
-      query = query.is('team_id', null).eq('created_by', currentUserId)
+    if (teamId) {
+      taskQuery = taskQuery.eq('team_id', teamId)
     } else {
-      query = query.eq('team_id', teamId)
+      taskQuery = taskQuery.is('team_id', null).eq('created_by', currentUserId)
     }
 
-    const { data: tasks, error } = await query
+    const { data: taskData } = await taskQuery
+    if (taskData) setTasks(taskData)
 
-    if (error) {
-      console.error('Error cargando estadísticas:', error)
-      setLoading(false)
-      return
+    // Cargar estados
+    let statusQuery = supabase
+      .from('task_statuses')
+      .select('*')
+      .eq('is_active', true)
+      .order('order_position')
+
+    if (teamId) {
+      statusQuery = statusQuery.eq('team_id', teamId)
+    } else {
+      statusQuery = statusQuery.is('team_id', null)
     }
 
-    // Calcular estadísticas
-    const now = new Date()
-    const completed = tasks?.filter(t => t.task_statuses?.name?.toLowerCase().includes('complet')) || []
-    const overdue = tasks?.filter(t => t.due_date && new Date(t.due_date) < now && !t.task_statuses?.name?.toLowerCase().includes('complet')) || []
-
-    // Agrupar por estado
-    const statusMap = new Map<string, { name: string; count: number; color: string }>()
-    tasks?.forEach(task => {
-      const statusName = task.task_statuses?.name || 'Sin estado'
-      const statusColor = task.task_statuses?.color || '#999'
-      const existing = statusMap.get(statusName)
-      if (existing) {
-        existing.count++
-      } else {
-        statusMap.set(statusName, { name: statusName, count: 1, color: statusColor })
-      }
-    })
-
-    // Agrupar por usuario asignado
-    const userMap = new Map<string, { name: string; count: number }>()
-    tasks?.forEach(task => {
-      const userName = task.assigned_user?.full_name || task.assigned_user?.email || 'Sin asignar'
-      const existing = userMap.get(userName)
-      if (existing) {
-        existing.count++
-      } else {
-        userMap.set(userName, { name: userName, count: 1 })
-      }
-    })
-
-    setStats({
-      total: tasks?.length || 0,
-      completed: completed.length,
-      overdue: overdue.length,
-      byStatus: Array.from(statusMap.values()),
-      byUser: Array.from(userMap.values()).sort((a, b) => b.count - a.count).slice(0, 5)
-    })
+    const { data: statusData } = await statusQuery
+    if (statusData) setStatuses(statusData)
 
     setLoading(false)
   }
 
-  useEffect(() => {
-    loadStats()
-  }, [currentUserId, teamId])
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  // Calcular métricas usando categorías
+  const totalTasks = tasks.length
+  const completedTasks = tasks.filter(t => t.task_statuses?.category === 'completed').length
+  const inProgressTasks = tasks.filter(t => t.task_statuses?.category === 'in_progress').length
+  const notStartedTasks = tasks.filter(t => t.task_statuses?.category === 'not_started').length
+  const overdueTasks = tasks.filter(t => {
+    if (!t.due_date) return false
+    return new Date(t.due_date) < new Date() && t.task_statuses?.category !== 'completed'
+  }).length
+
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  // Datos para gráfico de torta (por estado)
+  const statusData = statuses.map(status => ({
+    name: status.name,
+    value: tasks.filter(t => t.status_id === status.id).length,
+    color: status.color
+  })).filter(s => s.value > 0)
+
+  // Datos para gráfico de barras (por usuario)
+  const userTaskCounts: { [key: string]: { name: string; count: number } } = {}
+  tasks.forEach(task => {
+    if (task.assigned_user) {
+      const name = task.assigned_user.full_name || task.assigned_user.email || 'Sin nombre'
+      if (!userTaskCounts[name]) {
+        userTaskCounts[name] = { name, count: 0 }
+      }
+      userTaskCounts[name].count++
+    }
+  })
+  const userData = Object.values(userTaskCounts)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '30px',
-        borderRadius: '12px',
-        width: '100%',
-        maxWidth: '800px',
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ margin: 0 }}>📊 Métricas</h2>
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+      }`}
+      onClick={handleClose}
+    >
+      <div
+        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-auto transform transition-all duration-200 ${
+          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-neutral-700 sticky top-0 bg-neutral-800 z-10">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <span className="text-yellow-400">📊</span> Métricas
+          </h2>
           <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              cursor: 'pointer',
-              color: '#666'
-            }}
+            onClick={handleClose}
+            className="text-neutral-400 hover:text-white transition-colors text-2xl"
           >
-            ✕
+            ×
           </button>
         </div>
 
         {loading ? (
-          <p style={{ textAlign: 'center' }}>Cargando métricas...</p>
-        ) : stats ? (
-          <div>
-            {/* Tarjetas de resumen */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
-              <div style={{
-                backgroundColor: '#e3f2fd',
-                padding: '20px',
-                borderRadius: '12px',
-                textAlign: 'center'
-              }}>
-                <p style={{ margin: 0, fontSize: '36px', fontWeight: 'bold', color: '#1976d2' }}>
-                  {stats.total}
-                </p>
-                <p style={{ margin: '8px 0 0 0', color: '#666' }}>Total tareas</p>
+          <div className="flex items-center justify-center py-12">
+            <div className="text-yellow-400">⚡ Cargando métricas...</div>
+          </div>
+        ) : (
+          <div className="p-6">
+           {/* Cards de resumen */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+              {/* Total */}
+              <div className="bg-neutral-700/50 rounded-xl p-4 border border-neutral-600">
+                <div className="text-3xl font-bold text-white">{totalTasks}</div>
+                <div className="text-neutral-400 text-sm mt-1">Total</div>
               </div>
 
-              <div style={{
-                backgroundColor: '#e8f5e9',
-                padding: '20px',
-                borderRadius: '12px',
-                textAlign: 'center'
-              }}>
-                <p style={{ margin: 0, fontSize: '36px', fontWeight: 'bold', color: '#4CAF50' }}>
-                  {stats.completed}
-                </p>
-                <p style={{ margin: '8px 0 0 0', color: '#666' }}>Completadas</p>
+              {/* Sin iniciar */}
+              <div className="bg-neutral-500/10 rounded-xl p-4 border border-neutral-500/30">
+                <div className="text-3xl font-bold text-neutral-300">{notStartedTasks}</div>
+                <div className="text-neutral-400 text-sm mt-1">⏸️ Sin iniciar</div>
               </div>
 
-              <div style={{
-                backgroundColor: stats.overdue > 0 ? '#ffebee' : '#f5f5f5',
-                padding: '20px',
-                borderRadius: '12px',
-                textAlign: 'center'
-              }}>
-                <p style={{ margin: 0, fontSize: '36px', fontWeight: 'bold', color: stats.overdue > 0 ? '#f44336' : '#666' }}>
-                  {stats.overdue}
-                </p>
-                <p style={{ margin: '8px 0 0 0', color: '#666' }}>Vencidas</p>
+              {/* En progreso */}
+              <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30">
+                <div className="text-3xl font-bold text-blue-400">{inProgressTasks}</div>
+                <div className="text-blue-400/70 text-sm mt-1">▶️ En progreso</div>
+              </div>
+
+              {/* Completadas */}
+              <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
+                <div className="text-3xl font-bold text-green-400">{completedTasks}</div>
+                <div className="text-green-400/70 text-sm mt-1">✅ Completadas</div>
+              </div>
+
+              {/* Vencidas */}
+              <div className={`rounded-xl p-4 border ${
+                overdueTasks > 0 
+                  ? 'bg-red-500/10 border-red-500/30' 
+                  : 'bg-neutral-700/50 border-neutral-600'
+              }`}>
+                <div className={`text-3xl font-bold ${overdueTasks > 0 ? 'text-red-400' : 'text-neutral-400'}`}>
+                  {overdueTasks}
+                </div>
+                <div className={`text-sm mt-1 ${overdueTasks > 0 ? 'text-red-400/70' : 'text-neutral-400'}`}>
+                  ⚠️ Vencidas
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de progreso */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-neutral-300 text-sm font-medium">Progreso general</span>
+                <span className="text-yellow-400 font-bold">{completionRate}%</span>
+              </div>
+              <div className="h-3 bg-neutral-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-500"
+                  style={{ width: `${completionRate}%` }}
+                />
               </div>
             </div>
 
             {/* Gráficos */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              {/* Gráfico de torta - Por estado */}
-              <div>
-                <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Por Estado</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={stats.byStatus}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={({ name, value }) => `${name}: ${value}`}                    >
-                      {stats.byStatus.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Por estado */}
+              <div className="bg-neutral-700/30 rounded-xl p-4 border border-neutral-600">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <span>🎯</span> Por estado
+                </h3>
+                {statusData.length > 0 ? (
+                  <div className="flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={statusData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {statusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#262626',
+                            border: '1px solid #404040',
+                            borderRadius: '8px',
+                            color: '#fff'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="text-neutral-500 text-center py-8">
+                    Sin datos
+                  </div>
+                )}
+                {/* Leyenda */}
+                <div className="flex flex-wrap gap-3 mt-4 justify-center">
+                  {statusData.map((status, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: status.color }}
+                      />
+                      <span className="text-neutral-300">{status.name}</span>
+                      <span className="text-neutral-500">({status.value})</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Gráfico de barras - Por usuario */}
-              <div>
-                <h3 style={{ marginBottom: '16px', fontSize: '16px' }}>Por Asignado</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={stats.byUser} layout="vertical">
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8884d8" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Por usuario */}
+              <div className="bg-neutral-700/30 rounded-xl p-4 border border-neutral-600">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <span>👥</span> Por asignado
+                </h3>
+                {userData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={userData} layout="vertical">
+                      <XAxis type="number" stroke="#737373" fontSize={12} />
+                      <YAxis 
+                        type="category" 
+                        dataKey="name" 
+                        stroke="#737373" 
+                        fontSize={12}
+                        width={100}
+                        tickFormatter={(value) => value.length > 12 ? value.slice(0, 12) + '...' : value}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#262626',
+                          border: '1px solid #404040',
+                          borderRadius: '8px',
+                          color: '#fff'
+                        }}
+                      />
+                      <Bar dataKey="count" fill="#facc15" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-neutral-500 text-center py-8">
+                    Sin asignaciones
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Porcentaje de completadas */}
-            <div style={{ marginTop: '24px', textAlign: 'center' }}>
-              <p style={{ color: '#666', marginBottom: '8px' }}>Progreso general</p>
-              <div style={{
-                backgroundColor: '#eee',
-                borderRadius: '10px',
-                height: '20px',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  backgroundColor: '#4CAF50',
-                  height: '100%',
-                  width: `${stats.total > 0 ? (stats.completed / stats.total) * 100 : 0}%`,
-                  transition: 'width 0.5s'
-                }}></div>
+            {/* Sin tareas */}
+            {totalTasks === 0 && (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">📭</div>
+                <p className="text-neutral-400">No hay tareas para mostrar métricas</p>
               </div>
-              <p style={{ marginTop: '8px', fontWeight: 'bold' }}>
-                {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}% completado
-              </p>
-            </div>
+            )}
           </div>
-        ) : (
-          <p style={{ textAlign: 'center', color: '#666' }}>No hay datos disponibles</p>
         )}
-
-        <div style={{ marginTop: '24px', textAlign: 'right' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '10px 24px',
-              backgroundColor: '#e0e0e0',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            Cerrar
-          </button>
-        </div>
       </div>
     </div>
   )
