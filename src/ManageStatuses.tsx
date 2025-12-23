@@ -74,15 +74,15 @@ function SortableStatus({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 py-2 px-3 rounded-lg group hover:bg-neutral-700/50 transition-all ${
-        isDragging ? 'bg-neutral-700 ring-2 ring-yellow-400' : ''
+      className={`flex items-center gap-3 py-2 px-3 rounded-lg group hover:bg-gray-100 dark:hover:bg-neutral-700/50 transition-all ${
+        isDragging ? 'bg-gray-100 dark:bg-neutral-700 ring-2 ring-yellow-400' : ''
       }`}
     >
       {isOwnerOrAdmin && (
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-neutral-600 hover:text-neutral-400 text-sm"
+          className="cursor-grab active:cursor-grabbing text-gray-300 dark:text-neutral-600 hover:text-gray-500 dark:hover:text-neutral-400 text-sm"
         >
           ⋮⋮
         </div>
@@ -93,7 +93,7 @@ function SortableStatus({
         style={{ backgroundColor: status.color }}
       />
 
-      <span className={`flex-1 text-sm truncate ${status.is_active ? 'text-white' : 'text-neutral-500 line-through'}`}>
+      <span className={`flex-1 text-sm truncate ${status.is_active ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-500 line-through'}`}>
         {status.name}
       </span>
 
@@ -101,21 +101,21 @@ function SortableStatus({
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => onEdit(status)}
-            className="p-1 text-neutral-500 hover:text-yellow-400 transition-colors text-xs"
+            className="p-1 text-gray-400 dark:text-neutral-500 hover:text-yellow-400 transition-colors text-xs"
             title="Editar"
           >
             ✏️
           </button>
           <button
             onClick={() => onToggle(status)}
-            className="p-1 text-neutral-500 hover:text-orange-400 transition-colors text-xs"
+            className="p-1 text-gray-400 dark:text-neutral-500 hover:text-orange-400 transition-colors text-xs"
             title={status.is_active ? 'Desactivar' : 'Activar'}
           >
             {status.is_active ? '🚫' : '✓'}
           </button>
           <button
             onClick={() => onDelete(status)}
-            className="p-1 text-neutral-500 hover:text-red-400 transition-colors text-xs"
+            className="p-1 text-gray-400 dark:text-neutral-500 hover:text-red-400 transition-colors text-xs"
             title="Eliminar"
           >
             🗑️
@@ -150,15 +150,15 @@ function CategorySection({
         isOver ? 'bg-yellow-400/10' : ''
       }`}>
         <span className="text-base">{category.icon}</span>
-        <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">
+        <span className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wide">
           {category.name}
         </span>
-        <span className="text-xs text-neutral-600">({statuses.length})</span>
+        <span className="text-xs text-gray-300 dark:text-neutral-600">({statuses.length})</span>
       </div>
 
       <SortableContext items={statuses.map(s => s.id)} strategy={verticalListSortingStrategy}>
         <div className={`ml-2 border-l-2 transition-colors ${
-          isOver ? 'border-yellow-400' : 'border-neutral-700'
+          isOver ? 'border-yellow-400' : 'border-gray-200 dark:border-neutral-700'
         }`}>
           {statuses.map(status => (
             <SortableStatus
@@ -172,7 +172,7 @@ function CategorySection({
           ))}
 
           {statuses.length === 0 && (
-            <div className={`py-3 px-4 text-xs text-neutral-600 italic ${
+            <div className={`py-3 px-4 text-xs text-gray-300 dark:text-neutral-600 italic ${
               isOver ? 'text-yellow-400' : ''
             }`}>
               Arrastra estados aquí
@@ -188,6 +188,15 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   // Crear
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -481,14 +490,14 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
         onClick={handleClose}
       >
         <div
-          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
+          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
             isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-neutral-700">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-neutral-700">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-yellow-400">🎨</span> Estados
             </h2>
             <div className="flex items-center gap-2">
@@ -500,14 +509,14 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
                   + Nuevo
                 </button>
               )}
-              <button onClick={handleClose} className="text-neutral-400 hover:text-white text-xl">×</button>
+              <button onClick={handleClose} className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white text-xl">×</button>
             </div>
           </div>
 
           {/* Formulario crear */}
           {showCreateForm && (
             <div
-              className="p-4 border-b border-neutral-700 bg-neutral-900/50"
+              className="p-4 border-b border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900/50"
               tabIndex={0}
               onBlur={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node) && !showColorPicker) {
@@ -525,11 +534,11 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
                     if (e.key === 'Escape') { setShowCreateForm(false); setNewName('') }
                   }}
                   placeholder="Nombre..."
-                  className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="flex-1 px-3 py-2 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
                   autoFocus
                 />
                 <div
-                  className="w-10 h-10 rounded-lg cursor-pointer border-2 border-neutral-600 hover:border-yellow-400"
+                  className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-300 dark:border-neutral-600 hover:border-yellow-400"
                   style={{ backgroundColor: newColor }}
                   onClick={() => openColorPicker('new')}
                 />
@@ -538,7 +547,7 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
                 <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value as StatusCategory)}
-                  className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="flex-1 px-3 py-2 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 >
                   {CATEGORIES.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
@@ -562,7 +571,7 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
             ) : statuses.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-4xl mb-2">📭</div>
-                <p className="text-neutral-500">No hay estados</p>
+                <p className="text-gray-400 dark:text-neutral-500">No hay estados</p>
               </div>
             ) : (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -586,14 +595,14 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
       {/* Modal editar */}
       {editingStatus && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setEditingStatus(null)}>
-          <div className="bg-neutral-800 rounded-xl p-5 w-full max-w-xs mx-4 border border-neutral-700" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-white mb-4">Editar Estado</h3>
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-5 w-full max-w-xs mx-4 border border-gray-200 dark:border-neutral-700" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Editar Estado</h3>
             <input
               type="text"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingStatus(null) }}
-              className="w-full px-3 py-2 mb-4 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              className="w-full px-3 py-2 mb-4 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
               autoFocus
             />
             <div className="flex flex-wrap gap-2 mb-4">
@@ -601,14 +610,14 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
                 <div
                   key={color}
                   onClick={() => setEditColor(color)}
-                  className={`w-7 h-7 rounded cursor-pointer hover:scale-110 transition-transform ${editColor === color ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-neutral-800' : ''}`}
+                  className={`w-7 h-7 rounded cursor-pointer hover:scale-110 transition-transform ${editColor === color ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-white dark:ring-offset-neutral-800' : ''}`}
                   style={{ backgroundColor: color }}
                 />
               ))}
               <div onClick={() => openColorPicker('edit')} className="w-7 h-7 rounded cursor-pointer border-2 border-dashed border-neutral-500 flex items-center justify-center hover:border-yellow-400 text-xs">🎨</div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setEditingStatus(null)} className="flex-1 px-3 py-2 bg-neutral-700 text-neutral-300 rounded-lg hover:bg-neutral-600 text-sm">Cancelar</button>
+              <button onClick={() => setEditingStatus(null)} className="flex-1 px-3 py-2 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-600 text-sm">Cancelar</button>
               <button onClick={handleSaveEdit} className="flex-1 px-3 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 text-sm">Guardar</button>
             </div>
           </div>
@@ -618,13 +627,13 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
       {/* Color picker */}
       {showColorPicker && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50" onClick={() => setShowColorPicker(false)}>
-          <div className="bg-neutral-800 rounded-xl p-5 border border-neutral-700" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-5 border border-gray-200 dark:border-neutral-700" onClick={(e) => e.stopPropagation()}>
             <HexColorPicker color={tempColor} onChange={setTempColor} />
             <input
               type="text"
               value={tempColor}
               onChange={(e) => setTempColor(e.target.value)}
-              className="w-full mt-3 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-center font-mono text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              className="w-full mt-3 px-3 py-2 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white text-center font-mono text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
             />
             <button onClick={saveColor} className="w-full mt-3 px-4 py-2 rounded-lg font-medium text-sm" style={{ backgroundColor: tempColor, color: '#171717' }}>Aplicar</button>
           </div>

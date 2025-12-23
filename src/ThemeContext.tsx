@@ -13,21 +13,31 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = localStorage.getItem('tazk-theme')
-    return (saved as Theme) || 'dark'
+    if (saved === 'dark' || saved === 'light') return saved
+    return 'dark'
   })
 
   useEffect(() => {
     localStorage.setItem('tazk-theme', theme)
-    document.documentElement.setAttribute('data-theme', theme)
+    const root = document.documentElement
+    if (theme === 'dark') {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
   }, [theme])
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme)
-  }
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'dark') {
+      root.classList.add('dark')
+    } else {
+      root.classList.remove('dark')
+    }
+  }, [])
 
-  const toggleTheme = () => {
-    setThemeState(prev => prev === 'dark' ? 'light' : 'dark')
-  }
+  const setTheme = (newTheme: Theme) => setThemeState(newTheme)
+  const toggleTheme = () => setThemeState(prev => prev === 'dark' ? 'light' : 'dark')
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
@@ -38,8 +48,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext)
-  if (!context) {
-    throw new Error('useTheme must be used within ThemeProvider')
-  }
+  if (!context) throw new Error('useTheme debe usarse dentro de ThemeProvider')
   return context
 }

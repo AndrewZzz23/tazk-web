@@ -23,6 +23,15 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
 
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   useEffect(() => {
     // Animación de entrada
     setTimeout(() => setIsVisible(true), 10)
@@ -108,19 +117,19 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
       onClick={handleClose}
     >
       <div 
-        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 transform transition-all duration-200 ${
+        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 transform transition-all duration-200 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-700">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span className="text-yellow-400">⚡</span> Nueva Tarea
           </h2>
           <button
             onClick={handleClose}
-            className="text-neutral-400 hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
           >
             ×
           </button>
@@ -130,7 +139,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
         <form onSubmit={handleSubmit} className="p-6">
           {/* Título */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
               Título *
             </label>
             <input
@@ -138,7 +147,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Agrega un título a tu Tazk"
-              className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               autoFocus
               required
             />
@@ -146,7 +155,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
 
           {/* Descripción */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
               Descripción
             </label>
             <textarea
@@ -154,20 +163,20 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Agrega detalles..."
               rows={3}
-              className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none"
+              className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none"
             />
           </div>
 
           {/* Estado y Asignar */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-2">
+              <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                 Estado
               </label>
               <select
                 value={statusId}
                 onChange={(e) => setStatusId(e.target.value)}
-                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               >
                 {statuses.map(status => (
                   <option key={status.id} value={status.id}>
@@ -179,13 +188,13 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
 
             {teamId && users.length > 0 && (
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                   Asignar a
                 </label>
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
                 >
                   <option value="">Sin asignar</option>
                   {users.map(user => (
@@ -201,7 +210,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
           {/* Fechas */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-2">
+              <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                 Fecha inicio
               </label>
               <DatePicker
@@ -212,13 +221,13 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
                 timeIntervals={15}
                 dateFormat="dd/MM/yyyy HH:mm"
                 placeholderText="Seleccionar"
-                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 isClearable
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-2">
+              <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                 Fecha límite
               </label>
               <DatePicker
@@ -229,7 +238,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
                 timeIntervals={15}
                 dateFormat="dd/MM/yyyy HH:mm"
                 placeholderText="Seleccionar"
-                className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 minDate={startDate || undefined}
                 isClearable
               />
@@ -241,7 +250,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 px-4 py-3 bg-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-neutral-600 transition-colors"
             >
               Cancelar
             </button>

@@ -8,41 +8,36 @@ interface UserSettingsProps {
   user: User
   onClose: () => void
   onProfileUpdated: () => void
+  initialTab?: 'profile' | 'appearance' | 'shortcuts'
 }
 
 type Tab = 'profile' | 'appearance' | 'shortcuts'
 
-function UserSettings({ user, onClose, onProfileUpdated }: UserSettingsProps) {
+function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' }: UserSettingsProps) {
   const { theme, setTheme } = useTheme()
   const [isVisible, setIsVisible] = useState(false)
-  const [activeTab, setActiveTab] = useState<Tab>('profile')
-  
-  // Profile
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
-  
-  // Toast
-  const [toast, setToast] = useState<{
-    show: boolean
-    message: string
-    type: 'success' | 'error' | 'info'
-  }>({ show: false, message: '', type: 'info' })
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
     loadProfile()
   }, [])
 
-  const loadProfile = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single()
-
-    if (data) {
-      setFullName(data.full_name || '')
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
     }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const loadProfile = async () => {
+    const { data } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+    if (data) setFullName(data.full_name || '')
   }
 
   const handleClose = () => {
@@ -56,21 +51,10 @@ function UserSettings({ user, onClose, onProfileUpdated }: UserSettingsProps) {
 
   const handleSaveProfile = async () => {
     setLoading(true)
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName.trim() })
-      .eq('id', user.id)
-      .select()
-
+    const { error } = await supabase.from('profiles').update({ full_name: fullName.trim() }).eq('id', user.id)
     setLoading(false)
-
-    if (error) {
-      showToast('Error al guardar: ' + error.message, 'error')
-    } else {
-      showToast('Perfil actualizado', 'success')
-      onProfileUpdated()
-    }
+    if (error) showToast('Error: ' + error.message, 'error')
+    else { showToast('Perfil actualizado', 'success'); onProfileUpdated() }
   }
 
   const tabs = [
@@ -93,41 +77,30 @@ function UserSettings({ user, onClose, onProfileUpdated }: UserSettingsProps) {
   return (
     <>
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
-        }`}
+        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
         onClick={handleClose}
       >
         <div
-          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
-            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          }`}
+          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-neutral-700">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <span className="text-yellow-400">⚙️</span> Configuración
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <span className="text-yellow-500 dark:text-yellow-400">⚙️</span> Configuración
             </h2>
-            <button
-              onClick={handleClose}
-              className="text-neutral-400 hover:text-white transition-colors text-2xl"
-            >
-              ×
-            </button>
+            <button onClick={handleClose} className="text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl">×</button>
           </div>
 
           <div className="flex h-[calc(85vh-80px)]">
-            {/* Sidebar de tabs */}
-            <div className="w-48 border-r border-neutral-700 p-2">
+            <div className="w-48 border-r border-gray-200 dark:border-neutral-700 p-2">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as Tab)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
                     activeTab === tab.id
-                      ? 'bg-yellow-400/10 text-yellow-400'
-                      : 'text-neutral-400 hover:bg-neutral-700 hover:text-white'
+                      ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400'
+                      : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
                   }`}
                 >
                   <span>{tab.icon}</span>
@@ -136,151 +109,108 @@ function UserSettings({ user, onClose, onProfileUpdated }: UserSettingsProps) {
               ))}
             </div>
 
-            {/* Contenido */}
             <div className="flex-1 p-6 overflow-y-auto">
-              {/* Tab: Perfil */}
               {activeTab === 'profile' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-6">Mi Perfil</h3>
-                  
-                  {/* Avatar */}
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mi Perfil</h3>
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-3xl">
                       {fullName ? fullName[0].toUpperCase() : userInitial}
                     </div>
                     <div>
-                      <p className="text-white font-medium">{user.email}</p>
-                      <p className="text-neutral-500 text-sm">
+                      <p className="text-gray-900 dark:text-white font-medium">{user.email}</p>
+                      <p className="text-gray-500 dark:text-neutral-500 text-sm">
                         Miembro desde {new Date(user.created_at).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
                       </p>
                     </div>
                   </div>
-
-                  {/* Nombre */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Nombre completo
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Nombre completo</label>
                     <input
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Tu nombre"
-                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                     />
                   </div>
-
-                  {/* Email (solo lectura) */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Email
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Email</label>
                     <input
                       type="email"
                       value={user.email || ''}
                       disabled
-                      className="w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-neutral-500 cursor-not-allowed"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-lg text-gray-400 dark:text-neutral-500 cursor-not-allowed"
                     />
-                    <p className="text-neutral-600 text-xs mt-1">El email no se puede cambiar</p>
+                    <p className="text-gray-400 dark:text-neutral-600 text-xs mt-1">El email no se puede cambiar</p>
                   </div>
-
-                  {/* Botón guardar */}
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={loading}
-                    className="px-6 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50"
-                  >
+                  <button onClick={handleSaveProfile} disabled={loading} className="px-6 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50">
                     {loading ? 'Guardando...' : 'Guardar cambios'}
                   </button>
                 </div>
               )}
 
-              {/* Tab: Apariencia */}
               {activeTab === 'appearance' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-6">Apariencia</h3>
-                  
-                  <p className="text-neutral-400 text-sm mb-4">
-                    Selecciona el tema de la aplicación
-                  </p>
-
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Apariencia</h3>
+                  <p className="text-gray-600 dark:text-neutral-400 text-sm mb-4">Selecciona el tema de la aplicación</p>
                   <div className="space-y-4">
-                    {/* Tema Oscuro */}
                     <button
                       onClick={() => setTheme('dark')}
                       className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                        theme === 'dark'
-                          ? 'bg-yellow-400/10 border-yellow-400'
-                          : 'bg-neutral-700/30 border-transparent hover:border-neutral-600'
+                        theme === 'dark' ? 'bg-yellow-100 dark:bg-yellow-400/10 border-yellow-400' : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent hover:border-gray-300 dark:hover:border-neutral-600'
                       }`}
                     >
                       <div className="w-12 h-12 bg-neutral-900 rounded-lg flex items-center justify-center border border-neutral-600">
                         <span className="text-2xl">🌙</span>
                       </div>
                       <div className="flex-1 text-left">
-                        <div className="text-white font-medium">Oscuro</div>
-                        <div className="text-neutral-400 text-sm">Reduce fatiga visual</div>
+                        <div className="text-gray-900 dark:text-white font-medium">Oscuro</div>
+                        <div className="text-gray-500 dark:text-neutral-400 text-sm">Reduce fatiga visual</div>
                       </div>
-                      {theme === 'dark' && <span className="text-yellow-400 text-xl">✓</span>}
+                      {theme === 'dark' && <span className="text-yellow-500 dark:text-yellow-400 text-xl">✓</span>}
                     </button>
-
-                    {/* Tema Claro */}
                     <button
                       onClick={() => setTheme('light')}
                       className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                        theme === 'light'
-                          ? 'bg-yellow-400/10 border-yellow-400'
-                          : 'bg-neutral-700/30 border-transparent hover:border-neutral-600'
+                        theme === 'light' ? 'bg-yellow-100 dark:bg-yellow-400/10 border-yellow-400' : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent hover:border-gray-300 dark:hover:border-neutral-600'
                       }`}
                     >
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-neutral-300">
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-gray-300">
                         <span className="text-2xl">☀️</span>
                       </div>
                       <div className="flex-1 text-left">
-                        <div className="text-white font-medium">Claro</div>
-                        <div className="text-neutral-400 text-sm">Mejor en ambientes iluminados</div>
+                        <div className="text-gray-900 dark:text-white font-medium">Claro</div>
+                        <div className="text-gray-500 dark:text-neutral-400 text-sm">Mejor en ambientes iluminados</div>
                       </div>
-                      {theme === 'light' && <span className="text-yellow-400 text-xl">✓</span>}
+                      {theme === 'light' && <span className="text-yellow-500 dark:text-yellow-400 text-xl">✓</span>}
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Tab: Atajos */}
               {activeTab === 'shortcuts' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-6">Atajos de teclado</h3>
-                  
-                  <p className="text-neutral-400 text-sm mb-6">
-                    Usa estos atajos para navegar más rápido
-                  </p>
-
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Atajos de teclado</h3>
+                  <p className="text-gray-600 dark:text-neutral-400 text-sm mb-6">Usa estos atajos para navegar más rápido</p>
                   <div className="space-y-3">
                     {shortcuts.map((shortcut, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-neutral-700/30 rounded-lg"
-                      >
-                        <span className="text-neutral-300">{shortcut.description}</span>
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-neutral-700/30 rounded-lg">
+                        <span className="text-gray-700 dark:text-neutral-300">{shortcut.description}</span>
                         <div className="flex gap-1">
                           {shortcut.keys.map((key, i) => (
                             <span key={i}>
-                              <kbd className="px-2 py-1 bg-neutral-700 border border-neutral-600 rounded text-sm text-white font-mono">
-                                {key}
-                              </kbd>
-                              {i < shortcut.keys.length - 1 && (
-                                <span className="text-neutral-500 mx-1">+</span>
-                              )}
+                              <kbd className="px-2 py-1 bg-white dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded text-sm text-gray-900 dark:text-white font-mono">{key}</kbd>
+                              {i < shortcut.keys.length - 1 && <span className="text-gray-400 dark:text-neutral-500 mx-1">+</span>}
                             </span>
                           ))}
                         </div>
                       </div>
                     ))}
                   </div>
-
-                  <div className="mt-6 p-4 bg-yellow-400/10 border border-yellow-400/30 rounded-lg">
-                    <p className="text-yellow-200 text-sm">
-                      💡 <strong>Tip:</strong> Los atajos numéricos (1, 2, 3) solo funcionan cuando no estás escribiendo en un campo de texto.
+                  <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-400/10 border border-yellow-200 dark:border-yellow-400/30 rounded-lg">
+                    <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                      💡 <strong>Tip:</strong> Los atajos numéricos solo funcionan cuando no estás escribiendo en un campo de texto.
                     </p>
                   </div>
                 </div>
@@ -290,14 +220,7 @@ function UserSettings({ user, onClose, onProfileUpdated }: UserSettingsProps) {
         </div>
       </div>
 
-      {/* Toast */}
-      {toast.show && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast({ ...toast, show: false })}
-        />
-      )}
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
     </>
   )
 }

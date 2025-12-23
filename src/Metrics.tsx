@@ -15,6 +15,15 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
 
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
     loadData()
@@ -107,19 +116,19 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
       onClick={handleClose}
     >
       <div
-        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-auto transform transition-all duration-200 ${
+        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-auto transform transition-all duration-200 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-700 sticky top-0 bg-neutral-800 z-10">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700 sticky top-0 bg-white dark:bg-neutral-800 z-10">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span className="text-yellow-400">📊</span> Métricas
           </h2>
           <button
             onClick={handleClose}
-            className="text-neutral-400 hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
           >
             ×
           </button>
@@ -134,15 +143,15 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
            {/* Cards de resumen */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
               {/* Total */}
-              <div className="bg-neutral-700/50 rounded-xl p-4 border border-neutral-600">
-                <div className="text-3xl font-bold text-white">{totalTasks}</div>
-                <div className="text-neutral-400 text-sm mt-1">Total</div>
+              <div className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-4 border border-gray-300 dark:border-neutral-600">
+                <div className="text-3xl font-bold text-gray-900 dark:text-white">{totalTasks}</div>
+                <div className="text-gray-500 dark:text-neutral-400 text-sm mt-1">Total</div>
               </div>
 
               {/* Sin iniciar */}
               <div className="bg-neutral-500/10 rounded-xl p-4 border border-neutral-500/30">
-                <div className="text-3xl font-bold text-neutral-300">{notStartedTasks}</div>
-                <div className="text-neutral-400 text-sm mt-1">⏸️ Sin iniciar</div>
+                <div className="text-3xl font-bold text-gray-600 dark:text-neutral-300">{notStartedTasks}</div>
+                <div className="text-gray-500 dark:text-neutral-400 text-sm mt-1">⏸️ Sin iniciar</div>
               </div>
 
               {/* En progreso */}
@@ -161,12 +170,12 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
               <div className={`rounded-xl p-4 border ${
                 overdueTasks > 0 
                   ? 'bg-red-500/10 border-red-500/30' 
-                  : 'bg-neutral-700/50 border-neutral-600'
+                  : 'bg-gray-100 dark:bg-neutral-700/50 border-gray-300 dark:border-neutral-600'
               }`}>
-                <div className={`text-3xl font-bold ${overdueTasks > 0 ? 'text-red-400' : 'text-neutral-400'}`}>
+                <div className={`text-3xl font-bold ${overdueTasks > 0 ? 'text-red-400' : 'text-gray-500 dark:text-neutral-400'}`}>
                   {overdueTasks}
                 </div>
-                <div className={`text-sm mt-1 ${overdueTasks > 0 ? 'text-red-400/70' : 'text-neutral-400'}`}>
+                <div className={`text-sm mt-1 ${overdueTasks > 0 ? 'text-red-400/70' : 'text-gray-500 dark:text-neutral-400'}`}>
                   ⚠️ Vencidas
                 </div>
               </div>
@@ -175,10 +184,10 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             {/* Barra de progreso */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-neutral-300 text-sm font-medium">Progreso general</span>
+                <span className="text-gray-600 dark:text-neutral-300 text-sm font-medium">Progreso general</span>
                 <span className="text-yellow-400 font-bold">{completionRate}%</span>
               </div>
-              <div className="h-3 bg-neutral-700 rounded-full overflow-hidden">
+              <div className="h-3 bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-500"
                   style={{ width: `${completionRate}%` }}
@@ -189,8 +198,8 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             {/* Gráficos */}
             <div className="grid md:grid-cols-2 gap-6">
               {/* Por estado */}
-              <div className="bg-neutral-700/30 rounded-xl p-4 border border-neutral-600">
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <div className="bg-gray-100 dark:bg-neutral-700/30 rounded-xl p-4 border border-gray-300 dark:border-neutral-600">
+                <h3 className="text-gray-900 dark:text-white font-semibold mb-4 flex items-center gap-2">
                   <span>🎯</span> Por estado
                 </h3>
                 {statusData.length > 0 ? (
@@ -222,7 +231,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="text-neutral-500 text-center py-8">
+                  <div className="text-gray-400 dark:text-neutral-500 text-center py-8">
                     Sin datos
                   </div>
                 )}
@@ -234,16 +243,16 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                         className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: status.color }}
                       />
-                      <span className="text-neutral-300">{status.name}</span>
-                      <span className="text-neutral-500">({status.value})</span>
+                      <span className="text-gray-600 dark:text-neutral-300">{status.name}</span>
+                      <span className="text-gray-400 dark:text-neutral-500">({status.value})</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Por usuario */}
-              <div className="bg-neutral-700/30 rounded-xl p-4 border border-neutral-600">
-                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+              <div className="bg-gray-100 dark:bg-neutral-700/30 rounded-xl p-4 border border-gray-300 dark:border-neutral-600">
+                <h3 className="text-gray-900 dark:text-white font-semibold mb-4 flex items-center gap-2">
                   <span>👥</span> Por asignado
                 </h3>
                 {userData.length > 0 ? (
@@ -270,7 +279,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-neutral-500 text-center py-8">
+                  <div className="text-gray-400 dark:text-neutral-500 text-center py-8">
                     Sin asignaciones
                   </div>
                 )}
@@ -281,7 +290,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             {totalTasks === 0 && (
               <div className="text-center py-8">
                 <div className="text-6xl mb-4">📭</div>
-                <p className="text-neutral-400">No hay tareas para mostrar métricas</p>
+                <p className="text-gray-500 dark:text-neutral-400">No hay tareas para mostrar métricas</p>
               </div>
             )}
           </div>

@@ -54,7 +54,7 @@ function Toast({ message, type = 'info', onClose }: ToastProps) {
             setIsVisible(false)
             setTimeout(onClose, 300)
           }}
-          className="text-neutral-400 hover:text-white ml-2"
+          className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white ml-2"
         >
           ×
         </button>

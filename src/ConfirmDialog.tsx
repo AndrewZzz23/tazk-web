@@ -63,7 +63,7 @@ function ConfirmDialog({
       onClick={handleCancel}
     >
       <div
-        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform transition-all duration-200 ${
+        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform transition-all duration-200 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -75,27 +75,27 @@ function ConfirmDialog({
           </div>
 
           {/* Título */}
-          <h3 className="text-lg font-bold text-white text-center mb-2">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
             {title}
           </h3>
 
           {/* Mensaje */}
-          <p className="text-neutral-400 text-center text-sm">
+          <p className="text-gray-500 dark:text-neutral-400 text-center text-sm">
             {message}
           </p>
         </div>
 
         {/* Botones */}
-        <div className="flex gap-3 p-4 border-t border-neutral-700">
+        <div className="flex gap-3 p-4 border-t border-gray-200 dark:border-neutral-700">
           <button
             onClick={handleCancel}
-            className="flex-1 px-4 py-2.5 bg-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+            className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-neutral-600 transition-colors"
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
-            className={`flex-1 px-4 py-2.5 ${style.buttonBg} text-white rounded-lg font-medium transition-colors`}
+            className={`flex-1 px-4 py-2.5 ${style.buttonBg} text-gray-900 dark:text-white rounded-lg font-medium transition-colors`}
           >
             {confirmText}
           </button>

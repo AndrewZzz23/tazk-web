@@ -6,12 +6,10 @@ interface ActivityLog {
   action: string
   entity_type: string
   entity_id: string
-  changes: Record<string, unknown> | null
-  description: string | null
-  user_id: string
-  user_email: string | null
-  team_id: string | null
+  details: Record<string, unknown>
+  performed_by: string
   created_at: string
+  user_email?: string
 }
 
 interface ActivityLogsProps {
@@ -19,14 +17,23 @@ interface ActivityLogsProps {
   onClose: () => void
 }
 
-type FilterAction = 'all' | 'created' | 'updated' | 'deleted' | 'status_changed' | 'invited'
-type FilterEntity = 'all' | 'task' | 'team_member' | 'status' | 'invitation'
+type FilterAction = 'all' | 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned'
+type FilterEntity = 'all' | 'task' | 'team_member' | 'status'
 type FilterTime = 'all' | 'today' | 'week' | 'month'
 
 function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
   
   // Filtros
   const [filterAction, setFilterAction] = useState<FilterAction>('all')
@@ -59,7 +66,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     const { data, error } = await query
 
     if (error) {
-      console.error('Error cargando logs:', error)
+      console.error('Error:', error)
     } else {
       setLogs(data || [])
     }
@@ -81,30 +88,14 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     return Array.from(users).sort()
   }, [logs])
 
-  // Mapear acciones para filtros
-  const getActionCategory = (action: string): FilterAction => {
-    if (action === 'created') return 'created'
-    if (action === 'updated' || action === 'status_changed') return 'updated'
-    if (action === 'deleted') return 'deleted'
-    if (['invited', 'invitation_accepted', 'invitation_rejected', 'invitation_cancelled'].includes(action)) return 'invited'
-    return 'all'
-  }
-
   // Aplicar filtros
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       // Filtro por acción
-      if (filterAction !== 'all') {
-        const actionCategory = getActionCategory(log.action)
-        if (filterAction === 'status_changed' && log.action !== 'updated') return false
-        if (filterAction !== 'status_changed' && actionCategory !== filterAction) return false
-      }
+      if (filterAction !== 'all' && log.action !== filterAction) return false
 
       // Filtro por entidad
-      if (filterEntity !== 'all') {
-        if (filterEntity === 'invitation' && log.entity_type !== 'invitation' && log.entity_type !== 'team_member') return false
-        if (filterEntity !== 'invitation' && log.entity_type !== filterEntity) return false
-      }
+      if (filterEntity !== 'all' && log.entity_type !== filterEntity) return false
 
       // Filtro por usuario
       if (filterUser !== 'all' && log.user_email !== filterUser) return false
@@ -129,11 +120,11 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       // Filtro por búsqueda
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
-        const desc = (log.description || '').toLowerCase()
+        const details = log.details ? JSON.stringify(log.details).toLowerCase() : ''
         const email = (log.user_email || '').toLowerCase()
-        const changes = log.changes ? JSON.stringify(log.changes).toLowerCase() : ''
+        const action = (log.action || '').toLowerCase()
         
-        if (!desc.includes(term) && !email.includes(term) && !changes.includes(term)) {
+        if (!details.includes(term) && !email.includes(term) && !action.includes(term)) {
           return false
         }
       }
@@ -150,9 +141,11 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       created: logs.filter(l => l.action === 'created').length,
       updated: logs.filter(l => l.action === 'updated').length,
       deleted: logs.filter(l => l.action === 'deleted').length,
-      invited: logs.filter(l => ['invited', 'invitation_accepted', 'invitation_rejected', 'invitation_cancelled', 'member_removed'].includes(l.action)).length,
+      status_changed: logs.filter(l => l.action === 'status_changed').length,
+      assigned: logs.filter(l => l.action === 'assigned').length,
+      invited: logs.filter(l => ['invited', 'invitation_accepted', 'invitation_rejected', 'invitation_cancelled'].includes(l.action)).length,
     }
-  }), [logs])
+  }), [logs, filteredLogs])
 
   const hasActiveFilters = filterAction !== 'all' || filterEntity !== 'all' || filterTime !== 'all' || filterUser !== 'all' || searchTerm.trim()
 
@@ -190,15 +183,18 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       created: { icon: '➕', color: 'text-green-400', bg: 'bg-green-500/10', label: 'Creado' },
       updated: { icon: '✏️', color: 'text-blue-400', bg: 'bg-blue-500/10', label: 'Actualizado' },
       deleted: { icon: '🗑️', color: 'text-red-400', bg: 'bg-red-500/10', label: 'Eliminado' },
+      status_changed: { icon: '🔄', color: 'text-purple-400', bg: 'bg-purple-500/10', label: 'Estado' },
+      assigned: { icon: '👤', color: 'text-yellow-400', bg: 'bg-yellow-500/10', label: 'Asignado' },
+      unassigned: { icon: '👤', color: 'text-orange-400', bg: 'bg-orange-500/10', label: 'Desasignado' },
+      joined: { icon: '🎉', color: 'text-green-400', bg: 'bg-green-500/10', label: 'Se unió' },
+      left: { icon: '👋', color: 'text-orange-400', bg: 'bg-orange-500/10', label: 'Salió' },
+      role_changed: { icon: '🛡️', color: 'text-blue-400', bg: 'bg-blue-500/10', label: 'Rol' },
       invited: { icon: '✉️', color: 'text-cyan-400', bg: 'bg-cyan-500/10', label: 'Invitación' },
       invitation_accepted: { icon: '✅', color: 'text-green-400', bg: 'bg-green-500/10', label: 'Aceptada' },
       invitation_rejected: { icon: '❌', color: 'text-red-400', bg: 'bg-red-500/10', label: 'Rechazada' },
       invitation_cancelled: { icon: '🚫', color: 'text-orange-400', bg: 'bg-orange-500/10', label: 'Cancelada' },
-      member_removed: { icon: '👋', color: 'text-orange-400', bg: 'bg-orange-500/10', label: 'Removido' },
-      role_changed: { icon: '🛡️', color: 'text-purple-400', bg: 'bg-purple-500/10', label: 'Rol' },
-      profile_updated: { icon: '👤', color: 'text-blue-400', bg: 'bg-blue-500/10', label: 'Perfil' },
     }
-    return styles[action] || { icon: '📝', color: 'text-neutral-400', bg: 'bg-neutral-500/10', label: action }
+    return styles[action] || { icon: '📝', color: 'text-gray-500 dark:text-neutral-400', bg: 'bg-neutral-500/10', label: action }
   }
 
   const getEntityLabel = (type: string) => {
@@ -207,39 +203,63 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       task: 'Tarea',
       team_member: 'Miembro',
       status: 'Estado',
-      team: 'Equipo',
-      invitation: 'Invitación',
-      profile: 'Perfil'
+      team: 'Equipo'
     }
     return labels[type] || type
   }
 
-  // Usar description de la BD si existe, sino generar desde changes
-  const getDescription = (log: ActivityLog): string => {
-    // Si tiene descripción guardada, usarla
-    if (log.description) {
-      return log.description
-    }
-
-    // Fallback: generar descripción desde changes
-    const changes = log.changes || {}
+  const getDescription = (log: ActivityLog) => {
+    const details = log.details || {}
+    const title = (details as Record<string, string>)?.title 
+      || (details as Record<string, string>)?.name 
+      || (details as Record<string, string>)?.task_title 
+      || 'elemento'
     
+    const d = details as Record<string, string>
+
     switch (log.action) {
       case 'created':
-        return `Creó un ${getEntityLabel(log.entity_type).toLowerCase()}`
+        return `Creó ${getEntityLabel(log.entity_type).toLowerCase()}: "${title}"`
       case 'updated':
-        // Verificar si es cambio de estado
-        if (changes.status_id) {
-          return 'Cambió el estado de una tarea'
-        }
-        return `Actualizó un ${getEntityLabel(log.entity_type).toLowerCase()}`
+        return `Actualizó ${getEntityLabel(log.entity_type).toLowerCase()}: "${title}"`
       case 'deleted':
-        return `Eliminó un ${getEntityLabel(log.entity_type).toLowerCase()}`
+        return `Eliminó ${getEntityLabel(log.entity_type).toLowerCase()}: "${title}"`
+      case 'status_changed':
+        if (d?.old_status && d?.new_status) {
+          return `Cambió estado: "${d.old_status}" → "${d.new_status}"`
+        }
+        return 'Cambió estado'
+      case 'assigned':
+        if (d?.assigned_to_email) {
+          return `Asignó tarea a ${d.assigned_to_email}`
+        }
+        return 'Asignó tarea'
+      case 'unassigned':
+        return 'Removió asignación de tarea'
+      case 'joined':
+        if (d?.role) {
+          return `Se unió al equipo como ${d.role}`
+        }
+        return 'Se unió al equipo'
+      case 'left':
+        return 'Salió del equipo'
+      case 'role_changed':
+        if (d?.old_role && d?.new_role) {
+          return `Cambió rol: "${d.old_role}" → "${d.new_role}"`
+        }
+        return 'Cambió rol'
+      case 'invited':
+        return `Invitó a ${d?.email || 'alguien'} como ${d?.role || 'miembro'}`
+      case 'invitation_accepted':
+        return `${d?.email || 'Usuario'} aceptó la invitación`
+      case 'invitation_rejected':
+        return `${d?.email || 'Usuario'} rechazó la invitación`
+      case 'invitation_cancelled':
+        return `Canceló invitación a ${d?.email || 'alguien'}`
       default:
-        return `${log.action} en ${getEntityLabel(log.entity_type)}`
+        return `${log.action || 'Acción'} en ${getEntityLabel(log.entity_type || 'unknown')}`
     }
   }
-
   return (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
@@ -248,17 +268,17 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       onClick={handleClose}
     >
       <div
-        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
+        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 border-b border-neutral-700">
+        <div className="p-4 border-b border-gray-200 dark:border-neutral-700">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-yellow-400">📋</span> Actividad
-              <span className="text-neutral-500 text-sm font-normal">
+              <span className="text-gray-400 dark:text-neutral-500 text-sm font-normal">
                 ({filteredLogs.length}{hasActiveFilters ? ` de ${logs.length}` : ''})
               </span>
             </h2>
@@ -268,7 +288,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                 className={`px-3 py-1.5 rounded-lg text-sm transition-colors flex items-center gap-2 ${
                   showFilters || hasActiveFilters
                     ? 'bg-yellow-400 text-neutral-900'
-                    : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                    : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-600/80'
                 }`}
               >
                 <span>🔍</span>
@@ -279,7 +299,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
               </button>
               <button
                 onClick={handleClose}
-                className="text-neutral-400 hover:text-white transition-colors text-xl"
+                className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-xl"
               >
                 ×
               </button>
@@ -288,22 +308,22 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
 
           {/* Buscador */}
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">🔍</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500">🔍</span>
             <input
               type="text"
               placeholder="Buscar en actividad..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+              className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
             />
           </div>
 
           {/* Filtros expandibles */}
           {showFilters && (
-            <div className="mt-3 p-3 bg-neutral-900/50 rounded-xl space-y-3">
+            <div className="mt-3 p-3 bg-gray-50 dark:bg-neutral-900/50 rounded-xl space-y-3">
               {/* Filtro por acción */}
               <div>
-                <label className="text-xs text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                <label className="text-xs text-gray-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 block">
                   Acción
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -312,7 +332,9 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                     { id: 'created', label: '➕ Creado', count: counts.byAction.created },
                     { id: 'updated', label: '✏️ Actualizado', count: counts.byAction.updated },
                     { id: 'deleted', label: '🗑️ Eliminado', count: counts.byAction.deleted },
-                    { id: 'invited', label: '👥 Miembros', count: counts.byAction.invited },
+                    { id: 'status_changed', label: '🔄 Estado', count: counts.byAction.status_changed },
+                    { id: 'assigned', label: '👤 Asignado', count: counts.byAction.assigned },
+                    { id: 'invited', label: '✉️ Invitación', count: counts.byAction.invited },
                   ].map(item => (
                     <button
                       key={item.id}
@@ -320,7 +342,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                       className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${
                         filterAction === item.id
                           ? 'bg-yellow-400 text-neutral-900'
-                          : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                          : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-600'
                       }`}
                     >
                       {item.label}
@@ -334,7 +356,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
 
               {/* Filtro por entidad */}
               <div>
-                <label className="text-xs text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                <label className="text-xs text-gray-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 block">
                   Tipo
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -350,7 +372,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                       className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${
                         filterEntity === item.id
                           ? 'bg-yellow-400 text-neutral-900'
-                          : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                          : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-600'
                       }`}
                     >
                       {item.label}
@@ -361,7 +383,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
 
               {/* Filtro por tiempo */}
               <div>
-                <label className="text-xs text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                <label className="text-xs text-gray-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 block">
                   Periodo
                 </label>
                 <div className="flex flex-wrap gap-1.5">
@@ -377,7 +399,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                       className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${
                         filterTime === item.id
                           ? 'bg-yellow-400 text-neutral-900'
-                          : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                          : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-600'
                       }`}
                     >
                       {item.label}
@@ -389,13 +411,13 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
               {/* Filtro por usuario */}
               {uniqueUsers.length > 1 && (
                 <div>
-                  <label className="text-xs text-neutral-500 uppercase tracking-wide mb-1.5 block">
+                  <label className="text-xs text-gray-400 dark:text-neutral-500 uppercase tracking-wide mb-1.5 block">
                     Usuario
                   </label>
                   <select
                     value={filterUser}
                     onChange={(e) => setFilterUser(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                    className="w-full px-3 py-1.5 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
                   >
                     <option value="all">Todos los usuarios</option>
                     {uniqueUsers.map(email => (
@@ -409,7 +431,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="w-full px-3 py-2 bg-neutral-700 text-neutral-300 rounded-lg text-sm hover:bg-neutral-600 transition-colors"
+                  className="w-full px-3 py-2 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-neutral-600/80 transition-colors"
                 >
                   ✕ Limpiar filtros
                 </button>
@@ -427,13 +449,13 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
           ) : filteredLogs.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-2">{hasActiveFilters ? '🔍' : '📭'}</div>
-              <p className="text-neutral-500">
+              <p className="text-gray-400 dark:text-neutral-500">
                 {hasActiveFilters ? 'No hay actividad con estos filtros' : 'No hay actividad aún'}
               </p>
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="mt-3 px-4 py-2 bg-neutral-700 text-neutral-300 rounded-lg text-sm hover:bg-neutral-600 transition-colors"
+                  className="mt-3 px-4 py-2 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-neutral-600/80 transition-colors"
                 >
                   Limpiar filtros
                 </button>
@@ -446,7 +468,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                 return (
                   <div
                     key={log.id}
-                    className={`flex items-start gap-3 p-3 rounded-xl ${style.bg} border border-transparent hover:border-neutral-600 transition-colors`}
+                    className={`flex items-start gap-3 p-3 rounded-xl ${style.bg} border border-transparent hover:border-gray-300 dark:hover:border-neutral-600 transition-colors`}
                   >
                     {/* Icono */}
                     <div className={`w-8 h-8 rounded-lg ${style.bg} flex items-center justify-center text-lg flex-shrink-0`}>
@@ -455,15 +477,15 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
 
                     {/* Contenido */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm">
+                      <p className="text-gray-900 dark:text-white text-sm">
                         {getDescription(log)}
                       </p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-neutral-500 text-xs">
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-gray-400 dark:text-neutral-500 text-xs">
                           {log.user_email || 'Sistema'}
                         </span>
-                        <span className="text-neutral-600">•</span>
-                        <span className="text-neutral-500 text-xs">
+                        <span className="text-gray-300 dark:text-neutral-600">•</span>
+                        <span className="text-gray-400 dark:text-neutral-500 text-xs">
                           {formatDate(log.created_at)}
                         </span>
                         <span className={`text-xs px-1.5 py-0.5 rounded ${style.bg} ${style.color}`}>

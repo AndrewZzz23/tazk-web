@@ -303,7 +303,7 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm }: CalendarV
         }
       `}</style>
 
-      <div className="bg-neutral-800/50 rounded-xl p-4">
+      <div className="bg-white dark:bg-neutral-800/50 rounded-xl p-4">
         <Calendar
           localizer={localizer}
           events={events}
@@ -325,10 +325,10 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm }: CalendarV
 
       {events.length === 0 && !loading && (
         <div className="text-center py-8 mt-4">
-          <p className="text-neutral-400">
+          <p className="text-gray-500 dark:text-neutral-400">
             📅 No hay tareas con fechas programadas
           </p>
-          <p className="text-neutral-500 text-sm mt-1">
+          <p className="text-gray-400 dark:text-neutral-500 text-sm mt-1">
             Agrega fechas a tus tareas para verlas aquí
           </p>
         </div>

@@ -52,17 +52,17 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`bg-neutral-700 border border-neutral-600 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-yellow-400/50 transition-all ${
+      className={`bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-yellow-400/50 transition-all ${
         isDragging ? 'opacity-50 rotate-2 scale-105' : ''
       }`}
       onClick={onClick}
     >
-      <h4 className="text-white font-medium text-sm mb-2 line-clamp-2">
+      <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-2 line-clamp-2">
         {task.title}
       </h4>
 
       {task.description && (
-        <p className="text-neutral-400 text-xs mb-2 line-clamp-2">
+        <p className="text-gray-500 dark:text-neutral-400 text-xs mb-2 line-clamp-2">
           {task.description}
         </p>
       )}
@@ -81,7 +81,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
         {task.due_date && (
           <span
             className={`text-xs flex items-center gap-1 ${
-              isOverdue(task.due_date) ? 'text-red-400' : 'text-neutral-400'
+              isOverdue(task.due_date) ? 'text-red-400' : 'text-gray-500 dark:text-neutral-400'
             }`}
           >
             📅 {formatDate(task.due_date)}
@@ -95,8 +95,8 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
 // Preview de tarjeta al arrastrar
 function TaskCardPreview({ task }: { task: Task }) {
   return (
-    <div className="bg-neutral-700 border-2 border-yellow-400 rounded-lg p-3 shadow-2xl rotate-3 w-64">
-      <h4 className="text-white font-medium text-sm">{task.title}</h4>
+    <div className="bg-gray-100 dark:bg-neutral-700 border-2 border-yellow-400 rounded-lg p-3 shadow-2xl rotate-3 w-64">
+      <h4 className="text-gray-900 dark:text-white font-medium text-sm">{task.title}</h4>
     </div>
   )
 }
@@ -118,7 +118,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`bg-neutral-800/50 rounded-xl p-4 min-h-[500px] min-w-[280px] w-[280px] flex-shrink-0 transition-all ${
+      className={`bg-white dark:bg-neutral-800/50 rounded-xl p-4 min-h-[500px] min-w-[280px] w-[280px] flex-shrink-0 transition-all ${
         isOver ? 'ring-2 ring-yellow-400 bg-yellow-400/5' : ''
       }`}
     >
@@ -129,9 +129,9 @@ function DroppableColumn({
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: status.color }}
           />
-          <h3 className="text-white font-semibold">{status.name}</h3>
+          <h3 className="text-gray-900 dark:text-white font-semibold">{status.name}</h3>
         </div>
-        <span className="bg-neutral-700 text-neutral-300 text-xs font-medium px-2 py-1 rounded-full">
+        <span className="bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 text-xs font-medium px-2 py-1 rounded-full">
           {tasks.length}
         </span>
       </div>
@@ -147,7 +147,7 @@ function DroppableColumn({
         ))}
 
         {tasks.length === 0 && (
-          <div className="text-neutral-500 text-sm text-center py-8 border-2 border-dashed border-neutral-700 rounded-lg">
+          <div className="text-gray-400 dark:text-neutral-500 text-sm text-center py-8 border-2 border-dashed border-gray-200 dark:border-neutral-700 rounded-lg">
             Sin tareas
           </div>
         )}
@@ -285,8 +285,8 @@ function KanbanBoard({ currentUserId, teamId, userRole, searchTerm }: KanbanBoar
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">📋</div>
-        <p className="text-neutral-400 text-lg">No hay estados configurados</p>
-        <p className="text-neutral-500 text-sm mt-2">
+        <p className="text-gray-500 dark:text-neutral-400 text-lg">No hay estados configurados</p>
+        <p className="text-gray-400 dark:text-neutral-500 text-sm mt-2">
           Ve a "Estados" para crear algunos
         </p>
       </div>

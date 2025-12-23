@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient'
 import { useState, useEffect, useMemo } from 'react'
 import { User } from '@supabase/supabase-js'
 import { UserRole } from './types/database.types'
+import { useTheme } from './ThemeContext'
 import Sidebar from './Sidebar'
 import CreateTask from './CreateTask'
 import TaskList from './TaskList'
@@ -12,12 +13,16 @@ import Metrics from './Metrics'
 import ManageStatuses from './ManageStatuses'
 import Notifications from './Notifications'
 import UserSettings from './UserSettings'
-import { useTheme } from './ThemeContext'
+import { PlusIcon, LogoutIcon } from './components/iu/AnimatedIcons';
+
+
 
 function Dashboard() {
+  const { theme } = useTheme()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [profileName, setProfileName] = useState<string | null>(null)
   
   // Equipo actual
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
@@ -38,14 +43,39 @@ function Dashboard() {
   const [showStatuses, setShowStatuses] = useState(false)
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [userSettingsTab, setUserSettingsTab] = useState<'profile' | 'appearance' | 'shortcuts' | null>(null)
+
+  // Cerrar modales con ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Cerrar en orden de prioridad (el más reciente primero)
+        if (userSettingsTab) {
+          setUserSettingsTab(null)
+        } else if (showCreateTask) {
+          setShowCreateTask(false)
+        } else if (showActivityLogs) {
+          setShowActivityLogs(false)
+        } else if (showMetrics) {
+          setShowMetrics(false)
+        } else if (showStatuses) {
+          setShowStatuses(false)
+        } else if (showNotifications) {
+          setShowNotifications(false)
+        } else if (showUserMenu) {
+          setShowUserMenu(false)
+        } else if (searchTerm) {
+          setSearchTerm('')
+        }
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [userSettingsTab, showCreateTask, showActivityLogs, showMetrics, showStatuses, showNotifications, showUserMenu, searchTerm])
 
   //permisos
   const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
-  //perfil
-  const [showUserSettings, setShowUserSettings] = useState(false)
-
-  //tema
-  const { theme } = useTheme()
 
   // Funcionalidades para búsqueda
   const features = [
@@ -57,10 +87,10 @@ function Dashboard() {
     { id: 'view-list', icon: '☰', label: 'Vista Lista', action: () => setViewMode('list') },
     { id: 'view-kanban', icon: '▦', label: 'Vista Kanban', action: () => setViewMode('kanban') },
     { id: 'view-calendar', icon: '📅', label: 'Vista Calendario', action: () => setViewMode('calendar') },
-    { id: 'settings', icon: '⚙️', label: 'Configuración', action: () => setShowUserSettings(true) },
-    { id: 'profile', icon: '👤', label: 'Mi perfil', action: () => setShowUserSettings(true) },
-    { id: 'shortcuts', icon: '⌨️', label: 'Atajos de teclado', action: () => setShowUserSettings(true) },
-    { id: 'theme', icon: '🎨', label: 'Tema', action: () => setShowUserSettings(true) },
+    { id: 'settings', icon: '⚙️', label: 'Configuración', action: () => setUserSettingsTab('profile') },
+    { id: 'profile', icon: '👤', label: 'Mi perfil', action: () => setUserSettingsTab('profile') },
+    { id: 'theme', icon: '🎨', label: 'Cambiar tema', action: () => setUserSettingsTab('appearance') },
+    { id: 'shortcuts', icon: '⌨️', label: 'Atajos de teclado', action: () => setUserSettingsTab('shortcuts') },
   ]
 
   // Filtrar funcionalidades por búsqueda
@@ -73,6 +103,20 @@ function Dashboard() {
   const loadUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+    
+    // Cargar nombre del perfil
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+      
+      if (profile?.full_name) {
+        setProfileName(profile.full_name)
+      }
+    }
+    
     setLoading(false)
   }
 
@@ -155,17 +199,17 @@ function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 flex items-center justify-center">
         <div className="text-yellow-400 text-xl">⚡ Cargando...</div>
       </div>
     )
   }
 
-  const userInitial = user?.email?.[0]?.toUpperCase() || '?'
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'
+  const userInitial = profileName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'
+  const userName = profileName || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white">
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 text-gray-900 dark:text-white">
       {/* Sidebar */}
       <Sidebar
         currentUserId={user!.id}
@@ -180,17 +224,16 @@ function Dashboard() {
         onLogout={handleLogout}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        refreshKey={refreshKey}
       />
 
       {/* Main */}
       <main className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Header */}
-        <header className="sticky top-0 z-30 bg-neutral-900/80 backdrop-blur-sm border-b border-neutral-800">
+        <header className="sticky top-0 z-30 bg-gray-50 dark:bg-neutral-900/80 backdrop-blur-sm border-b border-gray-300 dark:border-neutral-800">
           <div className="px-6 py-3 flex items-center gap-4">
             {/* Título */}
             <div className="flex-shrink-0">
-              <h1 className="text-lg font-semibold text-white">
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {currentTeamName || 'Mis Tareas'}
               </h1>
             </div>
@@ -198,7 +241,7 @@ function Dashboard() {
             {/* Buscador centrado */}
             <div className="flex-1 flex justify-center">
               <div className="relative w-full max-w-md">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 text-sm">
                   🔍
                 </span>
                 <input
@@ -209,26 +252,26 @@ function Dashboard() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                  className="w-full pl-9 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-transparent"
+                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-transparent"
                 />
                 
                 {/* Dropdown de resultados */}
                 {searchFocused && (searchTerm.trim() || filteredFeatures.length > 0) && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl overflow-hidden z-50">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-xl overflow-hidden z-50">
                     {/* Funcionalidades */}
                     {filteredFeatures.length > 0 && (
                       <div>
-                        <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wide border-b border-neutral-700">
+                        <div className="px-3 py-2 text-xs text-gray-400 dark:text-neutral-500 uppercase tracking-wide border-b border-gray-200 dark:border-neutral-700">
                           Acciones rápidas
                         </div>
                         {filteredFeatures.map(feature => (
                           <button
                             key={feature.id}
                             onClick={() => handleFeatureSelect(feature)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-700 transition-colors text-left"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-left"
                           >
                             <span className="text-lg">{feature.icon}</span>
-                            <span className="text-white text-sm">{feature.label}</span>
+                            <span className="text-gray-900 dark:text-white text-sm">{feature.label}</span>
                           </button>
                         ))}
                       </div>
@@ -236,7 +279,7 @@ function Dashboard() {
 
                     {/* Hint de búsqueda de tareas */}
                     {searchTerm.trim() && (
-                      <div className="px-4 py-3 border-t border-neutral-700 text-neutral-400 text-sm">
+                      <div className="px-4 py-3 border-t border-gray-200 dark:border-neutral-700 text-gray-500 dark:text-neutral-400 text-sm">
                         <span className="text-yellow-400">Enter</span> para buscar "{searchTerm}" en tareas
                       </div>
                     )}
@@ -249,7 +292,7 @@ function Dashboard() {
             <div className="flex-shrink-0 relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-neutral-800 transition-colors"
+                className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white dark:hover:bg-neutral-800 transition-colors"
               >
                 <div className="w-9 h-9 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold">
                   {userInitial}
@@ -260,16 +303,16 @@ function Dashboard() {
               {showUserMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-xl z-50 overflow-hidden">
                     {/* Info usuario */}
-                    <div className="p-4 border-b border-neutral-700">
+                    <div className="p-4 border-b border-gray-200 dark:border-neutral-700">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-lg">
                           {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white font-medium truncate">{userName}</div>
-                          <div className="text-neutral-400 text-sm truncate">{user?.email}</div>
+                          <div className="text-gray-900 dark:text-white font-medium truncate">{userName}</div>
+                          <div className="text-gray-500 dark:text-neutral-400 text-sm truncate">{user?.email}</div>
                         </div>
                       </div>
                     </div>
@@ -279,45 +322,34 @@ function Dashboard() {
                       <button
                         onClick={() => {
                           setShowUserMenu(false)
-                          setShowUserSettings(true)
+                          setUserSettingsTab('profile')
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
                         <span>👤</span>
                         <span className="text-sm">Mi perfil</span>
                       </button>
 
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          setShowUserSettings(true)
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
-                      >
-                        <span>⚙️</span>
-                        <span className="text-sm">Preferencias</span>
-                      </button>
+                      
 
                       <button
                         onClick={() => {
                           setShowUserMenu(false)
-                          setShowUserSettings(true)
+                          setUserSettingsTab('appearance')
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
                         <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
                         <span className="text-sm">Tema</span>
-                        <span className="ml-auto text-xs text-neutral-500">
-                          {theme === 'dark' ? 'Oscuro' : 'Claro'}
-                        </span>
+                        <span className="ml-auto text-xs text-gray-400 dark:text-neutral-500">{theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
                       </button>
 
                       <button
                         onClick={() => {
                           setShowUserMenu(false)
-                          setShowUserSettings(true)
+                          setUserSettingsTab('shortcuts')
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
                         <span>⌨️</span>
                         <span className="text-sm">Atajos de teclado</span>
@@ -325,7 +357,7 @@ function Dashboard() {
                     </div>
 
                     {/* Separador */}
-                    <div className="border-t border-neutral-700" />
+                    <div className="border-t border-gray-200 dark:border-neutral-700" />
 
                     {/* Cerrar sesión */}
                     <div className="p-2">
@@ -336,7 +368,7 @@ function Dashboard() {
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
                       >
-                        <span>🚪</span>
+                        <span> <LogoutIcon  size={22} /> </span>
                         <span className="text-sm">Cerrar sesión</span>
                       </button>
                     </div>
@@ -397,9 +429,7 @@ function Dashboard() {
           className="fixed bottom-6 right-6 w-14 h-14 bg-yellow-400 text-neutral-900 rounded-full shadow-lg hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center z-50"
           title="Nueva tarea (Alt+N)"
         >
-          <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
+          <PlusIcon size={28} />
         </button>
       )}
 
@@ -447,13 +477,13 @@ function Dashboard() {
           onStatusesChanged={() => setRefreshKey(prev => prev + 1)}
         />
       )}
-      {showUserSettings && (
+
+      {userSettingsTab && (
         <UserSettings
           user={user!}
-          onClose={() => setShowUserSettings(false)}
-          onProfileUpdated={() => {
-            // Recargar si es necesario
-          }}
+          onClose={() => setUserSettingsTab(null)}
+          onProfileUpdated={loadUserData}
+          initialTab={userSettingsTab}
         />
       )}
     </div>

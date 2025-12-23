@@ -12,6 +12,15 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
 
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
   }, [])
@@ -70,19 +79,19 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
       onClick={handleClose}
     >
       <div
-        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 transform transition-all duration-200 ${
+        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 transform transition-all duration-200 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-neutral-700">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span className="text-yellow-400">👥</span> Crear Equipo
           </h2>
           <button
             onClick={handleClose}
-            className="text-neutral-400 hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
           >
             ×
           </button>
@@ -91,7 +100,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="mb-6">
-            <label className="block text-sm font-medium text-neutral-300 mb-2">
+            <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
               Nombre del equipo *
             </label>
             <input
@@ -99,7 +108,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Marketing, Desarrollo, Ventas..."
-              className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               autoFocus
               required
             />
@@ -109,7 +118,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
             <button
               type="button"
               onClick={handleClose}
-              className="flex-1 px-4 py-3 bg-neutral-700 text-neutral-300 rounded-lg font-medium hover:bg-neutral-600 transition-colors"
+              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-neutral-600 transition-colors"
             >
               Cancelar
             </button>

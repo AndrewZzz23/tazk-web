@@ -19,6 +19,15 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
   const [role, setRole] = useState<'admin' | 'member'>('member')
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
   
   // Invitaciones
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([])
@@ -230,19 +239,19 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
         onClick={handleClose}
       >
         <div
-          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden transform transition-all duration-200 ${
+          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden transform transition-all duration-200 ${
             isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-neutral-700">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-yellow-400">✉️</span> Invitar al Equipo
             </h2>
             <button
               onClick={handleClose}
-              className="text-neutral-400 hover:text-white transition-colors text-2xl"
+              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
             >
               ×
             </button>
@@ -250,9 +259,9 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
 
           <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
             {/* Formulario */}
-            <form onSubmit={handleSubmit} className="p-6 border-b border-neutral-700">
+            <form onSubmit={handleSubmit} className="p-6 border-b border-gray-200 dark:border-neutral-700">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                   Email *
                 </label>
                 <input
@@ -260,14 +269,14 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="usuario@ejemplo.com"
-                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
                   autoFocus
                   required
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                   Rol
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -277,7 +286,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                     className={`px-4 py-3 rounded-xl font-medium transition-all text-left ${
                       role === 'member'
                         ? 'bg-yellow-400 text-neutral-900'
-                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                        : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-600'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -294,7 +303,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                     className={`px-4 py-3 rounded-xl font-medium transition-all text-left ${
                       role === 'admin'
                         ? 'bg-yellow-400 text-neutral-900'
-                        : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
+                        : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-600'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -325,10 +334,10 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
 
             {/* Invitaciones pendientes */}
             <div className="p-6">
-              <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wide mb-4 flex items-center gap-2">
                 <span>⏳</span> Invitaciones Pendientes
                 {pendingInvitations.length > 0 && (
-                  <span className="bg-neutral-700 text-neutral-300 text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 text-xs px-2 py-0.5 rounded-full">
                     {pendingInvitations.length}
                   </span>
                 )}
@@ -339,34 +348,34 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
               ) : pendingInvitations.length === 0 ? (
                 <div className="text-center py-6">
                   <div className="text-3xl mb-2">📭</div>
-                  <p className="text-neutral-500 text-sm">No hay invitaciones pendientes</p>
+                  <p className="text-gray-400 dark:text-neutral-500 text-sm">No hay invitaciones pendientes</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {pendingInvitations.map(invitation => (
                     <div
                       key={invitation.id}
-                      className="bg-neutral-700/50 rounded-xl p-4 flex items-center gap-4 group"
+                      className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-4 flex items-center gap-4 group"
                     >
                       {/* Avatar */}
-                      <div className="w-10 h-10 bg-neutral-600 text-neutral-400 rounded-full flex items-center justify-center font-bold">
+                      <div className="w-10 h-10 bg-gray-200 dark:bg-neutral-600 text-gray-500 dark:text-neutral-400 rounded-full flex items-center justify-center font-bold">
                         {invitation.email[0].toUpperCase()}
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium truncate">
+                        <div className="text-gray-900 dark:text-white font-medium truncate">
                           {invitation.email}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-neutral-400 mt-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-neutral-400 mt-1">
                           <span>{invitation.role === 'admin' ? '🛡️ Admin' : '👤 Miembro'}</span>
-                          <span className="text-neutral-600">•</span>
+                          <span className="text-gray-300 dark:text-neutral-600">•</span>
                           <span>{formatDate(invitation.created_at)}</span>
-                          <span className="text-neutral-600">•</span>
+                          <span className="text-gray-300 dark:text-neutral-600">•</span>
                           <span className={
                             new Date(invitation.expires_at) <= new Date() 
                               ? 'text-red-400' 
-                              : 'text-neutral-400'
+                              : 'text-gray-500 dark:text-neutral-400'
                           }>
                             {getExpirationText(invitation.expires_at)}
                           </span>
@@ -381,7 +390,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                           email: invitation.email,
                           type: 'pending'
                         })}
-                        className="px-3 py-1.5 bg-neutral-600 text-neutral-300 rounded-lg text-sm hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        className="px-3 py-1.5 bg-gray-200 dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         Cancelar
                       </button>
@@ -393,7 +402,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
 
             {/* Invitaciones rechazadas */}
             {rejectedInvitations.length > 0 && (
-              <div className="p-6 border-t border-neutral-700">
+              <div className="p-6 border-t border-gray-200 dark:border-neutral-700">
                 <h3 className="text-sm font-semibold text-red-400/70 uppercase tracking-wide mb-4 flex items-center gap-2">
                   <span>❌</span> Rechazadas
                   <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full">
@@ -414,12 +423,12 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-neutral-300 font-medium truncate">
+                        <div className="text-gray-600 dark:text-neutral-300 font-medium truncate">
                           {invitation.email}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-neutral-500 mt-1">
                           <span className="text-red-400">Rechazada</span>
-                          <span className="text-neutral-600">•</span>
+                          <span className="text-gray-300 dark:text-neutral-600">•</span>
                           <span>
                             {invitation.responded_at && new Date(invitation.responded_at).toLocaleDateString('es-CO', {
                               day: '2-digit',
@@ -440,7 +449,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                             email: invitation.email,
                             type: 'rejected'
                           })}
-                          className="p-2 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                          className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                           title="Eliminar"
                         >
                           🗑️
@@ -450,7 +459,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                             setEmail(invitation.email)
                             setRole(invitation.role as 'admin' | 'member')
                           }}
-                          className="px-3 py-1.5 bg-neutral-700 text-neutral-300 rounded-lg text-sm hover:bg-yellow-400 hover:text-neutral-900 transition-colors"
+                          className="px-3 py-1.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-yellow-400 hover:text-neutral-900 transition-colors"
                         >
                           Reenviar
                         </button>

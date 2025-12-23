@@ -23,6 +23,15 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
   
   // Confirmación
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -149,20 +158,20 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
         onClick={handleClose}
       >
         <div
-          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden transform transition-all duration-200 ${
+          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden transform transition-all duration-200 ${
             isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-neutral-700">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-yellow-400">👥</span> Miembros
-              <span className="text-neutral-500 text-sm font-normal">({members.length})</span>
+              <span className="text-gray-400 dark:text-neutral-500 text-sm font-normal">({members.length})</span>
             </h2>
             <button
               onClick={handleClose}
-              className="text-neutral-400 hover:text-white transition-colors text-2xl"
+              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
             >
               ×
             </button>
@@ -177,7 +186,7 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
             ) : members.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-4xl mb-2">👻</div>
-                <p className="text-neutral-500">No hay miembros</p>
+                <p className="text-gray-400 dark:text-neutral-500">No hay miembros</p>
               </div>
             ) : (
               <div className="p-4 space-y-2">
@@ -188,7 +197,7 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center gap-3 p-3 bg-neutral-700/50 rounded-xl group hover:bg-neutral-700 transition-colors"
+                      className="flex items-center gap-3 p-3 bg-gray-100 dark:bg-neutral-700/50 rounded-xl group hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
                     >
                       {/* Avatar */}
                       <div className="w-10 h-10 bg-yellow-400 text-neutral-900 rounded-full flex items-center justify-center font-bold text-lg">
@@ -197,13 +206,13 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-white font-medium truncate flex items-center gap-2">
+                        <div className="text-gray-900 dark:text-white font-medium truncate flex items-center gap-2">
                           {member.profiles?.full_name || 'Sin nombre'}
                           {isCurrentUser && (
                             <span className="text-xs text-yellow-400">(tú)</span>
                           )}
                         </div>
-                        <div className="text-neutral-400 text-sm truncate">
+                        <div className="text-gray-500 dark:text-neutral-400 text-sm truncate">
                           {member.profiles?.email}
                         </div>
                       </div>
@@ -213,13 +222,13 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
                         <select
                           value={member.role}
                           onChange={(e) => handleRoleChange(member.id, e.target.value as UserRole)}
-                          className="bg-neutral-600 border border-neutral-500 text-white text-sm px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                          className="bg-gray-200 dark:bg-neutral-600 border border-neutral-500 text-gray-900 dark:text-white text-sm px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                         >
                           <option value="member">👤 Miembro</option>
                           <option value="admin">🛡️ Admin</option>
                         </select>
                       ) : (
-                        <span className="text-neutral-400 text-sm flex items-center gap-1">
+                        <span className="text-gray-500 dark:text-neutral-400 text-sm flex items-center gap-1">
                           {getRoleIcon(member.role)} {getRoleLabel(member.role)}
                         </span>
                       )}
@@ -231,7 +240,7 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
                             member.id,
                             member.profiles?.full_name || member.profiles?.email || 'este miembro'
                           )}
-                          className="p-2 text-neutral-500 hover:text-red-400 hover:bg-neutral-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-400 hover:bg-gray-200 dark:hover:bg-neutral-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                           title="Eliminar"
                         >
                           🗑️

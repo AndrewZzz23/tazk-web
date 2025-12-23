@@ -12,6 +12,15 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
   const [invitations, setInvitations] = useState<TeamInvitation[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{
     show: boolean
@@ -119,14 +128,14 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
         onClick={handleClose}
       >
         <div
-          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden transform transition-all duration-200 ${
+          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden transform transition-all duration-200 ${
             isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-neutral-700">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-yellow-400">🔔</span> Notificaciones
               {invitations.length > 0 && (
                 <span className="bg-yellow-400 text-neutral-900 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -136,7 +145,7 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
             </h2>
             <button
               onClick={handleClose}
-              className="text-neutral-400 hover:text-white transition-colors text-2xl"
+              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
             >
               ×
             </button>
@@ -151,14 +160,14 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
             ) : invitations.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-5xl mb-4">🔕</div>
-                <p className="text-neutral-400">No tienes notificaciones</p>
+                <p className="text-gray-500 dark:text-neutral-400">No tienes notificaciones</p>
               </div>
             ) : (
               <div className="p-4 space-y-3">
                 {invitations.map(invitation => (
                   <div
                     key={invitation.id}
-                    className="bg-neutral-700/50 rounded-xl p-4 border border-neutral-600"
+                    className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-4 border border-gray-300 dark:border-neutral-600"
                   >
                     {/* Info */}
                     <div className="flex items-start gap-3 mb-4">
@@ -166,17 +175,17 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
                         👥
                       </div>
                       <div className="flex-1">
-                        <p className="text-white">
+                        <p className="text-gray-900 dark:text-white">
                           <span className="font-semibold">{invitation.inviter?.full_name || 'Alguien'}</span>
                           {' '}te invitó a unirte a{' '}
                           <span className="font-semibold text-yellow-400">{invitation.teams?.name}</span>
                         </p>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-neutral-400 text-sm">
+                          <span className="text-gray-500 dark:text-neutral-400 text-sm">
                             {formatDate(invitation.created_at)}
                           </span>
-                          <span className="text-neutral-600">•</span>
-                          <span className="text-neutral-400 text-sm">
+                          <span className="text-gray-300 dark:text-neutral-600">•</span>
+                          <span className="text-gray-500 dark:text-neutral-400 text-sm">
                             Rol: {invitation.role === 'admin' ? '🛡️ Admin' : '👤 Miembro'}
                           </span>
                         </div>
@@ -188,7 +197,7 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
                       <button
                         onClick={() => handleReject(invitation.id)}
                         disabled={processingId === invitation.id}
-                        className="flex-1 px-4 py-2 bg-neutral-600 text-neutral-300 rounded-lg font-medium hover:bg-neutral-500 transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-gray-200 dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-neutral-500 transition-colors disabled:opacity-50"
                       >
                         Rechazar
                       </button>

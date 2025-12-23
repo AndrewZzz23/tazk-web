@@ -26,8 +26,8 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white flex justify-center">
-      <div className="max-w-screen-xl m-0 sm:m-10 bg-neutral-800 shadow-2xl sm:rounded-2xl flex justify-center flex-1">
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 text-gray-900 dark:text-white flex justify-center">
+      <div className="max-w-screen-xl m-0 sm:m-10 bg-white dark:bg-neutral-800 shadow-2xl sm:rounded-2xl flex justify-center flex-1">
         
         {/* Lado izquierdo - Formulario */}
         <div className="lg:w-1/2 xl:w-5/12 p-6 sm:p-12 flex flex-col justify-center">
@@ -36,7 +36,7 @@ function Login() {
           </div>
 
           <div className="mt-12 flex flex-col items-center">
-            <h2 className="text-2xl xl:text-3xl font-extrabold text-white">
+            <h2 className="text-2xl xl:text-3xl font-extrabold text-gray-900 dark:text-white">
               Iniciar Sesión
             </h2>
             
@@ -45,7 +45,7 @@ function Login() {
                 {/* Botón Google */}
                 <button
                   onClick={handleGoogleLogin}
-                  className="w-full max-w-xs font-bold shadow-lg rounded-lg py-3 bg-neutral-700 text-white flex items-center justify-center transition-all duration-300 ease-in-out hover:bg-yellow-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  className="w-full max-w-xs font-bold shadow-lg rounded-lg py-3 bg-gray-100 dark:bg-neutral-700 text-gray-900 dark:text-white flex items-center justify-center transition-all duration-300 ease-in-out hover:bg-yellow-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 >
                   <div className="bg-white p-2 rounded-full">
                     <svg className="w-4" viewBox="0 0 533.5 544.3">
@@ -73,7 +73,7 @@ function Login() {
                 {/* Botón Microsoft */}
                 <button
                   onClick={handleMicrosoftLogin}
-                  className="w-full max-w-xs font-bold shadow-lg rounded-lg py-3 bg-neutral-700 text-white flex items-center justify-center transition-all duration-300 ease-in-out hover:bg-yellow-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 mt-5"
+                  className="w-full max-w-xs font-bold shadow-lg rounded-lg py-3 bg-gray-100 dark:bg-neutral-700 text-gray-900 dark:text-white flex items-center justify-center transition-all duration-300 ease-in-out hover:bg-yellow-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-yellow-400 mt-5"
                 >
                   <div className="bg-white p-2 rounded-full">
                     <svg className="w-4" viewBox="0 0 24 24">
@@ -87,7 +87,7 @@ function Login() {
                 </button>
               </div>
 
-              <p className="mt-6 text-sm text-neutral-400 text-center">
+              <p className="mt-6 text-sm text-gray-500 dark:text-neutral-400 text-center">
                 Al continuar, aceptas nuestros
                 <a href="#" className="text-yellow-400 hover:underline ml-1 font-semibold">
                   Términos de Servicio
