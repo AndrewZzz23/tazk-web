@@ -283,7 +283,19 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
                             </span>
                           )}
 
-                          {/* Fecha límite */}
+                           {/* Fecha inicio */}
+                          {task.start_date && (
+                            <span className={`flex items-center gap-1 ${
+                              isOverdue(task.start_date) ? 'text-red-400' : 'text-neutral-400'
+                            }`}>
+                              <span>📅</span>
+                              <span>{formatDate(task.start_date)}</span>
+                              {isOverdue(task.start_date) && <span className="text-red-400"> </span>}
+                            </span>
+                          )}
+                          
+                          <span> - {/* Fecha límite */}</span>
+
                           {task.due_date && (
                             <span className={`flex items-center gap-1 ${
                               isOverdue(task.due_date) ? 'text-red-400' : 'text-neutral-400'

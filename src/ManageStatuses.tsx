@@ -18,6 +18,8 @@ import {
 } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
+import ConfirmDialog from './ConfirmDialog'
+import Toast from './Toast'
 
 interface ManageStatusesProps {
   currentUserId: string
@@ -100,18 +102,21 @@ function SortableStatus({
           <button
             onClick={() => onEdit(status)}
             className="p-1 text-neutral-500 hover:text-yellow-400 transition-colors text-xs"
+            title="Editar"
           >
             ✏️
           </button>
           <button
             onClick={() => onToggle(status)}
             className="p-1 text-neutral-500 hover:text-orange-400 transition-colors text-xs"
+            title={status.is_active ? 'Desactivar' : 'Activar'}
           >
             {status.is_active ? '🚫' : '✓'}
           </button>
           <button
             onClick={() => onDelete(status)}
             className="p-1 text-neutral-500 hover:text-red-400 transition-colors text-xs"
+            title="Eliminar"
           >
             🗑️
           </button>
@@ -141,7 +146,6 @@ function CategorySection({
 
   return (
     <div ref={setNodeRef} className="mb-4">
-      {/* Título de categoría */}
       <div className={`flex items-center gap-2 px-2 py-2 rounded-lg transition-colors ${
         isOver ? 'bg-yellow-400/10' : ''
       }`}>
@@ -152,7 +156,6 @@ function CategorySection({
         <span className="text-xs text-neutral-600">({statuses.length})</span>
       </div>
 
-      {/* Estados */}
       <SortableContext items={statuses.map(s => s.id)} strategy={verticalListSortingStrategy}>
         <div className={`ml-2 border-l-2 transition-colors ${
           isOver ? 'border-yellow-400' : 'border-neutral-700'
@@ -186,18 +189,34 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
 
+  // Crear
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('#4CAF50')
   const [newCategory, setNewCategory] = useState<StatusCategory>('not_started')
 
+  // Editar
   const [editingStatus, setEditingStatus] = useState<TaskStatus | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
 
+  // Color picker
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [colorPickerFor, setColorPickerFor] = useState<'new' | 'edit'>('new')
   const [tempColor, setTempColor] = useState('')
+
+  // Confirm dialog
+  const [confirmDialog, setConfirmDialog] = useState<{
+    show: boolean
+    status: TaskStatus | null
+  }>({ show: false, status: null })
+
+  // Toast
+  const [toast, setToast] = useState<{
+    show: boolean
+    message: string
+    type: 'success' | 'error' | 'info'
+  }>({ show: false, message: '', type: 'info' })
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -207,6 +226,10 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
     setTimeout(() => setIsVisible(true), 10)
     loadStatuses()
   }, [])
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ show: true, message, type })
+  }
 
   const loadStatuses = async () => {
     setLoading(true)
@@ -221,8 +244,13 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
       query = query.is('team_id', null)
     }
 
-    const { data } = await query
-    if (data) setStatuses(data)
+    const { data, error } = await query
+    if (error) {
+      console.error('Error cargando estados:', error)
+      showToast('Error al cargar estados', 'error')
+    } else {
+      setStatuses(data || [])
+    }
     setLoading(false)
   }
 
@@ -238,7 +266,6 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
     const activeId = active.id as string
     const overId = over.id as string
 
-    // Si se soltó sobre una categoría
     if (overId.startsWith('category-')) {
       const newCategory = overId.replace('category-', '') as StatusCategory
       const status = statuses.find(s => s.id === activeId)
@@ -248,23 +275,26 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
           s.id === activeId ? { ...s, category: newCategory } : s
         ))
 
-        await supabase
+        const { error } = await supabase
           .from('task_statuses')
           .update({ category: newCategory })
           .eq('id', activeId)
 
-        onStatusesChanged()
+        if (error) {
+          showToast('Error al mover estado', 'error')
+          loadStatuses()
+        } else {
+          onStatusesChanged()
+        }
       }
       return
     }
 
-    // Si se soltó sobre otro estado
     const activeStatus = statuses.find(s => s.id === activeId)
     const overStatus = statuses.find(s => s.id === overId)
 
     if (!activeStatus || !overStatus) return
 
-    // Cambiar categoría si es diferente
     if (activeStatus.category !== overStatus.category) {
       setStatuses(prev => prev.map(s =>
         s.id === activeId ? { ...s, category: overStatus.category } : s
@@ -276,7 +306,6 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
         .eq('id', activeId)
     }
 
-    // Reordenar
     const oldIndex = statuses.findIndex(s => s.id === activeId)
     const newIndex = statuses.findIndex(s => s.id === overId)
 
@@ -315,12 +344,13 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
       .single()
 
     if (error) {
-      alert('Error: ' + error.message)
+      showToast('Error al crear estado: ' + error.message, 'error')
     } else if (data) {
       setStatuses(prev => [...prev, data])
       setNewName('')
       setNewColor('#4CAF50')
       setShowCreateForm(false)
+      showToast('Estado creado', 'success')
       onStatusesChanged()
     }
   }
@@ -328,20 +358,32 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
   const handleSaveEdit = async () => {
     if (!editingStatus || !editName.trim()) return
 
+    const oldStatus = { ...editingStatus }
+    
     setStatuses(prev => prev.map(s =>
       s.id === editingStatus.id ? { ...s, name: editName.trim(), color: editColor } : s
     ))
     setEditingStatus(null)
 
-    await supabase
+    const { error } = await supabase
       .from('task_statuses')
       .update({ name: editName.trim(), color: editColor })
       .eq('id', editingStatus.id)
 
-    onStatusesChanged()
+    if (error) {
+      setStatuses(prev => prev.map(s =>
+        s.id === oldStatus.id ? oldStatus : s
+      ))
+      showToast('Error al actualizar estado', 'error')
+    } else {
+      showToast('Estado actualizado', 'success')
+      onStatusesChanged()
+    }
   }
 
   const handleToggle = async (status: TaskStatus) => {
+    const oldStatus = { ...status }
+
     if (status.is_active) {
       const firstActive = statuses.find(s => s.id !== status.id && s.is_active)
       if (firstActive) {
@@ -356,33 +398,66 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
       s.id === status.id ? { ...s, is_active: !s.is_active } : s
     ))
 
-    await supabase
+    const { error } = await supabase
       .from('task_statuses')
       .update({ is_active: !status.is_active })
       .eq('id', status.id)
 
-    onStatusesChanged()
+    if (error) {
+      setStatuses(prev => prev.map(s =>
+        s.id === oldStatus.id ? oldStatus : s
+      ))
+      showToast('Error al cambiar estado', 'error')
+    } else {
+      showToast(status.is_active ? 'Estado desactivado' : 'Estado activado', 'success')
+      onStatusesChanged()
+    }
   }
 
-  const handleDelete = async (status: TaskStatus) => {
-    if (!confirm(`¿Eliminar "${status.name}"?`)) return
+  const handleDeleteClick = (status: TaskStatus) => {
+    setConfirmDialog({ show: true, status })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const status = confirmDialog.status
+    if (!status) return
+
+    console.log('=== INICIANDO DELETE ===')
+    console.log('Status a eliminar:', status.id, status.name)
+
+    setConfirmDialog({ show: false, status: null })
 
     const firstActive = statuses.find(s => s.id !== status.id && s.is_active)
+    
     if (firstActive) {
-      await supabase
+      console.log('Moviendo tareas a:', firstActive.id)
+      const { data: moveData, error: moveError } = await supabase
         .from('tasks')
         .update({ status_id: firstActive.id })
         .eq('status_id', status.id)
+        .select()
+      
+      console.log('Resultado mover tareas:', { moveData, moveError })
     }
 
-    setStatuses(prev => prev.filter(s => s.id !== status.id))
-
-    await supabase
+    console.log('Ejecutando DELETE...')
+    const { data, error, status: httpStatus } = await supabase
       .from('task_statuses')
       .delete()
       .eq('id', status.id)
+      .select()
 
-    onStatusesChanged()
+    console.log('Resultado DELETE:', { data, error, httpStatus })
+
+    if (error) {
+      console.error('Error en delete:', error)
+      showToast('Error al eliminar: ' + error.message, 'error')
+    } else {
+      console.log('Delete exitoso')
+      setStatuses(prev => prev.filter(s => s.id !== status.id))
+      showToast('Estado eliminado', 'success')
+      onStatusesChanged()
+    }
   }
 
   const openColorPicker = (type: 'new' | 'edit') => {
@@ -398,106 +473,113 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
-      }`}
-      onClick={handleClose}
-    >
+    <>
       <div
-        className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
-          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
         }`}
-        onClick={(e) => e.stopPropagation()}
+        onClick={handleClose}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-neutral-700">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span className="text-yellow-400">🎨</span> Estados
-          </h2>
-          <div className="flex items-center gap-2">
-            {isOwnerOrAdmin && !showCreateForm && (
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="px-3 py-1.5 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 transition-colors text-sm"
-              >
-                + Nuevo
-              </button>
-            )}
-            <button onClick={handleClose} className="text-neutral-400 hover:text-white text-xl">×</button>
-          </div>
-        </div>
-
-        {/* Formulario crear */}
-        {showCreateForm && (
-          <div
-            className="p-4 border-b border-neutral-700 bg-neutral-900/50"
-            tabIndex={0}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node) && !showColorPicker) {
-                setTimeout(() => { setShowCreateForm(false); setNewName('') }, 150)
-              }
-            }}
-          >
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newName.trim()) handleCreate()
-                  if (e.key === 'Escape') { setShowCreateForm(false); setNewName('') }
-                }}
-                placeholder="Nombre..."
-                className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                autoFocus
-              />
-              <div
-                className="w-10 h-10 rounded-lg cursor-pointer border-2 border-neutral-600 hover:border-yellow-400"
-                style={{ backgroundColor: newColor }}
-                onClick={() => openColorPicker('new')}
-              />
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value as StatusCategory)}
-                className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              >
-                {CATEGORIES.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleCreate}
-                disabled={!newName.trim()}
-                className="px-4 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 disabled:opacity-50 text-sm"
-              >
-                Crear
-              </button>
+        <div
+          className={`bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${
+            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-5 border-b border-neutral-700">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span className="text-yellow-400">🎨</span> Estados
+            </h2>
+            <div className="flex items-center gap-2">
+              {isOwnerOrAdmin && !showCreateForm && (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="px-3 py-1.5 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 transition-colors text-sm"
+                >
+                  + Nuevo
+                </button>
+              )}
+              <button onClick={handleClose} className="text-neutral-400 hover:text-white text-xl">×</button>
             </div>
           </div>
-        )}
 
-        {/* Lista */}
-        <div className="p-4 overflow-y-auto max-h-[calc(85vh-130px)]">
-          {loading ? (
-            <div className="text-center py-8 text-yellow-400">⚡ Cargando...</div>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              {CATEGORIES.map(category => (
-                <CategorySection
-                  key={category.id}
-                  category={category}
-                  statuses={statuses.filter(s => s.category === category.id)}
-                  isOwnerOrAdmin={isOwnerOrAdmin}
-                  onEdit={(s) => { setEditingStatus(s); setEditName(s.name); setEditColor(s.color) }}
-                  onDelete={handleDelete}
-                  onToggle={handleToggle}
+          {/* Formulario crear */}
+          {showCreateForm && (
+            <div
+              className="p-4 border-b border-neutral-700 bg-neutral-900/50"
+              tabIndex={0}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node) && !showColorPicker) {
+                  setTimeout(() => { setShowCreateForm(false); setNewName('') }, 150)
+                }
+              }}
+            >
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newName.trim()) handleCreate()
+                    if (e.key === 'Escape') { setShowCreateForm(false); setNewName('') }
+                  }}
+                  placeholder="Nombre..."
+                  className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-500 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  autoFocus
                 />
-              ))}
-            </DndContext>
+                <div
+                  className="w-10 h-10 rounded-lg cursor-pointer border-2 border-neutral-600 hover:border-yellow-400"
+                  style={{ backgroundColor: newColor }}
+                  onClick={() => openColorPicker('new')}
+                />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as StatusCategory)}
+                  className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleCreate}
+                  disabled={!newName.trim()}
+                  className="px-4 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 disabled:opacity-50 text-sm"
+                >
+                  Crear
+                </button>
+              </div>
+            </div>
           )}
+
+          {/* Lista */}
+          <div className="p-4 overflow-y-auto max-h-[calc(85vh-130px)]">
+            {loading ? (
+              <div className="text-center py-8 text-yellow-400">⚡ Cargando...</div>
+            ) : statuses.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-2">📭</div>
+                <p className="text-neutral-500">No hay estados</p>
+              </div>
+            ) : (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                {CATEGORIES.map(category => (
+                  <CategorySection
+                    key={category.id}
+                    category={category}
+                    statuses={statuses.filter(s => s.category === category.id)}
+                    isOwnerOrAdmin={isOwnerOrAdmin}
+                    onEdit={(s) => { setEditingStatus(s); setEditName(s.name); setEditColor(s.color) }}
+                    onDelete={handleDeleteClick}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </DndContext>
+            )}
+          </div>
         </div>
       </div>
 
@@ -548,7 +630,29 @@ function ManageStatuses({ currentUserId, teamId, isOwnerOrAdmin, onClose, onStat
           </div>
         </div>
       )}
-    </div>
+
+      {/* Confirm dialog */}
+      {confirmDialog.show && confirmDialog.status && (
+        <ConfirmDialog
+          title="Eliminar estado"
+          message={`¿Estás seguro de eliminar "${confirmDialog.status.name}"? Las tareas con este estado se moverán a otro estado activo.`}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+          type="danger"
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setConfirmDialog({ show: false, status: null })}
+        />
+      )}
+
+      {/* Toast */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
+    </>
   )
 }
 

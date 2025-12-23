@@ -3,55 +3,76 @@
 @tailwind utilities;
 
 @layer base {
+  /* Tema Oscuro (default) */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --bg-primary: 23 23 23;
+    --bg-secondary: 38 38 38;
+    --bg-tertiary: 64 64 64;
+    --text-primary: 255 255 255;
+    --text-secondary: 163 163 163;
+    --text-muted: 115 115 115;
+    --border: 64 64 64;
+    --accent: 250 204 21;
+    --accent-hover: 253 224 71;
+  }
+
+  /* Tema Claro */
+  [data-theme="light"] {
+    --bg-primary: 255 255 255;
+    --bg-secondary: 245 245 245;
+    --bg-tertiary: 229 229 229;
+    --text-primary: 23 23 23;
+    --text-secondary: 64 64 64;
+    --text-muted: 115 115 115;
+    --border: 212 212 212;
+    --accent: 234 179 8;
+    --accent-hover: 202 138 4;
   }
 
   * {
-    border-color: hsl(var(--border));
+    border-color: rgb(var(--border));
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: rgb(var(--bg-primary));
+    color: rgb(var(--text-primary));
     font-family: system-ui, -apple-system, sans-serif;
+    transition: background-color 0.2s, color 0.2s;
   }
 }
 
-/* Estilos para botones de login */
-.btn-login {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 14px 20px;
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  background: white;
-  color: hsl(var(--foreground));
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-login:hover {
-  background: hsl(var(--secondary));
-  border-color: hsl(var(--primary));
+/* Clases utilitarias para temas */
+@layer utilities {
+  .bg-theme-primary {
+    background-color: rgb(var(--bg-primary));
+  }
+  .bg-theme-secondary {
+    background-color: rgb(var(--bg-secondary));
+  }
+  .bg-theme-tertiary {
+    background-color: rgb(var(--bg-tertiary));
+  }
+  .text-theme-primary {
+    color: rgb(var(--text-primary));
+  }
+  .text-theme-secondary {
+    color: rgb(var(--text-secondary));
+  }
+  .text-theme-muted {
+    color: rgb(var(--text-muted));
+  }
+  .border-theme {
+    border-color: rgb(var(--border));
+  }
+  .bg-accent {
+    background-color: rgb(var(--accent));
+  }
+  .bg-accent-hover:hover {
+    background-color: rgb(var(--accent-hover));
+  }
+  .text-accent {
+    color: rgb(var(--accent));
+  }
 }
 
 /* Estilos para React DatePicker */
@@ -61,39 +82,64 @@
 
 .react-datepicker__input-container input {
   width: 100% !important;
-  padding: 10px !important;
-  border-radius: var(--radius) !important;
-  border: 1px solid hsl(var(--border)) !important;
 }
 
 .react-datepicker {
   font-family: inherit;
-  border-radius: var(--radius);
-  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  border: 1px solid rgb(var(--border));
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background-color: rgb(var(--bg-secondary));
 }
 
 .react-datepicker__header {
-  background-color: hsl(var(--primary));
+  background-color: rgb(var(--accent));
   border-bottom: none;
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: 0.5rem 0.5rem 0 0;
   padding-top: 10px;
 }
 
 .react-datepicker__current-month,
 .react-datepicker-time__header,
 .react-datepicker__day-name {
-  color: white;
+  color: rgb(var(--bg-primary));
 }
 
-.react-datepicker__day--selected {
-  background-color: hsl(var(--primary));
-  border-radius: 50%;
+.react-datepicker__day {
+  color: rgb(var(--text-primary));
 }
 
 .react-datepicker__day:hover {
-  background-color: hsl(var(--primary) / 0.2);
+  background-color: rgb(var(--bg-tertiary));
   border-radius: 50%;
+}
+
+.react-datepicker__day--selected {
+  background-color: rgb(var(--accent)) !important;
+  color: rgb(var(--bg-primary)) !important;
+  border-radius: 50%;
+}
+
+.react-datepicker__day--keyboard-selected {
+  background-color: rgb(var(--accent) / 0.5);
+  border-radius: 50%;
+}
+
+.react-datepicker__time-container {
+  border-left: 1px solid rgb(var(--border));
+}
+
+.react-datepicker__time-list-item {
+  color: rgb(var(--text-primary));
+}
+
+.react-datepicker__time-list-item:hover {
+  background-color: rgb(var(--bg-tertiary)) !important;
+}
+
+.react-datepicker__time-list-item--selected {
+  background-color: rgb(var(--accent)) !important;
+  color: rgb(var(--bg-primary)) !important;
 }
 
 /* Color Picker */

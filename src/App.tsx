@@ -1,30 +1,35 @@
-  import { useState, useEffect } from 'react'
-  import { Session } from '@supabase/supabase-js'
-  import { supabase } from './supabaseClient'
-  import Login from './Login'
-  import Dashboard from './Dashboard'
-  import './index.css'
+import { useState, useEffect } from 'react'
+import { Session } from '@supabase/supabase-js'
+import { supabase } from './supabaseClient'
+import Login from './Login'
+import Dashboard from './Dashboard'
+import './index.css'
+import { ThemeProvider } from './ThemeContext'
 
-  function App() {
-    const [session, setSession] = useState<Session | null>(null)
+function App() {
+  const [session, setSession] = useState<Session | null>(null)
 
-    useEffect(() => {
-      // Obtener sesión actual
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session)
-      })
+  useEffect(() => {
+    // Obtener sesión actual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
 
-      // Escuchar cambios en la autenticación
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session)
-      })
+    // Escuchar cambios en la autenticación
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
 
-      return () => subscription.unsubscribe()
-    }, [])
+    return () => subscription.unsubscribe()
+  }, [])
 
-    return session ? <Dashboard /> : <Login />
-  }
+  return (
+    <ThemeProvider>
+      {session ? <Dashboard /> : <Login />}
+    </ThemeProvider>
+  )
+}
 
-  export default App
+export default App

@@ -1,28 +1,36 @@
 import { supabase } from './supabaseClient'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { User } from '@supabase/supabase-js'
-import { Profile, UserRole } from './types/database.types'
+import { UserRole } from './types/database.types'
 import Sidebar from './Sidebar'
 import CreateTask from './CreateTask'
 import TaskList from './TaskList'
-import TeamSelector from './TeamSelector'
 import ActivityLogs from './ActivityLogs'
 import KanbanBoard from './KanbanBoard'
 import CalendarView from './CalendarView'
 import Metrics from './Metrics'
 import ManageStatuses from './ManageStatuses'
 import Notifications from './Notifications'
+import UserSettings from './UserSettings'
+import { useTheme } from './ThemeContext'
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
   
-  // Estado del contexto de equipo
+  // Equipo actual
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
   const [currentTeamName, setCurrentTeamName] = useState<string | null>(null)
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null)
+  
+  // UI
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>('list')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   
   // Modales
   const [showActivityLogs, setShowActivityLogs] = useState(false)
@@ -30,26 +38,41 @@ function Dashboard() {
   const [showStatuses, setShowStatuses] = useState(false)
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  
-  // Vista y búsqueda
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>('list')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [notificationCount, setNotificationCount] = useState(0)
+
+  //permisos
+  const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
+  //perfil
+  const [showUserSettings, setShowUserSettings] = useState(false)
+
+  //tema
+  const { theme } = useTheme()
+
+  // Funcionalidades para búsqueda
+  const features = [
+    { id: 'new-task', icon: '➕', label: 'Nueva tarea', action: () => setShowCreateTask(true) },
+    { id: 'metrics', icon: '📊', label: 'Métricas', action: () => setShowMetrics(true) },
+    { id: 'activity', icon: '📋', label: 'Actividad', action: () => setShowActivityLogs(true) },
+    { id: 'statuses', icon: '🎨', label: 'Estados', action: () => setShowStatuses(true) },
+    { id: 'notifications', icon: '🔔', label: 'Notificaciones', action: () => setShowNotifications(true) },
+    { id: 'view-list', icon: '☰', label: 'Vista Lista', action: () => setViewMode('list') },
+    { id: 'view-kanban', icon: '▦', label: 'Vista Kanban', action: () => setViewMode('kanban') },
+    { id: 'view-calendar', icon: '📅', label: 'Vista Calendario', action: () => setViewMode('calendar') },
+    { id: 'settings', icon: '⚙️', label: 'Configuración', action: () => setShowUserSettings(true) },
+    { id: 'profile', icon: '👤', label: 'Mi perfil', action: () => setShowUserSettings(true) },
+    { id: 'shortcuts', icon: '⌨️', label: 'Atajos de teclado', action: () => setShowUserSettings(true) },
+    { id: 'theme', icon: '🎨', label: 'Tema', action: () => setShowUserSettings(true) },
+  ]
+
+  // Filtrar funcionalidades por búsqueda
+  const filteredFeatures = useMemo(() => {
+    if (!searchTerm.trim()) return []
+    const term = searchTerm.toLowerCase()
+    return features.filter(f => f.label.toLowerCase().includes(term))
+  }, [searchTerm])
 
   const loadUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
-
-    if (user) {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      
-      setProfile(profileData)
-    }
-
     setLoading(false)
   }
 
@@ -75,19 +98,60 @@ function Dashboard() {
     setRefreshKey(prev => prev + 1)
   }
 
-  const handleTaskCreated = () => {
-    setRefreshKey(prev => prev + 1)
-  }
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     window.location.reload()
+  }
+
+  const handleFeatureSelect = (feature: typeof features[0]) => {
+    feature.action()
+    setSearchTerm('')
+    setSearchFocused(false)
   }
 
   useEffect(() => {
     loadUserData()
     loadNotificationCount()
   }, [])
+
+  // Atajos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // No ejecutar atajos si está escribiendo en un input
+      const target = e.target as HTMLElement
+      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+
+      // Ctrl/Cmd + K para buscar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        document.getElementById('global-search')?.focus()
+      }
+
+      // Alt + N para nueva tarea
+      if (e.altKey && e.key === 'n' && canCreateTasks) {
+        e.preventDefault()
+        setShowCreateTask(true)
+      }
+
+      // Escape para cerrar modales/búsqueda
+      if (e.key === 'Escape') {
+        setSearchFocused(false)
+        setSearchTerm('')
+        setShowUserMenu(false)
+      }
+
+      // Solo si no está escribiendo
+      if (!isTyping) {
+        // 1, 2, 3 para cambiar vista
+        if (e.key === '1') setViewMode('list')
+        if (e.key === '2') setViewMode('kanban')
+        if (e.key === '3') setViewMode('calendar')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [canCreateTasks])
 
   if (loading) {
     return (
@@ -97,84 +161,209 @@ function Dashboard() {
     )
   }
 
-  const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
+  const userInitial = user?.email?.[0]?.toUpperCase() || '?'
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white">
       {/* Sidebar */}
       <Sidebar
+        currentUserId={user!.id}
         currentView={viewMode}
         onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar')}
-        teamName={currentTeamName}
-        userRole={currentRole}
+        onTeamChange={handleTeamChange}
         notificationCount={notificationCount}
         onShowNotifications={() => setShowNotifications(true)}
         onShowMetrics={() => setShowMetrics(true)}
         onShowActivityLogs={() => setShowActivityLogs(true)}
         onShowStatuses={() => setShowStatuses(true)}
         onLogout={handleLogout}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        refreshKey={refreshKey}
       />
 
-      {/* Main Content */}
-      <main className="ml-60 transition-all duration-300">
+      {/* Main */}
+      <main className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Header */}
-        <header className="bg-neutral-800/50 border-b border-neutral-800 sticky top-0 z-30 backdrop-blur-sm">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              {/* Team Selector */}
-              <TeamSelector 
-                currentUserId={user!.id}
-                onTeamChange={handleTeamChange}
-              />
+        <header className="sticky top-0 z-30 bg-neutral-900/80 backdrop-blur-sm border-b border-neutral-800">
+          <div className="px-6 py-3 flex items-center gap-4">
+            {/* Título */}
+            <div className="flex-shrink-0">
+              <h1 className="text-lg font-semibold text-white">
+                {currentTeamName || 'Mis Tareas'}
+              </h1>
+            </div>
 
-              {/* Búsqueda */}
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
-                    🔍
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Buscar tareas..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent w-64"
-                  />
-                </div>
+            {/* Buscador centrado */}
+            <div className="flex-1 flex justify-center">
+              <div className="relative w-full max-w-md">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm">
+                  🔍
+                </span>
+                <input
+                  id="global-search"
+                  type="text"
+                  placeholder="Buscar tareas o funciones... (Ctrl+K)"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                  className="w-full pl-9 pr-4 py-2 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-transparent"
+                />
+                
+                {/* Dropdown de resultados */}
+                {searchFocused && (searchTerm.trim() || filteredFeatures.length > 0) && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl overflow-hidden z-50">
+                    {/* Funcionalidades */}
+                    {filteredFeatures.length > 0 && (
+                      <div>
+                        <div className="px-3 py-2 text-xs text-neutral-500 uppercase tracking-wide border-b border-neutral-700">
+                          Acciones rápidas
+                        </div>
+                        {filteredFeatures.map(feature => (
+                          <button
+                            key={feature.id}
+                            onClick={() => handleFeatureSelect(feature)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-700 transition-colors text-left"
+                          >
+                            <span className="text-lg">{feature.icon}</span>
+                            <span className="text-white text-sm">{feature.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Hint de búsqueda de tareas */}
+                    {searchTerm.trim() && (
+                      <div className="px-4 py-3 border-t border-neutral-700 text-neutral-400 text-sm">
+                        <span className="text-yellow-400">Enter</span> para buscar "{searchTerm}" en tareas
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Perfil de usuario */}
+            <div className="flex-shrink-0 relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-neutral-800 transition-colors"
+              >
+                <div className="w-9 h-9 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold">
+                  {userInitial}
+                </div>
+              </button>
+
+              {/* Menu de usuario */}
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                    {/* Info usuario */}
+                    <div className="p-4 border-b border-neutral-700">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-lg">
+                          {userInitial}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-medium truncate">{userName}</div>
+                          <div className="text-neutral-400 text-sm truncate">{user?.email}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Opciones */}
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          setShowUserSettings(true)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                      >
+                        <span>👤</span>
+                        <span className="text-sm">Mi perfil</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          setShowUserSettings(true)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                      >
+                        <span>⚙️</span>
+                        <span className="text-sm">Preferencias</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          setShowUserSettings(true)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                      >
+                        <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
+                        <span className="text-sm">Tema</span>
+                        <span className="ml-auto text-xs text-neutral-500">
+                          {theme === 'dark' ? 'Oscuro' : 'Claro'}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          setShowUserSettings(true)
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
+                      >
+                        <span>⌨️</span>
+                        <span className="text-sm">Atajos de teclado</span>
+                      </button>
+                    </div>
+
+                    {/* Separador */}
+                    <div className="border-t border-neutral-700" />
+
+                    {/* Cerrar sesión */}
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false)
+                          handleLogout()
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <span>🚪</span>
+                        <span className="text-sm">Cerrar sesión</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
 
         {/* Content */}
         <div className="p-6">
-          {/* Info del contexto */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white">
-              {currentTeamId ? `👥 ${currentTeamName}` : '👤 Mis Tareas'}
-            </h1>
-            {currentTeamId && currentRole && (
-              <p className="text-neutral-400 text-sm mt-1">
-                {currentRole === 'owner' ? '👑 Propietario' : currentRole === 'admin' ? '🛡️ Administrador' : '👤 Miembro'}
-              </p>
-            )}
-          </div>
-
-          {/* Mensaje para miembros */}
+          {/* Info para miembros */}
           {currentTeamId && currentRole === 'member' && (
-            <div className="bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 px-4 py-3 rounded-lg mb-6 text-sm">
-              ℹ️ Como miembro, solo puedes ver y actualizar las tareas asignadas a ti.
+            <div className="bg-yellow-400/10 border border-yellow-400/20 text-yellow-200 px-4 py-3 rounded-lg mb-6 text-sm">
+              ℹ️ Solo puedes ver y actualizar las tareas asignadas a ti.
             </div>
           )}
 
-          {/* Contenido según vista */}
+          {/* Vista */}
           {viewMode === 'list' && (
             <TaskList 
               key={refreshKey}
               currentUserId={user!.id}
               teamId={currentTeamId}
               userRole={currentRole}
-              onTaskUpdated={handleTaskCreated}
+              onTaskUpdated={() => setRefreshKey(prev => prev + 1)}
               searchTerm={searchTerm}
             />
           )}
@@ -201,14 +390,16 @@ function Dashboard() {
         </div>
       </main>
 
-      {/* FAB - Floating Action Button */}
+      {/* FAB */}
       {canCreateTasks && (
         <button
           onClick={() => setShowCreateTask(true)}
-          className="fixed bottom-8 right-8 w-14 h-14 bg-yellow-400 text-neutral-900 rounded-full shadow-lg hover:bg-yellow-300 hover:scale-110 transition-all duration-200 flex items-center justify-center text-2xl font-bold z-50"
-          title="Crear nueva tarea"
+          className="fixed bottom-6 right-6 w-14 h-14 bg-yellow-400 text-neutral-900 rounded-full shadow-lg hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center z-50"
+          title="Nueva tarea (Alt+N)"
         >
-          +
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
         </button>
       )}
 
@@ -217,7 +408,7 @@ function Dashboard() {
         <CreateTask
           currentUserId={user!.id}
           teamId={currentTeamId}
-          onTaskCreated={handleTaskCreated}
+          onTaskCreated={() => setRefreshKey(prev => prev + 1)}
           onClose={() => setShowCreateTask(false)}
         />
       )}
@@ -254,6 +445,15 @@ function Dashboard() {
           isOwnerOrAdmin={currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'}
           onClose={() => setShowStatuses(false)}
           onStatusesChanged={() => setRefreshKey(prev => prev + 1)}
+        />
+      )}
+      {showUserSettings && (
+        <UserSettings
+          user={user!}
+          onClose={() => setShowUserSettings(false)}
+          onProfileUpdated={() => {
+            // Recargar si es necesario
+          }}
         />
       )}
     </div>
