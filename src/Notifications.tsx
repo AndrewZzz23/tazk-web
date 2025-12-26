@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { TeamInvitation } from './types/database.types'
 import Toast from './Toast'
+import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
 
 interface NotificationsProps {
   onClose: () => void
@@ -136,7 +137,7 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-yellow-400">🔔</span> Notificaciones
+              <span className="text-yellow-400"><BellIcon size={24} /></span> Notificaciones
               {invitations.length > 0 && (
                 <span className="bg-yellow-400 text-neutral-900 text-xs font-bold px-2 py-0.5 rounded-full">
                   {invitations.length}
@@ -145,9 +146,9 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
             </h2>
             <button
               onClick={handleClose}
-              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              ×
+              <XIcon size={24} />
             </button>
           </div>
 
@@ -155,7 +156,7 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
           <div className="overflow-y-auto max-h-[calc(80vh-80px)]">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-yellow-400">⚡ Cargando...</div>
+                <LoadingZapIcon size={48} />
               </div>
             ) : invitations.length === 0 ? (
               <div className="text-center py-12">
@@ -172,7 +173,7 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
                     {/* Info */}
                     <div className="flex items-start gap-3 mb-4">
                       <div className="w-10 h-10 bg-yellow-400 text-neutral-900 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0">
-                        👥
+                        <UsersIcon size={20} />
                       </div>
                       <div className="flex-1">
                         <p className="text-gray-900 dark:text-white">
@@ -204,9 +205,9 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
                       <button
                         onClick={() => handleAccept(invitation.id)}
                         disabled={processingId === invitation.id}
-                        className="flex-1 px-4 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                       >
-                        {processingId === invitation.id ? 'Procesando...' : 'Aceptar'}
+                        {processingId === invitation.id ? 'Procesando...' : <><CheckIcon size={18} /> Aceptar</>}
                       </button>
                     </div>
                   </div>

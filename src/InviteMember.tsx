@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { TeamInvitation, Profile } from './types/database.types'
 import Toast from './Toast'
 import ConfirmDialog from './ConfirmDialog'
+import { LoadingZapIcon, MailIcon, XIcon, UserIcon, TrashIcon } from './components/iu/AnimatedIcons'
 
 interface InviteMemberProps {
   teamId: string
@@ -247,13 +248,13 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-yellow-400">✉️</span> Invitar al Equipo
+              <span className="text-yellow-400"><MailIcon size={24} /></span> Invitar al Equipo
             </h2>
             <button
               onClick={handleClose}
-              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              ×
+              <XIcon size={24} />
             </button>
           </div>
 
@@ -290,7 +291,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">👤</span>
+                      <UserIcon size={24} />
                       <div>
                         <div className="font-semibold">Miembro</div>
                         <div className="text-xs opacity-70">Ver y editar sus tareas</div>
@@ -326,7 +327,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                   'Enviando...'
                 ) : (
                   <>
-                    <span>✉️</span> Enviar Invitación
+                    <MailIcon size={18} /> Enviar Invitación
                   </>
                 )}
               </button>
@@ -344,7 +345,9 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
               </h3>
 
               {loadingInvitations ? (
-                <div className="text-center py-6 text-yellow-400">⚡ Cargando...</div>
+                <div className="flex justify-center py-6">
+                  <LoadingZapIcon size={40} />
+                </div>
               ) : pendingInvitations.length === 0 ? (
                 <div className="text-center py-6">
                   <div className="text-3xl mb-2">📭</div>
@@ -452,7 +455,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                           className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                           title="Eliminar"
                         >
-                          🗑️
+                          <TrashIcon size={18} />
                         </button>
                         <button
                           onClick={() => {

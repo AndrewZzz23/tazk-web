@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, TaskStatus, UserRole } from './types/database.types'
 import EditTask from './EditTask'
+import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 
 interface TaskListProps {
   currentUserId: string
@@ -166,7 +167,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-yellow-400 text-lg">⚡ Cargando tareas...</div>
+        <LoadingZapIcon size={48} />
       </div>
     )
   }
@@ -308,6 +309,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
       {editingTask && (
         <EditTask
           task={editingTask}
+          currentUserId={currentUserId}
           onTaskUpdated={() => {
             loadTasks()
             onTaskUpdated()

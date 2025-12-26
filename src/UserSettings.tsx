@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { User } from '@supabase/supabase-js'
 import Toast from './Toast'
 import { useTheme } from './ThemeContext'
+import { MoonIcon, SunMediumIcon, SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, SaveIcon } from './components/iu/AnimatedIcons';
 
 interface UserSettingsProps {
   user: User
@@ -58,9 +59,9 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   }
 
   const tabs = [
-    { id: 'profile', icon: '👤', label: 'Perfil' },
-    { id: 'appearance', icon: '🎨', label: 'Apariencia' },
-    { id: 'shortcuts', icon: '⌨️', label: 'Atajos' },
+    { id: 'profile', icon: <UserIcon />, label: 'Perfil' },
+    { id: 'appearance', icon: <SunMoonIcon />, label: 'Apariencia' },
+    { id: 'shortcuts', icon: <RabbitIcon />, label: 'Atajos' },
   ]
 
   const shortcuts = [
@@ -86,9 +87,9 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-yellow-500 dark:text-yellow-400">⚙️</span> Configuración
+              <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={24} /></span> Configuración
             </h2>
-            <button onClick={handleClose} className="text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl">×</button>
+            <button onClick={handleClose} className="text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"><XIcon size={24} /></button>
           </div>
 
           <div className="flex h-[calc(85vh-80px)]">
@@ -162,7 +163,9 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                       }`}
                     >
                       <div className="w-12 h-12 bg-neutral-900 rounded-lg flex items-center justify-center border border-neutral-600">
-                        <span className="text-2xl">🌙</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                        </svg>
                       </div>
                       <div className="flex-1 text-left">
                         <div className="text-gray-900 dark:text-white font-medium">Oscuro</div>
@@ -177,7 +180,17 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                       }`}
                     >
                       <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-gray-300">
-                        <span className="text-2xl">☀️</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="4" />
+                          <path d="M12 3v1" />
+                          <path d="M12 20v1" />
+                          <path d="M3 12h1" />
+                          <path d="M20 12h1" />
+                          <path d="m18.364 5.636-.707.707" />
+                          <path d="m6.343 17.657-.707.707" />
+                          <path d="m5.636 5.636.707.707" />
+                          <path d="m17.657 17.657.707.707" />
+                        </svg>
                       </div>
                       <div className="flex-1 text-left">
                         <div className="text-gray-900 dark:text-white font-medium">Claro</div>

@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { UserRole, Profile } from './types/database.types'
 import ConfirmDialog from './ConfirmDialog'
 import Toast from './Toast'
+import { LoadingZapIcon, UsersIcon, XIcon, TrashIcon } from './components/iu/AnimatedIcons'
 
 interface TeamMember {
   id: string
@@ -166,14 +167,14 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-yellow-400">👥</span> Miembros
+              <span className="text-yellow-400"><UsersIcon size={24} /></span> Miembros
               <span className="text-gray-400 dark:text-neutral-500 text-sm font-normal">({members.length})</span>
             </h2>
             <button
               onClick={handleClose}
-              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
-              ×
+              <XIcon size={24} />
             </button>
           </div>
 
@@ -181,7 +182,7 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
           <div className="overflow-y-auto max-h-[calc(80vh-80px)]">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="text-yellow-400">⚡ Cargando...</div>
+                <LoadingZapIcon size={48} />
               </div>
             ) : members.length === 0 ? (
               <div className="text-center py-12">
@@ -243,7 +244,7 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
                           className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-400 hover:bg-gray-200 dark:hover:bg-neutral-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                           title="Eliminar"
                         >
-                          🗑️
+                          <TrashIcon size={18} />
                         </button>
                       )}
                     </div>

@@ -10,12 +10,27 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
+// Aplicar tema inmediatamente antes del render para evitar flash
+const getInitialTheme = (): Theme => {
+  if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('tazk-theme')
     if (saved === 'dark' || saved === 'light') return saved
-    return 'dark'
-  })
+  }
+  return 'dark'
+}
+
+// Aplicar clase inicial al HTML inmediatamente
+if (typeof window !== 'undefined') {
+  const initialTheme = getInitialTheme()
+  if (initialTheme === 'dark') {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
     localStorage.setItem('tazk-theme', theme)
@@ -26,15 +41,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.classList.remove('dark')
     }
   }, [theme])
-
-  useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') {
-      root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
-    }
-  }, [])
 
   const setTheme = (newTheme: Theme) => setThemeState(newTheme)
   const toggleTheme = () => setThemeState(prev => prev === 'dark' ? 'light' : 'dark')

@@ -6,6 +6,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { supabase } from './supabaseClient'
 import { Task, UserRole } from './types/database.types'
 import EditTask from './EditTask'
+import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 
 const locales = { es }
 
@@ -142,7 +143,7 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm }: CalendarV
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-yellow-400 text-lg">⚡ Cargando calendario...</div>
+        <LoadingZapIcon size={48} />
       </div>
     )
   }
@@ -338,6 +339,7 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm }: CalendarV
       {editingTask && (
         <EditTask
           task={editingTask}
+          currentUserId={currentUserId}
           onTaskUpdated={loadTasks}
           onClose={() => setEditingTask(null)}
         />

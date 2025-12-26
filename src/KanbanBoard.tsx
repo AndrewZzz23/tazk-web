@@ -12,11 +12,14 @@ import {
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import EditTask from './EditTask'
+import { LoadingZapIcon } from './components/iu/AnimatedIcons'
+import { logTaskStatusChanged } from './lib/activityLogger'
 
 interface KanbanBoardProps {
   currentUserId: string
   teamId: string | null
   userRole: UserRole | null
+  userEmail?: string
   searchTerm: string
 }
 
@@ -156,7 +159,7 @@ function DroppableColumn({
   )
 }
 
-function KanbanBoard({ currentUserId, teamId, userRole, searchTerm }: KanbanBoardProps) {
+function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -270,13 +273,20 @@ function KanbanBoard({ currentUserId, teamId, userRole, searchTerm }: KanbanBoar
         )
       )
       alert('Error al mover tarea')
+    } else {
+      // Log status change
+      const oldStatus = statuses.find((s) => s.id === oldStatusId)
+      const newStatus = statuses.find((s) => s.id === newStatusId)
+      if (oldStatus && newStatus) {
+        logTaskStatusChanged(taskId, task.title, teamId, currentUserId, oldStatus.name, newStatus.name, userEmail)
+      }
     }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-yellow-400 text-lg">⚡ Cargando tablero...</div>
+        <LoadingZapIcon size={48} />
       </div>
     )
   }
@@ -325,6 +335,7 @@ function KanbanBoard({ currentUserId, teamId, userRole, searchTerm }: KanbanBoar
       {editingTask && (
         <EditTask
           task={editingTask}
+          currentUserId={currentUserId}
           onTaskUpdated={loadData}
           onClose={() => setEditingTask(null)}
         />

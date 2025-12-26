@@ -3,15 +3,18 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
 import { TaskStatus, Profile } from './types/database.types'
+import { ZapIcon, XIcon } from './components/iu/AnimatedIcons'
+import { logTaskCreated } from './lib/activityLogger'
 
 interface CreateTaskProps {
   currentUserId: string
   teamId: string | null
+  userEmail?: string
   onTaskCreated: () => void
   onClose: () => void
 }
 
-function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTaskProps) {
+function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }: CreateTaskProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [statusId, setStatusId] = useState('')
@@ -86,7 +89,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
 
     setLoading(true)
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('tasks')
       .insert({
         title: title.trim(),
@@ -98,12 +101,16 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
         start_date: startDate?.toISOString() || null,
         due_date: dueDate?.toISOString() || null
       })
+      .select()
+      .single()
 
     setLoading(false)
 
     if (error) {
       alert('Error al crear tarea: ' + error.message)
     } else {
+      // Log activity
+      logTaskCreated(data.id, title.trim(), teamId, currentUserId, userEmail)
       onTaskCreated()
       handleClose()
     }
@@ -125,13 +132,13 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-yellow-400">⚡</span> Nueva Tarea
+            <span className="text-yellow-400"><ZapIcon size={24} /></span> Nueva Tarea
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            ×
+            <XIcon size={24} />
           </button>
         </div>
 
@@ -263,7 +270,7 @@ function CreateTask({ currentUserId, teamId, onTaskCreated, onClose }: CreateTas
                 'Creando...'
               ) : (
                 <>
-                  <span>⚡</span> Crear Tarea
+                  <ZapIcon size={18} /> Crear Tarea
                 </>
               )}
             </button>

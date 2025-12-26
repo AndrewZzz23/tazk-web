@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, TaskStatus } from './types/database.types'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { LoadingZapIcon, ChartIcon, XIcon } from './components/iu/AnimatedIcons'
 
 interface MetricsProps {
   currentUserId: string
@@ -124,19 +125,19 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700 sticky top-0 bg-white dark:bg-neutral-800 z-10">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-yellow-400">📊</span> Métricas
+            <span className="text-yellow-400"><ChartIcon size={24} /></span> Métricas
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            ×
+            <XIcon size={24} />
           </button>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-yellow-400">⚡ Cargando métricas...</div>
+            <LoadingZapIcon size={48} />
           </div>
         ) : (
           <div className="p-6">

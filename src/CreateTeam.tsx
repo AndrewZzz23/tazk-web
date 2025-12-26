@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
+import { UsersIcon, XIcon } from './components/iu/AnimatedIcons'
 
 interface CreateTeamProps {
   currentUserId: string
@@ -87,13 +88,13 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-yellow-400">👥</span> Crear Equipo
+            <span className="text-yellow-400"><UsersIcon size={24} /></span> Crear Equipo
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            ×
+            <XIcon size={24} />
           </button>
         </div>
 
@@ -127,7 +128,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
               disabled={loading || !name.trim()}
               className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Creando...' : '👥 Crear Equipo'}
+              {loading ? 'Creando...' : <><UsersIcon size={18} /> Crear Equipo</>}
             </button>
           </div>
         </form>

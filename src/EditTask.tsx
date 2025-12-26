@@ -3,14 +3,19 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
 import { Task, TaskStatus, Profile } from './types/database.types'
+import { EditIcon, XIcon, TrashIcon, SaveIcon } from './components/iu/AnimatedIcons'
+import TaskAttachments from './TaskAttachments'
+import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
 
 interface EditTaskProps {
   task: Task
+  currentUserId: string
+  userEmail?: string
   onTaskUpdated: () => void
   onClose: () => void
 }
 
-function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
+function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: EditTaskProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description || '')
   const [statusId, setStatusId] = useState(task.status_id)
@@ -64,7 +69,9 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
           .eq('team_id', task.team_id)
 
         if (memberData) {
-          const profiles = memberData.map((m) => m.profiles).filter(Boolean) as Profile[]
+          const profiles = memberData
+            .map((m) => m.profiles as unknown as Profile | null)
+            .filter((p): p is Profile => p !== null)
           setUsers(profiles)
         }
       }
@@ -105,6 +112,26 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
     if (error) {
       alert('Error al actualizar: ' + error.message)
     } else {
+      // Log changes
+      const oldStatus = statuses.find(s => s.id === task.status_id)
+      const newStatus = statuses.find(s => s.id === statusId)
+
+      if (task.status_id !== statusId && oldStatus && newStatus) {
+        logTaskStatusChanged(task.id, title.trim(), task.team_id, currentUserId, oldStatus.name, newStatus.name, userEmail)
+      } else {
+        logTaskUpdated(task.id, title.trim(), task.team_id, currentUserId, userEmail)
+      }
+
+      // Log assignment changes
+      if (task.assigned_to !== assignedTo) {
+        if (assignedTo) {
+          const assignedUser = users.find(u => u.id === assignedTo)
+          logTaskAssigned(task.id, title.trim(), task.team_id, currentUserId, assignedUser?.email || '', userEmail)
+        } else if (task.assigned_to) {
+          logTaskUnassigned(task.id, title.trim(), task.team_id, currentUserId, userEmail)
+        }
+      }
+
       onTaskUpdated()
       handleClose()
     }
@@ -122,6 +149,7 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
     if (error) {
       alert('Error al eliminar: ' + error.message)
     } else {
+      logTaskDeleted(task.id, task.title, task.team_id, currentUserId, userEmail)
       onTaskUpdated()
       handleClose()
     }
@@ -143,13 +171,13 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-yellow-400">✏️</span> Editar Tarea
+            <span className="text-yellow-400"><EditIcon size={24} /></span> Editar Tarea
           </h2>
           <button
             onClick={handleClose}
-            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors text-2xl"
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            ×
+            <XIcon size={24} />
           </button>
         </div>
 
@@ -262,15 +290,22 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
             </div>
           </div>
 
+          {/* Adjuntos */}
+          <TaskAttachments
+            taskId={task.id}
+            currentUserId={currentUserId}
+            canEdit={true}
+          />
+
           {/* Botones */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-neutral-700">
             <button
               type="button"
               onClick={handleDelete}
               disabled={loading}
-              className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50"
+              className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
-              🗑️ Eliminar
+              <TrashIcon size={18} /> Eliminar
             </button>
             <button
               type="button"
@@ -284,7 +319,7 @@ function EditTask({ task, onTaskUpdated, onClose }: EditTaskProps) {
               disabled={loading || !title.trim()}
               className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Guardando...' : '💾 Guardar'}
+              {loading ? 'Guardando...' : <><SaveIcon size={18} /> Guardar</>}
             </button>
           </div>
         </form>

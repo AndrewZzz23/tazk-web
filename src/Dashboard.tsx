@@ -13,7 +13,26 @@ import Metrics from './Metrics'
 import ManageStatuses from './ManageStatuses'
 import Notifications from './Notifications'
 import UserSettings from './UserSettings'
-import { PlusIcon, LogoutIcon } from './components/iu/AnimatedIcons';
+import {
+  PlusIcon,
+  LogoutIcon,
+  SunMoonIcon,
+  MoonIcon,
+  SunMediumIcon,
+  RabbitIcon,
+  UserIcon,
+  LoadingZapIcon,
+  SearchIcon,
+  ChartIcon,
+  ActivityIcon,
+  BellIcon,
+  ListIcon,
+  KanbanIcon,
+  CalendarIcon,
+  SettingsIcon,
+  PaletteIcon
+} from './components/iu/AnimatedIcons';
+
 
 
 
@@ -79,18 +98,18 @@ function Dashboard() {
 
   // Funcionalidades para búsqueda
   const features = [
-    { id: 'new-task', icon: '➕', label: 'Nueva tarea', action: () => setShowCreateTask(true) },
-    { id: 'metrics', icon: '📊', label: 'Métricas', action: () => setShowMetrics(true) },
-    { id: 'activity', icon: '📋', label: 'Actividad', action: () => setShowActivityLogs(true) },
-    { id: 'statuses', icon: '🎨', label: 'Estados', action: () => setShowStatuses(true) },
-    { id: 'notifications', icon: '🔔', label: 'Notificaciones', action: () => setShowNotifications(true) },
-    { id: 'view-list', icon: '☰', label: 'Vista Lista', action: () => setViewMode('list') },
-    { id: 'view-kanban', icon: '▦', label: 'Vista Kanban', action: () => setViewMode('kanban') },
-    { id: 'view-calendar', icon: '📅', label: 'Vista Calendario', action: () => setViewMode('calendar') },
-    { id: 'settings', icon: '⚙️', label: 'Configuración', action: () => setUserSettingsTab('profile') },
-    { id: 'profile', icon: '👤', label: 'Mi perfil', action: () => setUserSettingsTab('profile') },
-    { id: 'theme', icon: '🎨', label: 'Cambiar tema', action: () => setUserSettingsTab('appearance') },
-    { id: 'shortcuts', icon: '⌨️', label: 'Atajos de teclado', action: () => setUserSettingsTab('shortcuts') },
+    { id: 'new-task', icon: <PlusIcon size={20} />, label: 'Nueva tarea', action: () => setShowCreateTask(true) },
+    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', action: () => setShowMetrics(true) },
+    { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', action: () => setShowActivityLogs(true) },
+    { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', action: () => setShowStatuses(true) },
+    { id: 'notifications', icon: <BellIcon size={20} />, label: 'Notificaciones', action: () => setShowNotifications(true) },
+    { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', action: () => setViewMode('list') },
+    { id: 'view-kanban', icon: <KanbanIcon size={20} />, label: 'Vista Kanban', action: () => setViewMode('kanban') },
+    { id: 'view-calendar', icon: <CalendarIcon size={20} />, label: 'Vista Calendario', action: () => setViewMode('calendar') },
+    { id: 'settings', icon: <SettingsIcon size={20} />, label: 'Configuración', action: () => setUserSettingsTab('profile') },
+    { id: 'profile', icon: <UserIcon size={20} />, label: 'Mi perfil', action: () => setUserSettingsTab('profile') },
+    { id: 'theme', icon: <SunMoonIcon size={20} />, label: 'Cambiar tema', action: () => setUserSettingsTab('appearance') },
+    { id: 'shortcuts', icon: <RabbitIcon size={20} />, label: 'Atajos de teclado', action: () => setUserSettingsTab('shortcuts') },
   ]
 
   // Filtrar funcionalidades por búsqueda
@@ -200,7 +219,7 @@ function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 flex items-center justify-center">
-        <div className="text-yellow-400 text-xl">⚡ Cargando...</div>
+        <LoadingZapIcon size={64} />
       </div>
     )
   }
@@ -241,8 +260,8 @@ function Dashboard() {
             {/* Buscador centrado */}
             <div className="flex-1 flex justify-center">
               <div className="relative w-full max-w-md">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500 text-sm">
-                  🔍
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500">
+                  <SearchIcon size={16} />
                 </span>
                 <input
                   id="global-search"
@@ -270,7 +289,7 @@ function Dashboard() {
                             onClick={() => handleFeatureSelect(feature)}
                             className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-left"
                           >
-                            <span className="text-lg">{feature.icon}</span>
+                            <span className="text-gray-600 dark:text-neutral-300">{feature.icon}</span>
                             <span className="text-gray-900 dark:text-white text-sm">{feature.label}</span>
                           </button>
                         ))}
@@ -326,7 +345,7 @@ function Dashboard() {
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <span>👤</span>
+                        <span><UserIcon /></span>
                         <span className="text-sm">Mi perfil</span>
                       </button>
 
@@ -339,7 +358,7 @@ function Dashboard() {
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
+                        <span>{theme === 'dark' ? <MoonIcon /> : <SunMediumIcon />}</span>
                         <span className="text-sm">Tema</span>
                         <span className="ml-auto text-xs text-gray-400 dark:text-neutral-500">{theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
                       </button>
@@ -351,7 +370,7 @@ function Dashboard() {
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <span>⌨️</span>
+                        <span><RabbitIcon /></span>
                         <span className="text-sm">Atajos de teclado</span>
                       </button>
                     </div>
@@ -426,10 +445,10 @@ function Dashboard() {
       {canCreateTasks && (
         <button
           onClick={() => setShowCreateTask(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-yellow-400 text-neutral-900 rounded-full shadow-lg hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center z-50"
+          className="fixed bottom-6 right-6 w-16 h-16 bg-yellow-400 text-neutral-900 rounded-full shadow-lg hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center z-50"
           title="Nueva tarea (Alt+N)"
         >
-          <PlusIcon size={28} />
+          <PlusIcon size={32} />
         </button>
       )}
 
