@@ -15,6 +15,7 @@ import {
   BellIcon,
   PanelLeftCloseIcon
 } from './components/iu/AnimatedIcons';
+import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield } from 'lucide-react'
 
 interface TeamWithRole extends Team {
   role: UserRole
@@ -103,6 +104,28 @@ function Sidebar({
 
   const canManageTeam = selectedRole === 'owner' || selectedRole === 'admin'
 
+  const getRoleIcon = (role: UserRole) => {
+    switch (role) {
+      case 'owner':
+        return <Crown className="w-3 h-3 text-yellow-400" />
+      case 'admin':
+        return <Shield className="w-3 h-3 text-blue-400" />
+      default:
+        return null
+    }
+  }
+
+  const getRoleLabel = (role: UserRole) => {
+    switch (role) {
+      case 'owner':
+        return 'Propietario'
+      case 'admin':
+        return 'Admin'
+      default:
+        return 'Miembro'
+    }
+  }
+
   const navItems = [
     { id: 'list', icon: <ListIcon size={20} />, label: 'Lista' },
     { id: 'kanban', icon: <KanbanIcon size={20} />, label: 'Kanban' },
@@ -123,20 +146,20 @@ function Sidebar({
         }`}
       >
         {/* Header */}
-        <div className="p-4 border-b border-neutral-800">
-          <div className="flex items-center justify-between">
+        <div className="h-[73px] px-4 border-b border-neutral-800 flex items-center">
+          <div className="flex items-center justify-between w-full">
             {isCollapsed ? (
               <button
                 onClick={onToggleCollapse}
-                className="w-full flex items-center justify-center p-1 text-yellow-400 hover:text-yellow-300 transition-colors"
+                className="w-full flex items-center justify-center text-yellow-400 hover:text-yellow-300 transition-colors"
                 title="Expandir sidebar"
               >
                 <ZapIcon size={32} />
               </button>
             ) : (
               <>
-                <div className="flex items-center gap-2">
-                  <span className="text-white"> <ZapIcon size={28} /> </span>
+                <div className="flex items-center">
+                  <ZapIcon size={32} />
                   <span className="text-xl font-bold text-yellow-400">Tazk</span>
                 </div>
                 <button
@@ -152,7 +175,7 @@ function Sidebar({
         </div>
 
         {/* Selector de Equipo */}
-        <div className="p-2 border-b border-neutral-800">
+        <div className="p-3 border-b border-neutral-800">
           <div className="relative">
             <button
               onClick={() => {
@@ -163,31 +186,38 @@ function Sidebar({
                   setShowTeamMenu(!showTeamMenu)
                 }
               }}
-              className={`w-full flex items-center gap-3 p-2 rounded-lg hover:bg-neutral-800 transition-colors ${
+              className={`w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-neutral-800/80 transition-all duration-200 ${
                 isCollapsed ? 'justify-center' : ''
-              }`}
+              } ${showTeamMenu ? 'bg-neutral-800 ring-1 ring-yellow-400/30' : ''}`}
               title={isCollapsed ? (selectedTeamName || 'Personal') : undefined}
             >
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${
-                selectedTeamId ? 'bg-yellow-400/20 text-yellow-400' : 'bg-neutral-700 text-neutral-400'
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                selectedTeamId
+                  ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/20'
+                  : 'bg-neutral-700'
               }`}>
-                {selectedTeamId ? '👥' : '👤'}
+                {selectedTeamId ? (
+                  <Users className="w-4.5 h-4.5 text-white" />
+                ) : (
+                  <User className="w-4.5 h-4.5 text-neutral-400" />
+                )}
               </div>
               {!isCollapsed && (
                 <>
-                  <div className="flex-1 text-left">
+                  <div className="flex-1 text-left min-w-0">
                     <div className="text-white text-sm font-medium truncate">
                       {selectedTeamName || 'Personal'}
                     </div>
-                    {selectedRole && (
-                      <div className="text-neutral-500 text-xs">
-                        {selectedRole === 'owner' ? 'Propietario' : selectedRole === 'admin' ? 'Admin' : 'Miembro'}
+                    {selectedRole ? (
+                      <div className="flex items-center gap-1 text-neutral-500 text-xs">
+                        {getRoleIcon(selectedRole)}
+                        <span>{getRoleLabel(selectedRole)}</span>
                       </div>
+                    ) : (
+                      <div className="text-neutral-500 text-xs">Solo tú</div>
                     )}
                   </div>
-                  <span className={`text-neutral-500 text-xs transition-transform ${showTeamMenu ? 'rotate-180' : ''}`}>
-                    ▼
-                  </span>
+                  <ChevronDown className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${showTeamMenu ? 'rotate-180' : ''}`} />
                 </>
               )}
             </button>
@@ -196,60 +226,97 @@ function Sidebar({
             {showTeamMenu && !isCollapsed && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowTeamMenu(false)} />
-                <div className="absolute left-0 right-0 top-full mt-1 bg-neutral-800 border border-neutral-700 rounded-xl shadow-xl z-20 overflow-hidden">
-                  {/* Personal */}
-                  <button
-                    onClick={() => handleTeamSelect(null)}
-                    className={`w-full flex items-center gap-3 p-3 hover:bg-neutral-700 transition-colors ${
-                      selectedTeamId === null ? 'bg-yellow-400/10' : ''
-                    }`}
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-neutral-700 flex items-center justify-center">
-                      👤
-                    </div>
-                    <span className="text-white text-sm">Personal</span>
-                    {selectedTeamId === null && <span className="ml-auto text-yellow-400">✓</span>}
-                  </button>
+                <div className="absolute left-0 right-0 top-full mt-2 bg-neutral-800 border border-neutral-700 rounded-2xl shadow-2xl z-20 overflow-hidden">
+                  {/* Header */}
+                  <div className="px-4 py-2.5 border-b border-neutral-700/50">
+                    <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Espacios de trabajo</p>
+                  </div>
 
-                  {teams.length > 0 && <div className="border-t border-neutral-700" />}
-
-                  {/* Equipos */}
-                  {teams.map(team => (
+                  <div className="py-1.5">
+                    {/* Personal */}
                     <button
-                      key={team.id}
-                      onClick={() => handleTeamSelect(team.id)}
-                      className={`w-full flex items-center gap-3 p-3 hover:bg-neutral-700 transition-colors ${
-                        selectedTeamId === team.id ? 'bg-yellow-400/10' : ''
+                      onClick={() => handleTeamSelect(null)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-neutral-700/50 transition-all duration-150 ${
+                        selectedTeamId === null ? 'bg-yellow-400/10' : ''
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-yellow-400/20 text-yellow-400 flex items-center justify-center">
-                        👥
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                        selectedTeamId === null
+                          ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/30'
+                          : 'bg-neutral-700'
+                      }`}>
+                        <User className={`w-4.5 h-4.5 ${selectedTeamId === null ? 'text-white' : 'text-neutral-400'}`} />
                       </div>
                       <div className="flex-1 text-left">
-                        <div className="text-white text-sm">{team.name}</div>
-                        <div className="text-neutral-500 text-xs">
-                          {team.role === 'owner' ? 'Propietario' : team.role === 'admin' ? 'Admin' : 'Miembro'}
+                        <div className={`text-sm font-medium ${selectedTeamId === null ? 'text-yellow-400' : 'text-white'}`}>
+                          Tareas Personales
                         </div>
+                        <div className="text-neutral-500 text-xs">Solo tú</div>
                       </div>
-                      {selectedTeamId === team.id && <span className="text-yellow-400">✓</span>}
+                      {selectedTeamId === null && (
+                        <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center">
+                          <Check className="w-3 h-3 text-neutral-900" />
+                        </div>
+                      )}
                     </button>
-                  ))}
 
-                  <div className="border-t border-neutral-700" />
+                    {teams.length > 0 && (
+                      <div className="px-4 py-2 mt-1">
+                        <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-wider">Equipos</p>
+                      </div>
+                    )}
+
+                    {/* Equipos */}
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {teams.map(team => (
+                        <button
+                          key={team.id}
+                          onClick={() => handleTeamSelect(team.id)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-neutral-700/50 transition-all duration-150 ${
+                            selectedTeamId === team.id ? 'bg-yellow-400/10' : ''
+                          }`}
+                        >
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                            selectedTeamId === team.id
+                              ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/30'
+                              : 'bg-neutral-700'
+                          }`}>
+                            <Users className={`w-4.5 h-4.5 ${selectedTeamId === team.id ? 'text-white' : 'text-neutral-400'}`} />
+                          </div>
+                          <div className="flex-1 text-left min-w-0">
+                            <div className={`text-sm font-medium truncate ${selectedTeamId === team.id ? 'text-yellow-400' : 'text-white'}`}>
+                              {team.name}
+                            </div>
+                            <div className="flex items-center gap-1 text-neutral-500 text-xs">
+                              {getRoleIcon(team.role)}
+                              <span>{getRoleLabel(team.role)}</span>
+                            </div>
+                          </div>
+                          {selectedTeamId === team.id && (
+                            <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+                              <Check className="w-3 h-3 text-neutral-900" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Crear equipo */}
-                  <button
-                    onClick={() => {
-                      setShowTeamMenu(false)
-                      setShowCreateTeam(true)
-                    }}
-                    className="w-full flex items-center gap-3 p-3 text-yellow-400 hover:bg-neutral-700 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-lg border-2 border-dashed border-yellow-400/50 flex items-center justify-center">
-                      +
-                    </div>
-                    <span className="text-sm">Crear equipo</span>
-                  </button>
+                  <div className="border-t border-neutral-700/50 p-1.5">
+                    <button
+                      onClick={() => {
+                        setShowTeamMenu(false)
+                        setShowCreateTeam(true)
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-yellow-400 hover:bg-yellow-400/10 rounded-xl transition-all duration-150"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-yellow-400/20 flex items-center justify-center">
+                        <Plus className="w-4.5 h-4.5 text-yellow-400" />
+                      </div>
+                      <span className="text-sm font-medium">Crear nuevo equipo</span>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -257,18 +324,20 @@ function Sidebar({
 
           {/* Acciones del equipo */}
           {!isCollapsed && selectedTeamId && canManageTeam && (
-            <div className="flex gap-1 mt-2">
+            <div className="flex gap-2 mt-3">
               <button
                 onClick={() => setShowInviteMember(true)}
-                className="flex-1 px-2 py-1.5 bg-neutral-800 text-neutral-400 rounded-lg text-xs hover:bg-yellow-400 hover:text-neutral-900 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-lg text-xs font-medium hover:shadow-lg hover:shadow-yellow-400/20 transition-all duration-200"
               >
-                + Invitar
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Invitar</span>
               </button>
               <button
                 onClick={() => setShowTeamMembers(true)}
-                className="flex-1 px-2 py-1.5 bg-neutral-800 text-neutral-400 rounded-lg text-xs hover:bg-neutral-700 hover:text-white transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-neutral-800 text-neutral-300 rounded-lg text-xs font-medium hover:bg-neutral-700 hover:text-white transition-all duration-200"
               >
-                👥 Miembros
+                <Users className="w-3.5 h-3.5" />
+                <span>Miembros</span>
               </button>
             </div>
           )}

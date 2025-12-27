@@ -10,10 +10,12 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
+  CollisionDetection,
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { LoadingZapIcon, XIcon } from './components/iu/AnimatedIcons'
+import { LoadingZapIcon, XIcon, PaletteIcon, PlusIcon, EditIcon, TrashIcon, CheckIcon } from './components/iu/AnimatedIcons'
 import Toast from './Toast'
 import { logStatusCreated, logStatusUpdated, logStatusDeleted } from './lib/activityLogger'
 
@@ -53,31 +55,24 @@ const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#6b7280'
 ]
 
-// Tarjeta de estado arrastrable - EXACTAMENTE como TaskCard
+// Tarjeta de estado arrastrable
 function StatusCard({ status, onEdit, onDelete, onToggle }: {
   status: TaskStatus
   onEdit: () => void
   onDelete: () => void
   onToggle: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: status.id,
   })
-
-  const style = transform
-    ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-      }
-    : undefined
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       {...listeners}
       {...attributes}
-      className={`bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-yellow-400/50 transition-all group ${
-        isDragging ? 'opacity-50 rotate-2 scale-105' : ''
+      className={`bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-yellow-400/50 transition-colors group ${
+        isDragging ? 'opacity-0' : ''
       } ${!status.is_active ? 'opacity-50' : ''}`}
     >
       <div className="flex items-center gap-3">
@@ -98,9 +93,7 @@ function StatusCard({ status, onEdit, onDelete, onToggle }: {
             onPointerDown={(e) => e.stopPropagation()}
             className="p-1.5 text-gray-400 hover:text-yellow-500 hover:bg-yellow-400/10 rounded transition-colors"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
+            <EditIcon size={14} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onToggle() }}
@@ -116,9 +109,7 @@ function StatusCard({ status, onEdit, onDelete, onToggle }: {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
               </svg>
             ) : (
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <CheckIcon size={14} />
             )}
           </button>
           <button
@@ -126,9 +117,7 @@ function StatusCard({ status, onEdit, onDelete, onToggle }: {
             onPointerDown={(e) => e.stopPropagation()}
             className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-400/10 rounded transition-colors"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+            <TrashIcon size={14} />
           </button>
         </div>
       </div>
@@ -136,19 +125,22 @@ function StatusCard({ status, onEdit, onDelete, onToggle }: {
   )
 }
 
-// Preview - EXACTAMENTE como TaskCardPreview
+// Preview para el DragOverlay
 function StatusCardPreview({ status }: { status: TaskStatus }) {
   return (
-    <div className="bg-gray-100 dark:bg-neutral-700 border-2 border-yellow-400 rounded-lg p-3 shadow-2xl rotate-3">
+    <div 
+      className="bg-gray-100/50 dark:bg-neutral-700/70 border-2 border-yellow-400 rounded-lg p-3 shadow-xl backdrop-blur-sm"
+      style={{ width: '450px' }}
+    >
       <div className="flex items-center gap-3">
-        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }} />
-        <span className="text-sm font-medium text-gray-700 dark:text-neutral-200">{status.name}</span>
+        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
+        <span className="text-sm font-medium text-gray-700 dark:text-neutral-200 truncate">{status.name}</span>
       </div>
     </div>
   )
 }
 
-// Columna droppable - EXACTAMENTE como DroppableColumn
+// Columna droppable
 function DroppableColumn({
   category,
   statuses,
@@ -162,24 +154,32 @@ function DroppableColumn({
   onDelete: (status: TaskStatus) => void
   onToggle: (status: TaskStatus) => void
 }) {
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef, isOver, active } = useDroppable({
     id: category.id,
   })
+
+  const isDraggingFromThis = active && statuses.some(s => s.id === active.id)
 
   return (
     <div
       ref={setNodeRef}
-      className={`bg-white dark:bg-neutral-800/50 rounded-xl p-4 min-h-[120px] transition-all ${
-        isOver ? 'ring-2 ring-yellow-400 bg-yellow-400/5' : ''
+      className={`bg-white dark:bg-neutral-800/50 rounded-xl p-4 min-h-[100px] transition-all duration-200 ${
+        isOver && !isDraggingFromThis
+          ? 'ring-2 ring-yellow-400 bg-yellow-400/5'
+          : ''
       }`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <span className={category.color}>{category.icon}</span>
           <h3 className="text-gray-900 dark:text-white font-semibold text-sm">{category.name}</h3>
         </div>
-        <span className="bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 text-xs font-medium px-2 py-1 rounded-full">
+        <span className={`text-xs font-medium px-2 py-1 rounded-full transition-colors ${
+          isOver && !isDraggingFromThis
+            ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400'
+            : 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300'
+        }`}>
           {statuses.length}
         </span>
       </div>
@@ -195,6 +195,18 @@ function DroppableColumn({
             onToggle={() => onToggle(status)}
           />
         ))}
+
+        {statuses.length === 0 && (
+          <div className={`text-center py-4 border-2 border-dashed rounded-lg transition-colors ${
+            isOver
+              ? 'border-yellow-400 bg-yellow-400/5 text-yellow-600 dark:text-yellow-400'
+              : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500'
+          }`}>
+            <span className="text-xs">
+              {isOver ? 'Soltar aquí' : 'Sin estados'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -250,6 +262,15 @@ function CategoryDropdown({ value, onChange }: { value: StatusCategory; onChange
   )
 }
 
+// Detección de colisión personalizada
+const customCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args)
+  if (pointerCollisions.length > 0) {
+    return pointerCollisions
+  }
+  return rectIntersection(args)
+}
+
 function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onClose, onStatusesChanged }: ManageStatusesProps) {
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -276,6 +297,8 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
 
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
 
+  const createFormRef = useRef<HTMLDivElement>(null)
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -288,6 +311,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (showColorPicker) setShowColorPicker(false)
+        else if (showCreateForm) { setShowCreateForm(false); setNewName('') }
         else if (editingStatus) setEditingStatus(null)
         else if (deletingStatus) setDeletingStatus(null)
         else onClose()
@@ -295,7 +319,19 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, showColorPicker, editingStatus, deletingStatus])
+  }, [onClose, showColorPicker, showCreateForm, editingStatus, deletingStatus])
+
+  useEffect(() => {
+    if (!showCreateForm) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (createFormRef.current && !createFormRef.current.contains(e.target as Node)) {
+        setShowCreateForm(false)
+        setNewName('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCreateForm])
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
@@ -319,13 +355,11 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     setTimeout(onClose, 200)
   }
 
-  // EXACTAMENTE como en KanbanBoard
   const handleDragStart = (event: DragStartEvent) => {
     const status = statuses.find((s) => s.id === event.active.id)
     if (status) setActiveStatus(status)
   }
 
-  // EXACTAMENTE como en KanbanBoard
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveStatus(null)
@@ -338,7 +372,6 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     const status = statuses.find((s) => s.id === statusId)
     if (!status || status.category === newCategoryId) return
 
-    // Optimistic update
     const oldCategory = status.category
     setStatuses((prev) =>
       prev.map((s) =>
@@ -352,7 +385,6 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
       .eq('id', statusId)
 
     if (error) {
-      // Revertir
       setStatuses((prev) =>
         prev.map((s) =>
           s.id === statusId ? { ...s, category: oldCategory } : s
@@ -455,17 +487,21 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
   }
 
   return (
-    <>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={customCollisionDetection}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      {/* Modal principal */}
       <div className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`} onClick={handleClose}>
         <div className={`bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 flex flex-col ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="p-5 border-b border-gray-100 dark:border-neutral-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                  </svg>
+                <div className="text-yellow-500">
+                  <PaletteIcon size={24} />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900 dark:text-white">Estados</h2>
@@ -479,13 +515,13 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
 
             {isOwnerOrAdmin && !showCreateForm && (
               <button onClick={() => setShowCreateForm(true)} className="w-full mt-4 px-4 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl text-sm font-medium hover:bg-yellow-300 transition-colors flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                <PlusIcon size={16} />
                 Nuevo estado
               </button>
             )}
 
             {showCreateForm && (
-              <div className="mt-4 p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-xl">
+              <div ref={createFormRef} className="mt-4 p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-xl">
                 <div className="flex gap-2 mb-3">
                   <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newName.trim()) handleCreate(); if (e.key === 'Escape') { setShowCreateForm(false); setNewName('') } }} placeholder="Nombre..." className="flex-1 px-3 py-2.5 bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50" autoFocus />
                   <button type="button" onClick={() => openColorPicker('new')} className="w-11 h-11 rounded-lg border-2 border-gray-200 dark:border-neutral-600 hover:border-yellow-400 flex-shrink-0" style={{ backgroundColor: newColor }} />
@@ -508,31 +544,30 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
                 <p className="text-gray-500 dark:text-neutral-400">No hay estados</p>
               </div>
             ) : (
-              <DndContext 
-                sensors={sensors}
-                collisionDetection={closestCorners} 
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}>
-                <div className="space-y-3">
-                  {CATEGORIES.map(category => (
-                    <DroppableColumn
-                      key={category.id}
-                      category={category}
-                      statuses={statuses.filter(s => s.category === category.id)}
-                      onEdit={(s) => { setEditingStatus(s); setEditName(s.name); setEditColor(s.color) }}
-                      onDelete={(s) => setDeletingStatus(s)}
-                      onToggle={handleToggle}
-                    />
-                  ))}
-                </div>
-                <DragOverlay>
-                  {activeStatus && <StatusCardPreview status={activeStatus} />}
-                </DragOverlay>
-              </DndContext>
+              <div className="space-y-3">
+                {CATEGORIES.map(category => (
+                  <DroppableColumn
+                    key={category.id}
+                    category={category}
+                    statuses={statuses.filter(s => s.category === category.id)}
+                    onEdit={(s) => { setEditingStatus(s); setEditName(s.name); setEditColor(s.color) }}
+                    onDelete={(s) => setDeletingStatus(s)}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* DragOverlay - FUERA del modal pero DENTRO del DndContext */}
+      <DragOverlay dropAnimation={{
+        duration: 200,
+        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+      }}>
+        {activeStatus && <StatusCardPreview status={activeStatus} />}
+      </DragOverlay>
 
       {/* Modal editar */}
       {editingStatus && (
@@ -546,8 +581,8 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
                 {PRESET_COLORS.map(color => (
                   <button key={color} type="button" onClick={() => setEditColor(color)} className={`w-7 h-7 rounded-lg transition-all ${editColor === color ? 'ring-2 ring-yellow-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: color }} />
                 ))}
-                <button type="button" onClick={() => openColorPicker('edit')} className="w-7 h-7 rounded-lg border-2 border-dashed border-gray-300 dark:border-neutral-600 flex items-center justify-center hover:border-yellow-400">
-                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                <button type="button" onClick={() => openColorPicker('edit')} className="w-7 h-7 rounded-lg border-2 border-dashed border-gray-300 dark:border-neutral-600 flex items-center justify-center hover:border-yellow-400 text-gray-400">
+                  <PlusIcon size={14} />
                 </button>
               </div>
             </div>
@@ -587,7 +622,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
       )}
 
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
-    </>
+    </DndContext>
   )
 }
 
