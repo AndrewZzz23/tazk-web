@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { TeamInvitation } from './types/database.types'
 import Toast from './Toast'
 import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
+import { BellOff } from 'lucide-react'
 
 interface NotificationsProps {
   onClose: () => void
@@ -159,9 +160,16 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
                 <LoadingZapIcon size={48} />
               </div>
             ) : invitations.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-4">🔕</div>
-                <p className="text-gray-500 dark:text-neutral-400">No tienes notificaciones</p>
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-neutral-700 rounded-full flex items-center justify-center mb-4">
+                  <BellOff className="w-8 h-8 text-gray-400 dark:text-neutral-500" />
+                </div>
+                <h3 className="text-gray-900 dark:text-white font-semibold text-lg mb-1">
+                  Sin notificaciones
+                </h3>
+                <p className="text-gray-500 dark:text-neutral-400 text-sm text-center">
+                  No tienes invitaciones pendientes
+                </p>
               </div>
             ) : (
               <div className="p-4 space-y-3">

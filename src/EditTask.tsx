@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient'
 import { Task, TaskStatus, Profile } from './types/database.types'
 import { EditIcon, XIcon, TrashIcon, SaveIcon } from './components/iu/AnimatedIcons'
 import TaskAttachments from './TaskAttachments'
+import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
 
 interface EditTaskProps {
@@ -30,6 +31,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // ESC para cerrar
   useEffect(() => {
@@ -137,9 +139,12 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm('¿Eliminar esta tarea?')) return
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true)
+  }
 
+  const handleDeleteConfirm = async () => {
+    setShowDeleteConfirm(false)
     setLoading(true)
 
     const { error } = await supabase.from('tasks').delete().eq('id', task.id)
@@ -156,20 +161,119 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
   }
 
   return (
+    <>
+      {/* DatePicker Dark Mode Styles */}
+      <style>{`
+        .dark .react-datepicker {
+          background-color: #262626;
+          border: 1px solid #404040;
+          border-radius: 12px;
+          font-family: inherit;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        .dark .react-datepicker__header {
+          background-color: #1f1f1f;
+          border-bottom: 1px solid #404040;
+          border-radius: 12px 12px 0 0;
+          padding-top: 12px;
+        }
+        .dark .react-datepicker__current-month,
+        .dark .react-datepicker__day-name,
+        .dark .react-datepicker-time__header {
+          color: #fff;
+        }
+        .dark .react-datepicker__day {
+          color: #e5e5e5;
+          border-radius: 8px;
+        }
+        .dark .react-datepicker__day:hover {
+          background-color: #404040;
+          border-radius: 8px;
+        }
+        .dark .react-datepicker__day--selected,
+        .dark .react-datepicker__day--keyboard-selected {
+          background-color: #facc15 !important;
+          color: #171717 !important;
+          font-weight: 600;
+        }
+        .dark .react-datepicker__day--today {
+          background-color: #404040;
+          font-weight: 600;
+        }
+        .dark .react-datepicker__day--outside-month {
+          color: #525252;
+        }
+        .dark .react-datepicker__day--disabled {
+          color: #404040;
+        }
+        .dark .react-datepicker__navigation-icon::before {
+          border-color: #a3a3a3;
+        }
+        .dark .react-datepicker__navigation:hover *::before {
+          border-color: #facc15;
+        }
+        .dark .react-datepicker__time-container {
+          border-left: 1px solid #404040;
+        }
+        .dark .react-datepicker__time {
+          background-color: #262626;
+          border-radius: 0 0 12px 0;
+        }
+        .dark .react-datepicker__time-box {
+          border-radius: 0 0 12px 0;
+        }
+        .dark .react-datepicker__time-list-item {
+          color: #e5e5e5;
+          height: auto !important;
+          padding: 8px 12px !important;
+        }
+        .dark .react-datepicker__time-list-item:hover {
+          background-color: #404040 !important;
+        }
+        .dark .react-datepicker__time-list-item--selected {
+          background-color: #facc15 !important;
+          color: #171717 !important;
+          font-weight: 600;
+        }
+        .dark .react-datepicker__triangle {
+          display: none;
+        }
+        .dark .react-datepicker__month-container {
+          background-color: #262626;
+        }
+        .dark .react-datepicker__year-dropdown,
+        .dark .react-datepicker__month-dropdown {
+          background-color: #262626;
+          border: 1px solid #404040;
+        }
+        .dark .react-datepicker__year-option:hover,
+        .dark .react-datepicker__month-option:hover {
+          background-color: #404040;
+        }
+        .react-datepicker-popper {
+          z-index: 9999 !important;
+        }
+        .react-datepicker__close-icon::after {
+          background-color: #737373 !important;
+        }
+        .react-datepicker__close-icon:hover::after {
+          background-color: #facc15 !important;
+        }
+      `}</style>
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto transition-all duration-200 ${
         isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
       }`}
       onClick={handleClose}
     >
       <div
-        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 transform transition-all duration-200 ${
+        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 ${
           isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-neutral-700 flex-shrink-0">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <span className="text-yellow-400"><EditIcon size={24} /></span> Editar Tarea
           </h2>
@@ -182,7 +286,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto flex-1">
           {/* Título */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
@@ -213,7 +317,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
           </div>
 
           {/* Estado y Asignar */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                 Estado
@@ -223,11 +327,13 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
                 onChange={(e) => setStatusId(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
               >
-                {statuses.map((status) => (
-                  <option key={status.id} value={status.id}>
-                    {status.name}
-                  </option>
-                ))}
+                {[...statuses]
+                  .sort((a, b) => a.order_position - b.order_position)
+                  .map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -253,7 +359,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
           </div>
 
           {/* Fechas */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                 Fecha inicio
@@ -268,6 +374,8 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
                 placeholderText="Seleccionar"
                 className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 isClearable
+                popperPlacement="top-start"
+                portalId="root"
               />
             </div>
 
@@ -286,6 +394,8 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
                 className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
                 minDate={startDate || undefined}
                 isClearable
+                popperPlacement="top-start"
+                portalId="root"
               />
             </div>
           </div>
@@ -301,7 +411,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
           <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-neutral-700">
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={handleDeleteClick}
               disabled={loading}
               className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
@@ -330,6 +440,20 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
         </div>
       </div>
     </div>
+
+    {/* Confirm Delete Dialog */}
+    {showDeleteConfirm && (
+      <ConfirmDialog
+        title="Eliminar tarea"
+        message={`¿Estás seguro de eliminar "${task.title}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        type="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+    )}
+    </>
   )
 }
 

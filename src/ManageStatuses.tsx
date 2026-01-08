@@ -322,7 +322,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
   }, [onClose, showColorPicker, showCreateForm, editingStatus, deletingStatus])
 
   useEffect(() => {
-    if (!showCreateForm) return
+    if (!showCreateForm || showColorPicker) return
     const handleClickOutside = (e: MouseEvent) => {
       if (createFormRef.current && !createFormRef.current.contains(e.target as Node)) {
         setShowCreateForm(false)
@@ -331,7 +331,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showCreateForm])
+  }, [showCreateForm, showColorPicker])
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
@@ -373,21 +373,36 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     if (!status || status.category === newCategoryId) return
 
     const oldCategory = status.category
+    const oldOrderPosition = status.order_position
+
+    // Calcular nuevo order_position basado en la categoría de destino
+    // Obtener el order_position más alto de la nueva categoría y sumar 1
+    const statusesInNewCategory = statuses.filter(s => s.category === newCategoryId)
+    const maxOrderInCategory = statusesInNewCategory.length > 0
+      ? Math.max(...statusesInNewCategory.map(s => s.order_position))
+      : 0
+    const newOrderPosition = maxOrderInCategory + 1
+
+    // Optimistic update
     setStatuses((prev) =>
       prev.map((s) =>
-        s.id === statusId ? { ...s, category: newCategoryId } : s
+        s.id === statusId
+          ? { ...s, category: newCategoryId, order_position: newOrderPosition }
+          : s
       )
     )
 
     const { error } = await supabase
       .from('task_statuses')
-      .update({ category: newCategoryId })
+      .update({ category: newCategoryId, order_position: newOrderPosition })
       .eq('id', statusId)
 
     if (error) {
       setStatuses((prev) =>
         prev.map((s) =>
-          s.id === statusId ? { ...s, category: oldCategory } : s
+          s.id === statusId
+            ? { ...s, category: oldCategory, order_position: oldOrderPosition }
+            : s
         )
       )
       showToast('Error al mover estado', 'error')
@@ -549,7 +564,9 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
                   <DroppableColumn
                     key={category.id}
                     category={category}
-                    statuses={statuses.filter(s => s.category === category.id)}
+                    statuses={statuses
+                      .filter(s => s.category === category.id)
+                      .sort((a, b) => a.order_position - b.order_position)}
                     onEdit={(s) => { setEditingStatus(s); setEditName(s.name); setEditColor(s.color) }}
                     onDelete={(s) => setDeletingStatus(s)}
                     onToggle={handleToggle}

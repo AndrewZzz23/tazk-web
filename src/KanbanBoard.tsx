@@ -13,6 +13,7 @@ import {
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import EditTask from './EditTask'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
+import { Calendar, Columns3, LayoutGrid } from 'lucide-react'
 import { logTaskStatusChanged } from './lib/activityLogger'
 
 interface KanbanBoardProps {
@@ -60,15 +61,9 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       }`}
       onClick={onClick}
     >
-      <h4 className="text-gray-900 dark:text-white font-medium text-sm mb-2 line-clamp-2">
+      <h4 className="text-gray-900 dark:text-white font-medium text-sm line-clamp-2">
         {task.title}
       </h4>
-
-      {task.description && (
-        <p className="text-gray-500 dark:text-neutral-400 text-xs mb-2 line-clamp-2">
-          {task.description}
-        </p>
-      )}
 
       <div className="flex items-center justify-between gap-2 mt-2">
         {/* Asignado */}
@@ -87,7 +82,8 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
               isOverdue(task.due_date) ? 'text-red-400' : 'text-gray-500 dark:text-neutral-400'
             }`}
           >
-            📅 {formatDate(task.due_date)}
+            <Calendar className="w-3 h-3" />
+            {formatDate(task.due_date)}
           </span>
         )}
       </div>
@@ -150,8 +146,9 @@ function DroppableColumn({
         ))}
 
         {tasks.length === 0 && (
-          <div className="text-gray-400 dark:text-neutral-500 text-sm text-center py-8 border-2 border-dashed border-gray-200 dark:border-neutral-700 rounded-lg">
-            Sin tareas
+          <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-gray-200 dark:border-neutral-700 rounded-lg">
+            <LayoutGrid className="w-6 h-6 text-gray-300 dark:text-neutral-600 mb-2" />
+            <span className="text-gray-400 dark:text-neutral-500 text-sm">Sin tareas</span>
           </div>
         )}
       </div>
@@ -293,11 +290,15 @@ function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm }:
 
   if (statuses.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">📋</div>
-        <p className="text-gray-500 dark:text-neutral-400 text-lg">No hay estados configurados</p>
-        <p className="text-gray-400 dark:text-neutral-500 text-sm mt-2">
-          Ve a "Estados" para crear algunos
+      <div className="flex flex-col items-center justify-center py-16 px-4">
+        <div className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
+          <Columns3 className="w-10 h-10 text-gray-400 dark:text-neutral-500" />
+        </div>
+        <h3 className="text-gray-900 dark:text-white font-semibold text-lg mb-1">
+          Sin estados configurados
+        </h3>
+        <p className="text-gray-500 dark:text-neutral-400 text-sm text-center max-w-xs">
+          Ve a "Estados" para crear columnas en tu tablero
         </p>
       </div>
     )
@@ -310,20 +311,20 @@ function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm }:
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div 
-          className="flex gap-4 overflow-x-auto pb-4"
+        <div
+          className="flex gap-4 overflow-x-auto p-4"
           style={{ minHeight: '500px' }}
         >
-          {statuses
+          {[...statuses]
             .sort((a, b) => a.order_position - b.order_position)
             .map((status) => (
-            <DroppableColumn
-              key={status.id}
-              status={status}
-              tasks={filteredTasks.filter((t) => t.status_id === status.id)}
-              onTaskClick={setEditingTask}
-            />
-          ))}
+              <DroppableColumn
+                key={status.id}
+                status={status}
+                tasks={filteredTasks.filter((t) => t.status_id === status.id)}
+                onTaskClick={setEditingTask}
+              />
+            ))}
         </div>
 
         <DragOverlay>

@@ -1,23 +1,24 @@
 import { supabase } from '../supabaseClient'
 
+// Valores permitidos según constraints de la BD
 export type ActivityAction =
   | 'created'
   | 'updated'
   | 'deleted'
-  | 'status_changed'
   | 'assigned'
   | 'unassigned'
-  | 'joined'
-  | 'left'
+  | 'reassigned'
+  | 'status_changed'
   | 'role_changed'
+  | 'member_added'
+  | 'member_removed'
   | 'invited'
   | 'invitation_accepted'
   | 'invitation_rejected'
   | 'invitation_cancelled'
-  | 'attachment_added'
-  | 'attachment_removed'
+  | 'profile_updated'
 
-export type ActivityEntity = 'task' | 'team_member' | 'status' | 'team' | 'attachment'
+export type ActivityEntity = 'task' | 'team' | 'team_member' | 'status' | 'invitation' | 'profile'
 
 interface LogActivityParams {
   action: ActivityAction
@@ -46,9 +47,10 @@ export async function logActivity({
         entity_type: entityType,
         entity_id: entityId,
         team_id: teamId,
-        performed_by: userId,
+        user_id: userId,
         user_email: userEmail,
-        details
+        changes: details,
+        description: `${action} ${entityType}`
       })
 
     if (error) {
@@ -208,36 +210,37 @@ export const logStatusDeleted = (
   details: { name: statusName }
 })
 
+// Attachments se loguean como updates de task
 export const logAttachmentAdded = (
-  attachmentId: string,
+  _attachmentId: string,
   fileName: string,
   taskId: string,
   teamId: string | null,
   userId: string,
   userEmail?: string
 ) => logActivity({
-  action: 'attachment_added',
-  entityType: 'attachment',
-  entityId: attachmentId,
+  action: 'updated',
+  entityType: 'task',
+  entityId: taskId,
   teamId,
   userId,
   userEmail,
-  details: { file_name: fileName, task_id: taskId }
+  details: { attachment_added: fileName }
 })
 
 export const logAttachmentRemoved = (
-  attachmentId: string,
+  _attachmentId: string,
   fileName: string,
   taskId: string,
   teamId: string | null,
   userId: string,
   userEmail?: string
 ) => logActivity({
-  action: 'attachment_removed',
-  entityType: 'attachment',
-  entityId: attachmentId,
+  action: 'updated',
+  entityType: 'task',
+  entityId: taskId,
   teamId,
   userId,
   userEmail,
-  details: { file_name: fileName, task_id: taskId }
+  details: { attachment_removed: fileName }
 })

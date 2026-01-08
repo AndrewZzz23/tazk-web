@@ -253,32 +253,36 @@ function CalendarView({ currentUserId, teamId, searchTerm }: CalendarViewProps) 
       {/* Custom Toolbar */}
       <div className="bg-white dark:bg-neutral-800/50 rounded-2xl p-4 border border-gray-100 dark:border-neutral-700/50">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          {/* Navigation */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleNavigate('TODAY')}
-              className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-yellow-400/20 transition-all duration-200"
-            >
-              Hoy
-            </button>
-            <div className="flex items-center bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-1">
+          {/* Navigation - Hidden in agenda view */}
+          {currentView !== 'agenda' ? (
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => handleNavigate('PREV')}
-                className="p-2 text-gray-600 dark:text-neutral-300 hover:text-yellow-500 hover:bg-white dark:hover:bg-neutral-600 rounded-lg transition-all duration-200"
+                onClick={() => handleNavigate('TODAY')}
+                className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-yellow-400/20 transition-all duration-200"
               >
-                <ChevronLeft className="w-5 h-5" />
+                Hoy
               </button>
-              <button
-                onClick={() => handleNavigate('NEXT')}
-                className="p-2 text-gray-600 dark:text-neutral-300 hover:text-yellow-500 hover:bg-white dark:hover:bg-neutral-600 rounded-lg transition-all duration-200"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
+              <div className="flex items-center bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-1">
+                <button
+                  onClick={() => handleNavigate('PREV')}
+                  className="p-2 text-gray-600 dark:text-neutral-300 hover:text-yellow-500 hover:bg-white dark:hover:bg-neutral-600 rounded-lg transition-all duration-200"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => handleNavigate('NEXT')}
+                  className="p-2 text-gray-600 dark:text-neutral-300 hover:text-yellow-500 hover:bg-white dark:hover:bg-neutral-600 rounded-lg transition-all duration-200"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white capitalize ml-2">
+                {formatCurrentPeriod()}
+              </h2>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white capitalize ml-2">
-              {formatCurrentPeriod()}
-            </h2>
-          </div>
+          ) : (
+            <div /> /* Empty spacer for flex justify-between */
+          )}
 
           {/* View Selector */}
           <div className="flex items-center bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-1">
@@ -709,11 +713,6 @@ function CalendarView({ currentUserId, teamId, searchTerm }: CalendarViewProps) 
                           <h4 className="text-gray-900 dark:text-white font-medium truncate">
                             {event.title}
                           </h4>
-                          {event.task.description && (
-                            <p className="text-gray-500 dark:text-neutral-400 text-sm truncate mt-0.5">
-                              {event.task.description}
-                            </p>
-                          )}
                         </div>
 
                         {/* Assigned user */}

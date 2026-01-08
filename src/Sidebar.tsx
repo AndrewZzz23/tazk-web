@@ -13,7 +13,8 @@ import {
   ActivityIcon,
   PaletteIcon,
   BellIcon,
-  PanelLeftCloseIcon
+  PanelLeftCloseIcon,
+  MailIcon
 } from './components/iu/AnimatedIcons';
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield } from 'lucide-react'
 
@@ -34,6 +35,7 @@ interface SidebarProps {
   onLogout: () => void
   isCollapsed: boolean
   onToggleCollapse: () => void
+  onShowEmails: () => void
 }
 
 function Sidebar({
@@ -47,7 +49,8 @@ function Sidebar({
   onShowActivityLogs,
   onShowStatuses,
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  onShowEmails
 }: SidebarProps) {
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
@@ -78,6 +81,18 @@ function Sidebar({
           }
         })
       setTeams(teamsWithRole)
+
+      // Restaurar equipo seleccionado desde localStorage
+      const savedTeamId = localStorage.getItem('tazk_selected_team')
+      if (savedTeamId) {
+        const savedTeam = teamsWithRole.find(t => t.id === savedTeamId)
+        if (savedTeam) {
+          setSelectedTeamId(savedTeam.id)
+          setSelectedTeamName(savedTeam.name)
+          setSelectedRole(savedTeam.role)
+          onTeamChange(savedTeam.id, savedTeam.role, savedTeam.name)
+        }
+      }
     }
   }
 
@@ -136,6 +151,7 @@ function Sidebar({
     { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', onClick: onShowMetrics },
     { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', onClick: onShowActivityLogs },
     { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', onClick: onShowStatuses },
+    { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos', onClick: onShowEmails },
   ]
 
   return (

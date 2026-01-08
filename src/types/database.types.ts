@@ -50,6 +50,7 @@ export interface Task {
   assigned_to: string | null
   start_date: string | null
   due_date: string | null
+  notify_email: string | null
   created_at: string
   updated_at: string
   // Relaciones (opcionales, vienen del JOIN)
@@ -125,5 +126,48 @@ export interface TaskAttachment {
   file_type: string
   file_size: number
   uploaded_by: string
+  created_at: string
+}
+
+export interface EmailSettings {
+  id: string
+  user_id: string | null
+  team_id: string | null
+  is_enabled: boolean
+  from_name: string
+  notify_on_create: boolean
+  notify_on_assign: boolean
+  notify_on_due: boolean
+  notify_on_complete: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailTemplate {
+  id: string
+  user_id: string | null
+  team_id: string | null
+  type: 'task_created' | 'task_assigned' | 'task_due' | 'task_completed'
+  name: string
+  subject: string
+  body_html: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface EmailLog {
+  id: string
+  user_id: string | null
+  team_id: string | null
+  task_id: string | null
+  template_id: string | null
+  template_type: string | null
+  to_email: string
+  subject: string | null
+  status: 'pending' | 'sent' | 'failed'
+  error_message: string | null
+  external_id: string | null
+  sent_at: string | null
   created_at: string
 }

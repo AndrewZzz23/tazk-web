@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, TaskStatus, UserRole } from './types/database.types'
 import EditTask from './EditTask'
+import ConfirmDialog from './ConfirmDialog'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { ChevronRight, Pencil, Trash2, Calendar, AlertTriangle, Play } from 'lucide-react'
+import { ChevronRight, Pencil, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Search } from 'lucide-react'
 
 interface TaskListProps {
   currentUserId: string
@@ -19,6 +20,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
   const [loading, setLoading] = useState(true)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set())
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
 
   const loadTasks = async () => {
     setLoading(true)
@@ -116,8 +118,15 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
     }
   }
 
-  const handleDelete = async (taskId: string) => {
-    if (!confirm('¿Eliminar esta tarea?')) return
+  const handleDeleteClick = (task: Task) => {
+    setTaskToDelete(task)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!taskToDelete) return
+
+    const taskId = taskToDelete.id
+    setTaskToDelete(null)
 
     const oldTask = tasks.find(t => t.id === taskId)
     setTasks(prev => prev.filter(t => t.id !== taskId))
@@ -180,7 +189,11 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4">
         <div className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
-          <span className="text-4xl">📭</span>
+          {searchTerm ? (
+            <Search className="w-10 h-10 text-gray-400 dark:text-neutral-500" />
+          ) : (
+            <ClipboardList className="w-10 h-10 text-gray-400 dark:text-neutral-500" />
+          )}
         </div>
         <h3 className="text-gray-900 dark:text-white font-semibold text-lg mb-1">
           {searchTerm ? 'Sin resultados' : 'Sin tareas'}
@@ -194,9 +207,12 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
     )
   }
 
+  // Ordenar estados por order_position
+  const sortedStatuses = [...statuses].sort((a, b) => a.order_position - b.order_position)
+
   return (
     <div className="space-y-6">
-      {statuses.map(status => {
+      {sortedStatuses.map(status => {
         const statusTasks = tasksByStatus[status.id] || []
         const isCollapsed = collapsedStatuses.has(status.id)
 
@@ -240,16 +256,11 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
 
                       {/* Contenido */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <h3 className="text-gray-900 dark:text-white font-medium group-hover:text-yellow-500 transition-colors duration-200 line-clamp-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-gray-900 dark:text-white font-medium group-hover:text-yellow-500 transition-colors duration-200 truncate">
                               {task.title}
                             </h3>
-                            {task.description && (
-                              <p className="text-gray-500 dark:text-neutral-400 text-sm mt-1.5 line-clamp-2 leading-relaxed">
-                                {task.description}
-                              </p>
-                            )}
                           </div>
 
                           {/* Acciones */}
@@ -262,7 +273,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleDelete(task.id) }}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteClick(task) }}
                               className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all duration-200"
                               title="Eliminar"
                             >
@@ -281,7 +292,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
                               onChange={(e) => handleStatusChange(task.id, e.target.value)}
                               className="bg-white dark:bg-neutral-700/50 border border-gray-200 dark:border-neutral-600 text-gray-700 dark:text-neutral-200 text-xs px-2.5 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition-all duration-200 cursor-pointer hover:border-gray-300 dark:hover:border-neutral-500"
                             >
-                              {statuses.map(s => (
+                              {sortedStatuses.map(s => (
                                 <option key={s.id} value={s.id}>
                                   {s.name}
                                 </option>
@@ -342,6 +353,19 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
             onTaskUpdated()
           }}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {/* Confirm Delete Dialog */}
+      {taskToDelete && (
+        <ConfirmDialog
+          title="Eliminar tarea"
+          message={`¿Estás seguro de eliminar "${taskToDelete.title}"? Esta acción no se puede deshacer.`}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+          type="danger"
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setTaskToDelete(null)}
         />
       )}
     </div>

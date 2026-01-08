@@ -13,6 +13,7 @@ import Metrics from './Metrics'
 import ManageStatuses from './ManageStatuses'
 import Notifications from './Notifications'
 import UserSettings from './UserSettings'
+import EmailSettings from './EmailSettings'
 import {
   PlusIcon,
   LogoutIcon,
@@ -50,7 +51,10 @@ function Dashboard() {
   
   // UI
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>('list')
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>(() => {
+    const saved = localStorage.getItem('tazk_view_mode')
+    return (saved === 'list' || saved === 'kanban' || saved === 'calendar') ? saved : 'list'
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [notificationCount, setNotificationCount] = useState(0)
@@ -63,13 +67,16 @@ function Dashboard() {
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [userSettingsTab, setUserSettingsTab] = useState<'profile' | 'appearance' | 'shortcuts' | null>(null)
+  const [showEmailSettings, setShowEmailSettings] = useState(false)
 
   // Cerrar modales con ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // Cerrar en orden de prioridad (el más reciente primero)
-        if (userSettingsTab) {
+        if (showEmailSettings) {
+          setShowEmailSettings(false)
+        } else if (userSettingsTab) {
           setUserSettingsTab(null)
         } else if (showCreateTask) {
           setShowCreateTask(false)
@@ -88,10 +95,10 @@ function Dashboard() {
         }
       }
     }
-    
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [userSettingsTab, showCreateTask, showActivityLogs, showMetrics, showStatuses, showNotifications, showUserMenu, searchTerm])
+  }, [showEmailSettings, userSettingsTab, showCreateTask, showActivityLogs, showMetrics, showStatuses, showNotifications, showUserMenu, searchTerm])
 
   //permisos
   const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
@@ -159,6 +166,13 @@ function Dashboard() {
     setCurrentRole(role)
     setCurrentTeamName(teamName || null)
     setRefreshKey(prev => prev + 1)
+
+    // Persistir en localStorage
+    if (teamId) {
+      localStorage.setItem('tazk_selected_team', teamId)
+    } else {
+      localStorage.removeItem('tazk_selected_team')
+    }
   }
 
   const handleLogout = async () => {
@@ -176,6 +190,11 @@ function Dashboard() {
     loadUserData()
     loadNotificationCount()
   }, [])
+
+  // Persistir viewMode en localStorage
+  useEffect(() => {
+    localStorage.setItem('tazk_view_mode', viewMode)
+  }, [viewMode])
 
   // Atajos de teclado
   useEffect(() => {
@@ -243,6 +262,7 @@ function Dashboard() {
         onLogout={handleLogout}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onShowEmails={() => setShowEmailSettings(true)}
       />
 
       {/* Main */}
@@ -503,6 +523,14 @@ function Dashboard() {
           onClose={() => setUserSettingsTab(null)}
           onProfileUpdated={loadUserData}
           initialTab={userSettingsTab}
+        />
+      )}
+
+      {showEmailSettings && (
+        <EmailSettings
+          currentUserId={user!.id}
+          teamId={currentTeamId}
+          onClose={() => setShowEmailSettings(false)}
         />
       )}
     </div>

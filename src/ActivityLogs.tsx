@@ -8,9 +8,13 @@ interface ActivityLog {
   entity_type: string
   entity_id: string
   details: Record<string, unknown>
-  performed_by: string
+  user_id: string
   created_at: string
   user_email?: string
+  performer?: {
+    full_name?: string
+    email?: string
+  } | null
 }
 
 interface ActivityLogsProps {
@@ -129,6 +133,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
   const loadLogs = async () => {
     setLoading(true)
 
+    // First try with join, fallback to simple query if it fails
     let query = supabase
       .from('activity_logs')
       .select('*')
@@ -144,9 +149,36 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     const { data, error } = await query
 
     if (error) {
-      console.error('Error:', error)
+      console.error('Error loading logs:', error)
+      setLogs([])
     } else {
-      setLogs(data || [])
+      // Get unique user IDs
+      const userIds = [...new Set((data || []).map(log => log.user_id).filter(Boolean))]
+
+      // Fetch all profiles at once
+      let profilesMap: Record<string, { full_name: string | null; email: string | null }> = {}
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds)
+
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, p) => {
+            acc[p.id] = { full_name: p.full_name, email: p.email }
+            return acc
+          }, {} as Record<string, { full_name: string | null; email: string | null }>)
+        }
+      }
+
+      // Map profiles to logs
+      const logsWithPerformers = (data || []).map(log => ({
+        ...log,
+        performer: log.user_id ? profilesMap[log.user_id] : null
+      }))
+
+      setLogs(logsWithPerformers)
     }
 
     setLoading(false)
@@ -157,13 +189,19 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     setTimeout(onClose, 200)
   }
 
-  // Obtener usuarios únicos para el filtro
+  // Obtener usuarios únicos para el filtro (usando user_id y performer)
   const uniqueUsers = useMemo(() => {
-    const users = new Set<string>()
+    const usersMap = new Map<string, { id: string; name: string; email: string }>()
     logs.forEach(log => {
-      if (log.user_email) users.add(log.user_email)
+      if (log.user_id && !usersMap.has(log.user_id)) {
+        usersMap.set(log.user_id, {
+          id: log.user_id,
+          name: log.performer?.full_name || 'Usuario',
+          email: log.performer?.email || log.user_email || ''
+        })
+      }
     })
-    return Array.from(users).sort()
+    return Array.from(usersMap.values()).sort((a, b) => a.name.localeCompare(b.name))
   }, [logs])
 
   // Aplicar filtros
@@ -183,8 +221,8 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       // Filtro por entidad
       if (filterEntity !== 'all' && log.entity_type !== filterEntity) return false
 
-      // Filtro por usuario
-      if (filterUser !== 'all' && log.user_email !== filterUser) return false
+      // Filtro por usuario (usando user_id)
+      if (filterUser !== 'all' && log.user_id !== filterUser) return false
 
       // Filtro por tiempo
       if (filterTime !== 'all') {
@@ -207,10 +245,11 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
         const details = log.details ? JSON.stringify(log.details).toLowerCase() : ''
-        const email = (log.user_email || '').toLowerCase()
+        const email = (log.performer?.email || log.user_email || '').toLowerCase()
+        const name = (log.performer?.full_name || '').toLowerCase()
         const action = (log.action || '').toLowerCase()
 
-        if (!details.includes(term) && !email.includes(term) && !action.includes(term)) {
+        if (!details.includes(term) && !email.includes(term) && !name.includes(term) && !action.includes(term)) {
           return false
         }
       }
@@ -580,7 +619,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                 icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
                 options={[
                   { id: 'all', label: 'Todos' },
-                  ...uniqueUsers.map(email => ({ id: email, label: email.split('@')[0] }))
+                  ...uniqueUsers.map(user => ({ id: user.id, label: user.name }))
                 ]}
               />
             )}
@@ -664,8 +703,12 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
                                 {getDescription(log)}
                               </p>
                               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                <span className="text-xs font-medium text-gray-600 dark:text-neutral-300">
+                                  {log.performer?.full_name || 'Usuario'}
+                                </span>
+                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600" />
                                 <span className="text-xs text-gray-400 dark:text-neutral-500">
-                                  {log.user_email?.split('@')[0] || 'Sistema'}
+                                  {log.performer?.email || log.user_email || 'Sin correo'}
                                 </span>
                                 <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600" />
                                 <span className="text-xs text-gray-400 dark:text-neutral-500">
