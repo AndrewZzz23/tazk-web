@@ -11,7 +11,6 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import EditTask from './EditTask'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { Calendar, Columns3, LayoutGrid } from 'lucide-react'
 import { logTaskStatusChanged } from './lib/activityLogger'
@@ -23,6 +22,7 @@ interface KanbanBoardProps {
   userEmail?: string
   searchTerm: string
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
+  onOpenTask?: (task: Task) => void
 }
 
 // Componente de tarjeta arrastrable
@@ -157,12 +157,11 @@ function DroppableColumn({
   )
 }
 
-function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm, showToast }: KanbanBoardProps) {
+function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm, showToast, onOpenTask }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTask, setActiveTask] = useState<Task | null>(null)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -323,7 +322,7 @@ function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm, s
                 key={status.id}
                 status={status}
                 tasks={filteredTasks.filter((t) => t.status_id === status.id)}
-                onTaskClick={setEditingTask}
+                onTaskClick={(task) => onOpenTask?.(task)}
               />
             ))}
         </div>
@@ -332,17 +331,6 @@ function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm, s
           {activeTask && <TaskCardPreview task={activeTask} />}
         </DragOverlay>
       </DndContext>
-
-      {/* Modal de edición */}
-      {editingTask && (
-        <EditTask
-          task={editingTask}
-          currentUserId={currentUserId}
-          onTaskUpdated={loadData}
-          onClose={() => setEditingTask(null)}
-          showToast={showToast}
-        />
-      )}
     </div>
   )
 }

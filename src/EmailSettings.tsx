@@ -353,7 +353,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
       .replace(/\{\{due_date\}\}/g, '31/12/2025 18:00')
       .replace(/\{\{created_by_name\}\}/g, 'Juan Pérez')
       .replace(/\{\{assigned_to_name\}\}/g, 'María García')
-      .replace(/\{\{task_url\}\}/g, '#')
+      .replace(/\{\{task_url\}\}/g, `${window.location.origin}/task/example-task-id`)
       .replace(/\{\{completed_date\}\}/g, '27/12/2025 15:30')
   }
 

@@ -210,7 +210,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         .replace(/\{\{due_date\}\}/g, dueDateStr)
         .replace(/\{\{created_by_name\}\}/g, userEmail || 'Usuario')
         .replace(/\{\{assigned_to_name\}\}/g, assignedUserName)
-        .replace(/\{\{task_url\}\}/g, `${window.location.origin}`)
+        .replace(/\{\{task_url\}\}/g, `${window.location.origin}/task/${taskId}`)
 
       subject = template.subject?.replace(/\{\{task_title\}\}/g, taskTitle) || `Nueva tarea: ${taskTitle}`
     } else {

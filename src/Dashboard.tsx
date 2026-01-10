@@ -1,7 +1,8 @@
 import { supabase } from './supabaseClient'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
-import { UserRole } from './types/database.types'
+import { Task, UserRole } from './types/database.types'
 import { useTheme } from './ThemeContext'
 import Sidebar from './Sidebar'
 import CreateTask from './CreateTask'
@@ -14,6 +15,7 @@ import ManageStatuses from './ManageStatuses'
 import Notifications from './Notifications'
 import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
+import EditTask from './EditTask'
 import {
   PlusIcon,
   LogoutIcon,
@@ -40,16 +42,24 @@ import Toast from './Toast'
 
 function Dashboard() {
   const { theme } = useTheme()
+  const navigate = useNavigate()
+  const { taskId } = useParams<{ taskId: string }>()
+  const location = useLocation()
+
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
   const [profileName, setProfileName] = useState<string | null>(null)
-  
+
+  // Tarea abierta via URL
+  const [openedTask, setOpenedTask] = useState<Task | null>(null)
+  const [loadingTask, setLoadingTask] = useState(false)
+
   // Equipo actual
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
   const [currentTeamName, setCurrentTeamName] = useState<string | null>(null)
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null)
-  
+
   // UI
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>(() => {
@@ -60,7 +70,7 @@ function Dashboard() {
   const [searchFocused, setSearchFocused] = useState(false)
   const [notificationCount, setNotificationCount] = useState(0)
   const [showUserMenu, setShowUserMenu] = useState(false)
-  
+
   // Modales
   const [showActivityLogs, setShowActivityLogs] = useState(false)
   const [showMetrics, setShowMetrics] = useState(false)
@@ -75,12 +85,68 @@ function Dashboard() {
     setToast({ show: true, message, type })
   }
 
+  // Función para abrir una tarea (navega a la URL)
+  const openTask = useCallback((task: Task) => {
+    setOpenedTask(task)
+    navigate(`/task/${task.id}`, { state: { backgroundLocation: location } })
+  }, [navigate, location])
+
+  // Función para cerrar la tarea (vuelve atrás o va al inicio)
+  const closeTask = useCallback(() => {
+    setOpenedTask(null)
+    // Si hay estado con backgroundLocation, significa que navegamos desde la app
+    // Si no hay historial previo o llegamos directamente a /task/:id, ir a /
+    if (location.state?.backgroundLocation || window.history.length > 2) {
+      navigate(-1)
+    } else {
+      navigate('/', { replace: true })
+    }
+  }, [navigate, location.state])
+
+  // Cargar tarea cuando hay taskId en la URL
+  useEffect(() => {
+    const loadTaskFromUrl = async () => {
+      if (!taskId || openedTask?.id === taskId) return
+
+      setLoadingTask(true)
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          task_statuses (*),
+          assigned_user:profiles!tasks_assigned_to_fkey (*),
+          created_by_user:profiles!tasks_created_by_fkey (*)
+        `)
+        .eq('id', taskId)
+        .single()
+
+      if (error || !data) {
+        showToast('Tarea no encontrada', 'error')
+        navigate('/', { replace: true })
+      } else {
+        setOpenedTask(data)
+      }
+      setLoadingTask(false)
+    }
+
+    loadTaskFromUrl()
+  }, [taskId])
+
+  // Limpiar tarea abierta si la URL ya no tiene taskId
+  useEffect(() => {
+    if (!taskId && openedTask) {
+      setOpenedTask(null)
+    }
+  }, [taskId])
+
   // Cerrar modales con ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // Cerrar en orden de prioridad (el más reciente primero)
-        if (showEmailSettings) {
+        if (openedTask) {
+          closeTask()
+        } else if (showEmailSettings) {
           setShowEmailSettings(false)
         } else if (userSettingsTab) {
           setUserSettingsTab(null)
@@ -104,7 +170,7 @@ function Dashboard() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showEmailSettings, userSettingsTab, showCreateTask, showActivityLogs, showMetrics, showStatuses, showNotifications, showUserMenu, searchTerm])
+  }, [openedTask, showEmailSettings, userSettingsTab, showCreateTask, showActivityLogs, showMetrics, showStatuses, showNotifications, showUserMenu, searchTerm, closeTask])
 
   //permisos
   const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
@@ -443,9 +509,10 @@ function Dashboard() {
               onTaskUpdated={() => setRefreshKey(prev => prev + 1)}
               searchTerm={searchTerm}
               showToast={showToast}
+              onOpenTask={openTask}
             />
           )}
-          
+
           {viewMode === 'kanban' && (
             <KanbanBoard
               key={refreshKey}
@@ -454,6 +521,7 @@ function Dashboard() {
               userRole={currentRole}
               searchTerm={searchTerm}
               showToast={showToast}
+              onOpenTask={openTask}
             />
           )}
 
@@ -465,6 +533,7 @@ function Dashboard() {
               userRole={currentRole}
               searchTerm={searchTerm}
               showToast={showToast}
+              onOpenTask={openTask}
             />
           )}
         </div>
@@ -541,6 +610,35 @@ function Dashboard() {
           currentUserId={user!.id}
           teamId={currentTeamId}
           onClose={() => setShowEmailSettings(false)}
+        />
+      )}
+
+      {/* Modal de tarea abierta via URL */}
+      {openedTask && (
+        <EditTask
+          task={openedTask}
+          currentUserId={user!.id}
+          onTaskUpdated={() => {
+            setRefreshKey(prev => prev + 1)
+            // Recargar la tarea para reflejar cambios
+            if (taskId) {
+              supabase
+                .from('tasks')
+                .select(`
+                  *,
+                  task_statuses (*),
+                  assigned_user:profiles!tasks_assigned_to_fkey (*),
+                  created_by_user:profiles!tasks_created_by_fkey (*)
+                `)
+                .eq('id', taskId)
+                .single()
+                .then(({ data }) => {
+                  if (data) setOpenedTask(data)
+                })
+            }
+          }}
+          onClose={closeTask}
+          showToast={showToast}
         />
       )}
 

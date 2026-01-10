@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, TaskStatus, UserRole } from './types/database.types'
-import EditTask from './EditTask'
 import ConfirmDialog from './ConfirmDialog'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { ChevronRight, Pencil, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Search } from 'lucide-react'
@@ -13,13 +12,13 @@ interface TaskListProps {
   onTaskUpdated: () => void
   searchTerm: string
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
+  onOpenTask?: (task: Task) => void
 }
 
-function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, searchTerm, showToast }: TaskListProps) {
+function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, searchTerm, showToast, onOpenTask }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(() => {
     // Cargar estado inicial desde localStorage
     const storageKey = `tazk_collapsed_statuses_${teamId || 'personal'}`
@@ -281,7 +280,7 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
                   <div
                     key={task.id}
                     className="bg-gray-50 dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl p-4 hover:shadow-md hover:border-gray-200 dark:hover:border-neutral-600 transition-all duration-200 group cursor-pointer"
-                    onClick={() => setEditingTask(task)}
+                    onClick={() => onOpenTask?.(task)}
                   >
                     <div className="flex items-start gap-3">
                       {/* Indicador de color del estado */}
@@ -302,7 +301,7 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
                           {/* Acciones */}
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0">
                             <button
-                              onClick={(e) => { e.stopPropagation(); setEditingTask(task) }}
+                              onClick={(e) => { e.stopPropagation(); onOpenTask?.(task) }}
                               className="p-2 text-gray-400 dark:text-neutral-500 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 rounded-lg transition-all duration-200"
                               title="Editar"
                             >
@@ -378,20 +377,6 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
           </div>
         )
       })}
-
-      {/* Modal de edición */}
-      {editingTask && (
-        <EditTask
-          task={editingTask}
-          currentUserId={currentUserId}
-          onTaskUpdated={() => {
-            loadTasks()
-            onTaskUpdated()
-          }}
-          showToast={showToast}
-          onClose={() => setEditingTask(null)}
-        />
-      )}
 
       {/* Confirm Delete Dialog */}
       {taskToDelete && (

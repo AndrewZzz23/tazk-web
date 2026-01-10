@@ -5,7 +5,6 @@ import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { supabase } from './supabaseClient'
 import { Task, UserRole } from './types/database.types'
-import EditTask from './EditTask'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, List, Clock, User } from 'lucide-react'
 
@@ -41,6 +40,7 @@ interface CalendarViewProps {
   userRole: UserRole | null
   searchTerm: string
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
+  onOpenTask?: (task: Task) => void
 }
 
 interface CalendarEvent {
@@ -52,10 +52,9 @@ interface CalendarEvent {
   color: string
 }
 
-function CalendarView({ currentUserId, teamId, searchTerm, showToast }: CalendarViewProps) {
+function CalendarView({ currentUserId, teamId, searchTerm, showToast, onOpenTask }: CalendarViewProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'day' | 'agenda'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [agendaFilter, setAgendaFilter] = useState<'day' | 'week' | 'month' | 'all'>('all')
@@ -140,7 +139,7 @@ function CalendarView({ currentUserId, teamId, searchTerm, showToast }: Calendar
   }
 
   const handleSelectEvent = (event: CalendarEvent) => {
-    setEditingTask(event.task)
+    onOpenTask?.(event.task)
   }
 
   const handleNavigate = (action: 'PREV' | 'NEXT' | 'TODAY') => {
@@ -692,7 +691,7 @@ function CalendarView({ currentUserId, teamId, searchTerm, showToast }: Calendar
                     {dayEvents.map((event) => (
                       <div
                         key={event.id}
-                        onClick={() => setEditingTask(event.task)}
+                        onClick={() => onOpenTask?.(event.task)}
                         className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-neutral-700/30 cursor-pointer transition-all duration-200"
                       >
                         {/* Color indicator */}
@@ -784,16 +783,6 @@ function CalendarView({ currentUserId, teamId, searchTerm, showToast }: Calendar
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingTask && (
-        <EditTask
-          task={editingTask}
-          currentUserId={currentUserId}
-          onTaskUpdated={loadTasks}
-          onClose={() => setEditingTask(null)}
-          showToast={showToast}
-        />
-      )}
     </div>
   )
 }
