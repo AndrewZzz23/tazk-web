@@ -18,6 +18,7 @@ export interface Profile {
 export interface Team {
   id: string
   name: string
+  color: string | null
   created_by: string
   created_at: string
 }
@@ -56,6 +57,7 @@ export interface Task {
   // Relaciones (opcionales, vienen del JOIN)
   task_statuses?: TaskStatus
   assigned_user?: Profile | null
+  created_by_user?: Profile | null
 }
 
 export interface ActivityLog {

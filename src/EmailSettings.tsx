@@ -115,9 +115,12 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
       query = query.is('team_id', null)
     }
 
-    const { data } = await query.maybeSingle()
+    const { data, error } = await query.maybeSingle()
+
+    console.log('EmailSettings loadSettings:', { data, error, currentUserId, teamId })
 
     if (data) {
+      console.log('Setting isEnabled to:', data.is_enabled)
       setSettings(data)
       setIsEnabled(data.is_enabled)
       setFromName(data.from_name || 'Tazk')
@@ -209,6 +212,8 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
         .update(settingsData)
         .eq('id', settings.id)
 
+      console.log('EmailSettings update:', { error, settingsData })
+
       if (error) {
         showToast('Error al guardar', 'error')
       } else {
@@ -220,6 +225,8 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
         .insert(settingsData)
         .select()
         .single()
+
+      console.log('EmailSettings insert:', { data, error, settingsData })
 
       if (error) {
         showToast('Error al crear configuración', 'error')
@@ -291,6 +298,11 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <div style="background: linear-gradient(135deg, #facc15 0%, #f97316 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+                <div style="margin-bottom: 10px;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+                  </svg>
+                </div>
                 <h1 style="color: #1a1a1a; margin: 0; font-size: 28px;">Tazk</h1>
                 <p style="color: #1a1a1a; margin: 10px 0 0; opacity: 0.8;">Gestión de tareas</p>
               </div>
@@ -448,7 +460,37 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                           </div>
                         </div>
                         <button
-                          onClick={() => setIsEnabled(!isEnabled)}
+                          onClick={async () => {
+                            const newValue = !isEnabled
+                            setIsEnabled(newValue)
+
+                            // Guardar automáticamente
+                            const settingsData = {
+                              user_id: currentUserId,
+                              team_id: teamId,
+                              is_enabled: newValue,
+                              from_name: fromName,
+                              notify_on_create: notifyOnCreate,
+                              notify_on_assign: notifyOnAssign,
+                              notify_on_due: notifyOnDue,
+                              notify_on_complete: notifyOnComplete,
+                              updated_at: new Date().toISOString()
+                            }
+
+                            if (settings) {
+                              await supabase
+                                .from('email_settings')
+                                .update({ is_enabled: newValue, updated_at: new Date().toISOString() })
+                                .eq('id', settings.id)
+                            } else {
+                              const { data } = await supabase
+                                .from('email_settings')
+                                .insert(settingsData)
+                                .select()
+                                .single()
+                              if (data) setSettings(data)
+                            }
+                          }}
                           className={`relative w-16 h-9 rounded-full transition-all duration-300 ${
                             isEnabled
                               ? 'bg-gradient-to-r from-yellow-400 to-orange-500 shadow-lg shadow-orange-500/30'

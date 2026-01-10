@@ -33,6 +33,7 @@ import {
   SettingsIcon,
   PaletteIcon
 } from './components/iu/AnimatedIcons';
+import Toast from './Toast'
 
 
 
@@ -68,6 +69,11 @@ function Dashboard() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [userSettingsTab, setUserSettingsTab] = useState<'profile' | 'appearance' | 'shortcuts' | null>(null)
   const [showEmailSettings, setShowEmailSettings] = useState(false)
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ show: true, message, type })
+  }
 
   // Cerrar modales con ESC
   useEffect(() => {
@@ -429,13 +435,14 @@ function Dashboard() {
 
           {/* Vista */}
           {viewMode === 'list' && (
-            <TaskList 
+            <TaskList
               key={refreshKey}
               currentUserId={user!.id}
               teamId={currentTeamId}
               userRole={currentRole}
               onTaskUpdated={() => setRefreshKey(prev => prev + 1)}
               searchTerm={searchTerm}
+              showToast={showToast}
             />
           )}
           
@@ -446,6 +453,7 @@ function Dashboard() {
               teamId={currentTeamId}
               userRole={currentRole}
               searchTerm={searchTerm}
+              showToast={showToast}
             />
           )}
 
@@ -456,6 +464,7 @@ function Dashboard() {
               teamId={currentTeamId}
               userRole={currentRole}
               searchTerm={searchTerm}
+              showToast={showToast}
             />
           )}
         </div>
@@ -479,6 +488,7 @@ function Dashboard() {
           teamId={currentTeamId}
           onTaskCreated={() => setRefreshKey(prev => prev + 1)}
           onClose={() => setShowCreateTask(false)}
+          showToast={showToast}
         />
       )}
 
@@ -531,6 +541,15 @@ function Dashboard() {
           currentUserId={user!.id}
           teamId={currentTeamId}
           onClose={() => setShowEmailSettings(false)}
+        />
+      )}
+
+      {/* Toast Global */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
         />
       )}
     </div>

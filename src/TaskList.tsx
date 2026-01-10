@@ -12,14 +12,27 @@ interface TaskListProps {
   userRole: UserRole | null
   onTaskUpdated: () => void
   searchTerm: string
+  showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }: TaskListProps) {
+function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, searchTerm, showToast }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
-  const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set())
+  const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(() => {
+    // Cargar estado inicial desde localStorage
+    const storageKey = `tazk_collapsed_statuses_${teamId || 'personal'}`
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved))
+      } catch {
+        return new Set()
+      }
+    }
+    return new Set()
+  })
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
 
   const loadTasks = async () => {
@@ -30,7 +43,8 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
       .select(`
         *,
         task_statuses (*),
-        assigned_user:profiles!tasks_assigned_to_fkey (*)
+        assigned_user:profiles!tasks_assigned_to_fkey (*),
+        created_by_user:profiles!tasks_created_by_fkey (*)
       `)
       .order('created_at', { ascending: false })
 
@@ -73,6 +87,27 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
     loadStatuses()
   }, [teamId, currentUserId])
 
+  // Persistir estado de listas contraídas en localStorage
+  useEffect(() => {
+    const storageKey = `tazk_collapsed_statuses_${teamId || 'personal'}`
+    localStorage.setItem(storageKey, JSON.stringify([...collapsedStatuses]))
+  }, [collapsedStatuses, teamId])
+
+  // Recargar estado de listas contraídas cuando cambie el equipo
+  useEffect(() => {
+    const storageKey = `tazk_collapsed_statuses_${teamId || 'personal'}`
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      try {
+        setCollapsedStatuses(new Set(JSON.parse(saved)))
+      } catch {
+        setCollapsedStatuses(new Set())
+      }
+    } else {
+      setCollapsedStatuses(new Set())
+    }
+  }, [teamId])
+
   // Filtrar tareas por búsqueda
   const filteredTasks = useMemo(() => {
     if (!searchTerm.trim()) return tasks
@@ -114,7 +149,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
       if (oldTask) {
         setTasks(prev => prev.map(t => t.id === taskId ? oldTask : t))
       }
-      alert('Error al actualizar estado')
+      showToast?.('Error al actualizar estado', 'error')
     }
   }
 
@@ -140,8 +175,9 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
       if (oldTask) {
         setTasks(prev => [...prev, oldTask])
       }
-      alert('Error al eliminar')
+      showToast?.('Error al eliminar tarea', 'error')
     } else {
+      showToast?.('Tarea eliminada', 'success')
       onTaskUpdated()
     }
   }
@@ -352,6 +388,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
             loadTasks()
             onTaskUpdated()
           }}
+          showToast={showToast}
           onClose={() => setEditingTask(null)}
         />
       )}
@@ -368,7 +405,8 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm }
           onCancel={() => setTaskToDelete(null)}
         />
       )}
-    </div>
+
+          </div>
   )
 }
 

@@ -4,6 +4,7 @@ import { Team, UserRole } from './types/database.types'
 import CreateTeam from './CreateTeam'
 import InviteMember from './InviteMember'
 import TeamMembers from './TeamMembers'
+import TeamSettings from './TeamSettings'
 import {
   ZapIcon,
   ListIcon,
@@ -14,7 +15,8 @@ import {
   PaletteIcon,
   BellIcon,
   PanelLeftCloseIcon,
-  MailIcon
+  MailIcon,
+  SettingsIcon
 } from './components/iu/AnimatedIcons';
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield } from 'lucide-react'
 
@@ -55,11 +57,13 @@ function Sidebar({
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null)
+  const [selectedTeamColor, setSelectedTeamColor] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
   const [showTeamMenu, setShowTeamMenu] = useState(false)
   const [showCreateTeam, setShowCreateTeam] = useState(false)
   const [showInviteMember, setShowInviteMember] = useState(false)
   const [showTeamMembers, setShowTeamMembers] = useState(false)
+  const [showTeamSettings, setShowTeamSettings] = useState(false)
 
   const loadTeams = async () => {
     const { data, error } = await supabase
@@ -89,6 +93,7 @@ function Sidebar({
         if (savedTeam) {
           setSelectedTeamId(savedTeam.id)
           setSelectedTeamName(savedTeam.name)
+          setSelectedTeamColor(savedTeam.color)
           setSelectedRole(savedTeam.role)
           onTeamChange(savedTeam.id, savedTeam.role, savedTeam.name)
         }
@@ -106,12 +111,14 @@ function Sidebar({
     if (teamId === null) {
       setSelectedTeamId(null)
       setSelectedTeamName(null)
+      setSelectedTeamColor(null)
       setSelectedRole(null)
       onTeamChange(null, null)
     } else {
       const team = teams.find((t) => t.id === teamId)
       setSelectedTeamId(teamId)
       setSelectedTeamName(team?.name || null)
+      setSelectedTeamColor(team?.color || null)
       setSelectedRole(team?.role || null)
       onTeamChange(teamId, team?.role || null, team?.name)
     }
@@ -207,13 +214,17 @@ function Sidebar({
               } ${showTeamMenu ? 'bg-neutral-800 ring-1 ring-yellow-400/30' : ''}`}
               title={isCollapsed ? (selectedTeamName || 'Personal') : undefined}
             >
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                selectedTeamId
-                  ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/20'
-                  : 'bg-neutral-700'
-              }`}>
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${
+                  !selectedTeamId ? 'bg-neutral-700' : ''
+                }`}
+                style={selectedTeamId ? {
+                  backgroundColor: selectedTeamColor || '#facc15',
+                  boxShadow: `0 10px 15px -3px ${selectedTeamColor || '#facc15'}33`
+                } : undefined}
+              >
                 {selectedTeamId ? (
-                  <Users className="w-4.5 h-4.5 text-white" />
+                  <Users className="w-4.5 h-4.5 text-neutral-900" />
                 ) : (
                   <User className="w-4.5 h-4.5 text-neutral-400" />
                 )}
@@ -284,37 +295,42 @@ function Sidebar({
 
                     {/* Equipos */}
                     <div className="max-h-[200px] overflow-y-auto">
-                      {teams.map(team => (
-                        <button
-                          key={team.id}
-                          onClick={() => handleTeamSelect(team.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-neutral-700/50 transition-all duration-150 ${
-                            selectedTeamId === team.id ? 'bg-yellow-400/10' : ''
-                          }`}
-                        >
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                            selectedTeamId === team.id
-                              ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/30'
-                              : 'bg-neutral-700'
-                          }`}>
-                            <Users className={`w-4.5 h-4.5 ${selectedTeamId === team.id ? 'text-white' : 'text-neutral-400'}`} />
-                          </div>
-                          <div className="flex-1 text-left min-w-0">
-                            <div className={`text-sm font-medium truncate ${selectedTeamId === team.id ? 'text-yellow-400' : 'text-white'}`}>
-                              {team.name}
+                      {teams.map(team => {
+                        const teamColor = team.color || '#facc15'
+                        return (
+                          <button
+                            key={team.id}
+                            onClick={() => handleTeamSelect(team.id)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-neutral-700/50 transition-all duration-150 ${
+                              selectedTeamId === team.id ? 'bg-yellow-400/10' : ''
+                            }`}
+                          >
+                            <div
+                              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+                              style={{
+                                backgroundColor: teamColor,
+                                boxShadow: selectedTeamId === team.id ? `0 10px 15px -3px ${teamColor}40` : undefined
+                              }}
+                            >
+                              <Users className="w-4.5 h-4.5 text-neutral-900" />
                             </div>
-                            <div className="flex items-center gap-1 text-neutral-500 text-xs">
-                              {getRoleIcon(team.role)}
-                              <span>{getRoleLabel(team.role)}</span>
+                            <div className="flex-1 text-left min-w-0">
+                              <div className={`text-sm font-medium truncate ${selectedTeamId === team.id ? 'text-yellow-400' : 'text-white'}`}>
+                                {team.name}
+                              </div>
+                              <div className="flex items-center gap-1 text-neutral-500 text-xs">
+                                {getRoleIcon(team.role)}
+                                <span>{getRoleLabel(team.role)}</span>
+                              </div>
                             </div>
-                          </div>
-                          {selectedTeamId === team.id && (
-                            <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-                              <Check className="w-3 h-3 text-neutral-900" />
-                            </div>
-                          )}
-                        </button>
-                      ))}
+                            {selectedTeamId === team.id && (
+                              <div className="w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
+                                <Check className="w-3 h-3 text-neutral-900" />
+                              </div>
+                            )}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -354,6 +370,13 @@ function Sidebar({
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Miembros</span>
+              </button>
+              <button
+                onClick={() => setShowTeamSettings(true)}
+                className="flex items-center justify-center p-2 bg-neutral-800 text-neutral-300 rounded-lg text-xs font-medium hover:bg-neutral-700 hover:text-white transition-all duration-200"
+                title="Configuración del equipo"
+              >
+                <SettingsIcon size={14} />
               </button>
             </div>
           )}
@@ -459,6 +482,35 @@ function Sidebar({
           currentUserId={currentUserId}
           currentUserRole={selectedRole}
           onClose={() => setShowTeamMembers(false)}
+        />
+      )}
+
+      {showTeamSettings && selectedTeamId && selectedRole && selectedTeamName && (
+        <TeamSettings
+          teamId={selectedTeamId}
+          teamName={selectedTeamName}
+          teamColor={selectedTeamColor}
+          currentUserId={currentUserId}
+          currentUserRole={selectedRole}
+          onClose={() => setShowTeamSettings(false)}
+          onTeamDeleted={() => {
+            setShowTeamSettings(false)
+            // Switch to personal tasks
+            setSelectedTeamId(null)
+            setSelectedTeamName(null)
+            setSelectedTeamColor(null)
+            setSelectedRole(null)
+            onTeamChange(null, null)
+            // Reload teams list
+            loadTeams()
+          }}
+          onTeamUpdated={(newName, newColor) => {
+            setSelectedTeamName(newName)
+            if (newColor) {
+              setSelectedTeamColor(newColor)
+            }
+            loadTeams()
+          }}
         />
       )}
     </>

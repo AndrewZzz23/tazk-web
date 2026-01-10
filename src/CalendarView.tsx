@@ -40,6 +40,7 @@ interface CalendarViewProps {
   teamId: string | null
   userRole: UserRole | null
   searchTerm: string
+  showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
 interface CalendarEvent {
@@ -51,7 +52,7 @@ interface CalendarEvent {
   color: string
 }
 
-function CalendarView({ currentUserId, teamId, searchTerm }: CalendarViewProps) {
+function CalendarView({ currentUserId, teamId, searchTerm, showToast }: CalendarViewProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -790,6 +791,7 @@ function CalendarView({ currentUserId, teamId, searchTerm }: CalendarViewProps) 
           currentUserId={currentUserId}
           onTaskUpdated={loadTasks}
           onClose={() => setEditingTask(null)}
+          showToast={showToast}
         />
       )}
     </div>

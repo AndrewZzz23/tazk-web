@@ -14,9 +14,10 @@ interface EditTaskProps {
   userEmail?: string
   onTaskUpdated: () => void
   onClose: () => void
+  showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: EditTaskProps) {
+function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose, showToast }: EditTaskProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description || '')
   const [statusId, setStatusId] = useState(task.status_id)
@@ -91,7 +92,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
     e.preventDefault()
 
     if (!title.trim()) {
-      alert('El título es obligatorio')
+      showToast?.('El título es obligatorio', 'error')
       return
     }
 
@@ -112,8 +113,9 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
     setLoading(false)
 
     if (error) {
-      alert('Error al actualizar: ' + error.message)
+      showToast?.('Error al actualizar tarea', 'error')
     } else {
+      showToast?.('Tarea actualizada', 'success')
       // Log changes
       const oldStatus = statuses.find(s => s.id === task.status_id)
       const newStatus = statuses.find(s => s.id === statusId)
@@ -152,8 +154,9 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
     setLoading(false)
 
     if (error) {
-      alert('Error al eliminar: ' + error.message)
+      showToast?.('Error al eliminar tarea', 'error')
     } else {
+      showToast?.('Tarea eliminada', 'success')
       logTaskDeleted(task.id, task.title, task.team_id, currentUserId, userEmail)
       onTaskUpdated()
       handleClose()
@@ -435,8 +438,14 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
         </form>
 
         {/* Info */}
-        <div className="px-6 pb-4 text-xs text-gray-400 dark:text-neutral-500">
-          Creada: {new Date(task.created_at).toLocaleDateString('es-CO')}
+        <div className="px-6 pb-4 text-xs text-gray-400 dark:text-neutral-500 flex items-center gap-2">
+          <span>Creada: {new Date(task.created_at).toLocaleDateString('es-CO')}</span>
+          {task.created_by_user && (
+            <>
+              <span>•</span>
+              <span>por {task.created_by_user.full_name || task.created_by_user.email}</span>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -453,6 +462,7 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose }: Ed
         onCancel={() => setShowDeleteConfirm(false)}
       />
     )}
+
     </>
   )
 }

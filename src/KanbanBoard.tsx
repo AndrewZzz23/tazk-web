@@ -22,6 +22,7 @@ interface KanbanBoardProps {
   userRole: UserRole | null
   userEmail?: string
   searchTerm: string
+  showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
 // Componente de tarjeta arrastrable
@@ -156,7 +157,7 @@ function DroppableColumn({
   )
 }
 
-function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm }: KanbanBoardProps) {
+function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm, showToast }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -339,6 +340,7 @@ function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm }:
           currentUserId={currentUserId}
           onTaskUpdated={loadData}
           onClose={() => setEditingTask(null)}
+          showToast={showToast}
         />
       )}
     </div>

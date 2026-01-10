@@ -12,9 +12,10 @@ interface CreateTaskProps {
   userEmail?: string
   onTaskCreated: () => void
   onClose: () => void
+  showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }: CreateTaskProps) {
+function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, showToast }: CreateTaskProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [statusId, setStatusId] = useState('')
@@ -95,7 +96,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
     e.preventDefault()
     
     if (!title.trim()) {
-      alert('El título es obligatorio')
+      showToast?.('El título es obligatorio', 'error')
       return
     }
 
@@ -120,14 +121,26 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
     setLoading(false)
 
     if (error) {
-      alert('Error al crear tarea: ' + error.message)
+      showToast?.('Error al crear tarea', 'error')
     } else {
+      showToast?.('Tarea creada', 'success')
       // Log activity
       logTaskCreated(data.id, title.trim(), teamId, currentUserId, userEmail)
 
+      // Recopilar emails a notificar
+      const emailsToNotify = [...notifyEmails]
+
+      // Agregar email del usuario asignado si existe y no está ya en la lista
+      if (assignedTo) {
+        const assignedUser = users.find(u => u.id === assignedTo)
+        if (assignedUser?.email && !emailsToNotify.includes(assignedUser.email)) {
+          emailsToNotify.push(assignedUser.email)
+        }
+      }
+
       // Enviar notificaciones por email
-      if (notifyEmails.length > 0) {
-        sendNotificationEmails(data.id, title.trim(), description.trim(), notifyEmails)
+      if (emailsToNotify.length > 0) {
+        sendNotificationEmails(data.id, title.trim(), description.trim(), emailsToNotify)
       }
 
       onTaskCreated()
@@ -141,12 +154,11 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
     taskDescription: string,
     emails: string[]
   ) => {
-    // Verificar si las notificaciones están habilitadas
+    // Intentar obtener configuración del usuario
     let settingsQuery = supabase
       .from('email_settings')
       .select('*')
       .eq('user_id', currentUserId)
-      .eq('notify_on_create', true)
 
     if (teamId) {
       settingsQuery = settingsQuery.eq('team_id', teamId)
@@ -156,9 +168,19 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
 
     const { data: settings } = await settingsQuery.maybeSingle()
 
+    // Si el módulo de correos está desactivado, no enviar nada
     if (!settings?.is_enabled) return
 
-    // Obtener la plantilla de "tarea creada"
+    // Si notify_on_create está desactivado, no enviar
+    if (!settings?.notify_on_create) return
+
+    // Obtener nombre del estado
+    const status = statuses.find(s => s.id === statusId)
+    const statusName = status?.name || 'Sin estado'
+    const assignedUserName = assignedTo ? (users.find(u => u.id === assignedTo)?.full_name || 'Asignado') : 'Sin asignar'
+    const dueDateStr = dueDate ? dueDate.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha límite'
+
+    // Intentar obtener plantilla personalizada
     let templateQuery = supabase
       .from('email_templates')
       .select('*')
@@ -174,24 +196,52 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
 
     const { data: template } = await templateQuery.maybeSingle()
 
-    if (!template) return
+    // Usar plantilla personalizada o plantilla por defecto
+    let subject: string
+    let html: string
+    const fromName = settings.from_name || 'Tazk'
 
-    // Obtener nombre del estado
-    const status = statuses.find(s => s.id === statusId)
-    const statusName = status?.name || 'Sin estado'
+    if (template?.body_html) {
+      // Usar plantilla personalizada
+      html = template.body_html
+        .replace(/\{\{task_title\}\}/g, taskTitle)
+        .replace(/\{\{task_description\}\}/g, taskDescription || 'Sin descripción')
+        .replace(/\{\{status_name\}\}/g, statusName)
+        .replace(/\{\{due_date\}\}/g, dueDateStr)
+        .replace(/\{\{created_by_name\}\}/g, userEmail || 'Usuario')
+        .replace(/\{\{assigned_to_name\}\}/g, assignedUserName)
+        .replace(/\{\{task_url\}\}/g, `${window.location.origin}`)
 
-    // Preparar el HTML con las variables reemplazadas
-    const html = template.body_html
-      .replace(/\{\{task_title\}\}/g, taskTitle)
-      .replace(/\{\{task_description\}\}/g, taskDescription || 'Sin descripción')
-      .replace(/\{\{status_name\}\}/g, statusName)
-      .replace(/\{\{due_date\}\}/g, dueDate ? dueDate.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha límite')
-      .replace(/\{\{created_by_name\}\}/g, userEmail || 'Usuario')
-      .replace(/\{\{assigned_to_name\}\}/g, assignedTo ? (users.find(u => u.id === assignedTo)?.full_name || 'Asignado') : 'Sin asignar')
-      .replace(/\{\{task_url\}\}/g, `${window.location.origin}`)
-
-    const subject = template.subject
-      .replace(/\{\{task_title\}\}/g, taskTitle)
+      subject = template.subject?.replace(/\{\{task_title\}\}/g, taskTitle) || `Nueva tarea: ${taskTitle}`
+    } else {
+      // Plantilla por defecto (cuando no hay plantilla o está vacía)
+      subject = `Nueva tarea: ${taskTitle}`
+      html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #facc15 0%, #f97316 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+            <div style="margin-bottom: 10px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+              </svg>
+            </div>
+            <h1 style="color: #1a1a1a; margin: 0; font-size: 28px;">Tazk</h1>
+          </div>
+          <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 16px 16px;">
+            <h2 style="color: #1a1a1a; margin: 0 0 15px;">Nueva tarea creada</h2>
+            <p style="color: #666; line-height: 1.6; margin: 0 0 20px;">
+              <strong>${taskTitle}</strong>
+            </p>
+            ${taskDescription ? `<p style="color: #888; line-height: 1.6; margin: 0 0 20px;">${taskDescription}</p>` : ''}
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <p style="color: #666; margin: 5px 0;"><strong>Estado:</strong> ${statusName}</p>
+              <p style="color: #666; margin: 5px 0;"><strong>Asignado a:</strong> ${assignedUserName}</p>
+              <p style="color: #666; margin: 5px 0;"><strong>Fecha límite:</strong> ${dueDateStr}</p>
+              <p style="color: #666; margin: 5px 0;"><strong>Creado por:</strong> ${userEmail || 'Usuario'}</p>
+            </div>
+          </div>
+        </div>
+      `
+    }
 
     // Enviar a cada email
     for (const email of emails) {
@@ -201,7 +251,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
             to: email,
             subject,
             html,
-            from_name: settings.from_name || 'Tazk',
+            from_name: fromName,
             task_id: taskId,
             template_type: 'task_created',
             user_id: currentUserId,
@@ -563,7 +613,8 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose }
         </form>
       </div>
     </div>
-    </>
+
+          </>
   )
 }
 
