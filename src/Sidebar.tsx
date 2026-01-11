@@ -200,9 +200,9 @@ function Sidebar({
               </button>
             ) : (
               <>
-                <div className="flex items-center">
+                <div className="flex items-center text-yellow-400">
                   <ZapIcon size={32} />
-                  <span className="text-xl font-bold text-yellow-400">Tazk</span>
+                  <span className="text-xl font-bold">Tazk</span>
                 </div>
                 <button
                   onClick={onToggleCollapse}

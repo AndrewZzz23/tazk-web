@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 import { Task, TaskStatus, UserRole } from './types/database.types'
 import ConfirmDialog from './ConfirmDialog'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { ChevronRight, Pencil, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Search } from 'lucide-react'
+import { ChevronRight, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Search } from 'lucide-react'
 
 interface TaskListProps {
   currentUserId: string
@@ -15,7 +15,7 @@ interface TaskListProps {
   onOpenTask?: (task: Task) => void
 }
 
-function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, searchTerm, showToast, onOpenTask }: TaskListProps) {
+function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm, showToast, onOpenTask }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -298,23 +298,18 @@ function TaskList({ currentUserId, teamId, userRole: _userRole, onTaskUpdated, s
                             </h3>
                           </div>
 
-                          {/* Acciones */}
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onOpenTask?.(task) }}
-                              className="p-2 text-gray-400 dark:text-neutral-500 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-500/10 rounded-lg transition-all duration-200"
-                              title="Editar"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteClick(task) }}
-                              className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all duration-200"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          {/* Acciones - solo para owner/admin o tareas personales */}
+                          {(!teamId || userRole !== 'member') && (
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteClick(task) }}
+                                className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all duration-200"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Meta info */}

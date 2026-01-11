@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
-import { Task, TaskStatus, Profile } from './types/database.types'
+import { Task, TaskStatus, Profile, UserRole } from './types/database.types'
 import { EditIcon, XIcon, TrashIcon, SaveIcon } from './components/iu/AnimatedIcons'
 import TaskAttachments from './TaskAttachments'
 import ConfirmDialog from './ConfirmDialog'
@@ -12,12 +12,13 @@ interface EditTaskProps {
   task: Task
   currentUserId: string
   userEmail?: string
+  userRole?: UserRole | null
   onTaskUpdated: () => void
   onClose: () => void
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose, showToast }: EditTaskProps) {
+function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onClose, showToast }: EditTaskProps) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description || '')
   const [statusId, setStatusId] = useState(task.status_id)
@@ -412,14 +413,17 @@ function EditTask({ task, currentUserId, userEmail, onTaskUpdated, onClose, show
 
           {/* Botones */}
           <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-neutral-700">
-            <button
-              type="button"
-              onClick={handleDeleteClick}
-              disabled={loading}
-              className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <TrashIcon size={18} /> Eliminar
-            </button>
+            {/* Eliminar - solo para owner/admin o tareas personales */}
+            {(!task.team_id || userRole !== 'member') && (
+              <button
+                type="button"
+                onClick={handleDeleteClick}
+                disabled={loading}
+                className="px-4 py-3 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                <TrashIcon size={18} /> Eliminar
+              </button>
+            )}
             <button
               type="button"
               onClick={handleClose}

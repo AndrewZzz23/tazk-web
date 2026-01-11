@@ -7,7 +7,7 @@ interface ActivityLog {
   action: string
   entity_type: string
   entity_id: string
-  details: Record<string, unknown>
+  changes: Record<string, unknown>
   user_id: string
   created_at: string
   user_email?: string
@@ -244,7 +244,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       // Filtro por búsqueda
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
-        const details = log.details ? JSON.stringify(log.details).toLowerCase() : ''
+        const details = log.changes ? JSON.stringify(log.changes).toLowerCase() : ''
         const email = (log.performer?.email || log.user_email || '').toLowerCase()
         const name = (log.performer?.full_name || '').toLowerCase()
         const action = (log.action || '').toLowerCase()
@@ -422,14 +422,14 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
   }
 
   const getDescription = (log: ActivityLog) => {
-    const details = log.details || {}
-    const title = (details as Record<string, string>)?.title
-      || (details as Record<string, string>)?.name
-      || (details as Record<string, string>)?.task_title
-      || (details as Record<string, string>)?.file_name
+    const changes = log.changes || {}
+    const title = (changes as Record<string, string>)?.title
+      || (changes as Record<string, string>)?.name
+      || (changes as Record<string, string>)?.task_title
+      || (changes as Record<string, string>)?.file_name
       || 'elemento'
 
-    const d = details as Record<string, string>
+    const d = changes as Record<string, string>
 
     switch (log.action) {
       case 'created':

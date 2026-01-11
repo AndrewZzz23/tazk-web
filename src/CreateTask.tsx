@@ -3,7 +3,7 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
 import { TaskStatus, Profile } from './types/database.types'
-import { ZapIcon, XIcon } from './components/iu/AnimatedIcons'
+import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { logTaskCreated } from './lib/activityLogger'
 
 interface CreateTaskProps {
@@ -27,6 +27,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
 
   // ESC para cerrar
@@ -41,8 +42,10 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
   useEffect(() => {
     // Animación de entrada
     setTimeout(() => setIsVisible(true), 10)
-    
+
     const loadData = async () => {
+      setLoadingData(true)
+
       // Cargar estados filtrados por equipo o personales
       let statusQuery = supabase
         .from('task_statuses')
@@ -71,7 +74,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
           .from('team_members')
           .select('user_id, profiles(*)')
           .eq('team_id', teamId)
-        
+
         if (memberData) {
           const profiles = memberData
             .map(m => {
@@ -82,8 +85,10 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
           setUsers(profiles)
         }
       }
+
+      setLoadingData(false)
     }
-    
+
     loadData()
   }, [teamId])
 
@@ -390,6 +395,32 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         </div>
 
         {/* Form */}
+        {loadingData ? (
+          <div className="p-6 flex flex-col items-center justify-center">
+            <LoadingZapIcon size={48} />
+          </div>
+        ) : statuses.length === 0 ? (
+          <div className="p-6 flex flex-col items-center justify-center text-center">
+            <div className="w-16 h-16 bg-yellow-400/10 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              No hay estados disponibles
+            </h3>
+            <p className="text-gray-500 dark:text-neutral-400 text-sm mb-4">
+              Debes crear al menos un estado antes de poder crear tareas. Ve a "Estados" en el menú lateral para configurarlos.
+            </p>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 transition-colors"
+            >
+              Entendido
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto flex-1">
           {/* Título */}
           <div className="mb-4">
@@ -611,6 +642,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
 

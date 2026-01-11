@@ -670,24 +670,9 @@ function Dashboard() {
         <EditTask
           task={openedTask}
           currentUserId={user!.id}
+          userRole={currentRole}
           onTaskUpdated={() => {
             setRefreshKey(prev => prev + 1)
-            // Recargar la tarea para reflejar cambios
-            if (taskId) {
-              supabase
-                .from('tasks')
-                .select(`
-                  *,
-                  task_statuses (*),
-                  assigned_user:profiles!tasks_assigned_to_fkey (*),
-                  created_by_user:profiles!tasks_created_by_fkey (*)
-                `)
-                .eq('id', taskId)
-                .single()
-                .then(({ data }) => {
-                  if (data) setOpenedTask(data)
-                })
-            }
           }}
           onClose={closeTask}
           showToast={showToast}
