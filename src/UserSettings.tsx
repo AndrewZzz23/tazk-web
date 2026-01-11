@@ -3,16 +3,17 @@ import { supabase } from './supabaseClient'
 import { User } from '@supabase/supabase-js'
 import Toast from './Toast'
 import { useTheme } from './ThemeContext'
-import { MoonIcon, SunMediumIcon, SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, SaveIcon } from './components/iu/AnimatedIcons';
+import { MoonIcon, SunMediumIcon, SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, SaveIcon, BellIcon } from './components/iu/AnimatedIcons';
+import { NotificationToggle } from './components/NotificationSettings'
 
 interface UserSettingsProps {
   user: User
   onClose: () => void
   onProfileUpdated: () => void
-  initialTab?: 'profile' | 'appearance' | 'shortcuts'
+  initialTab?: 'profile' | 'appearance' | 'notifications' | 'shortcuts'
 }
 
-type Tab = 'profile' | 'appearance' | 'shortcuts'
+type Tab = 'profile' | 'appearance' | 'notifications' | 'shortcuts'
 
 function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' }: UserSettingsProps) {
   const { theme, setTheme } = useTheme()
@@ -61,6 +62,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   const tabs = [
     { id: 'profile', icon: <UserIcon />, label: 'Perfil' },
     { id: 'appearance', icon: <SunMoonIcon />, label: 'Apariencia' },
+    { id: 'notifications', icon: <BellIcon />, label: 'Notificaciones' },
     { id: 'shortcuts', icon: <RabbitIcon />, label: 'Atajos' },
   ]
 
@@ -198,6 +200,23 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                       </div>
                       {theme === 'light' && <span className="text-yellow-500 dark:text-yellow-400 text-xl">✓</span>}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'notifications' && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Notificaciones</h3>
+                  <p className="text-gray-600 dark:text-neutral-400 text-sm mb-6">
+                    Recibe alertas cuando te asignen tareas o se acerquen fechas de vencimiento.
+                  </p>
+                  <div className="bg-gray-100 dark:bg-neutral-700/30 rounded-xl p-4">
+                    <NotificationToggle userId={user.id} showToast={showToast} />
+                  </div>
+                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-400/10 border border-blue-200 dark:border-blue-400/30 rounded-lg">
+                    <p className="text-blue-800 dark:text-blue-200 text-sm">
+                      💡 <strong>Nota:</strong> Las notificaciones push funcionan mejor cuando instalas Tazk como aplicación desde tu navegador.
+                    </p>
                   </div>
                 </div>
               )}
