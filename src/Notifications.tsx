@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
+import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { TeamInvitation } from './types/database.types'
 import Toast from './Toast'
 import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
@@ -34,6 +35,18 @@ function Notifications({  onClose, onInvitationResponded }: NotificationsProps) 
     setTimeout(() => setIsVisible(true), 10)
     loadInvitations()
   }, [])
+
+  // Suscripción realtime para invitaciones
+  useRealtimeSubscription({
+    subscriptions: [
+      { table: 'team_invitations' }
+    ],
+    onchange: useCallback(() => {
+      console.log('[Notifications] Cambio detectado, recargando invitaciones...')
+      loadInvitations()
+    }, []),
+    enabled: true
+  })
 
   const loadInvitations = async () => {
     setLoading(true)

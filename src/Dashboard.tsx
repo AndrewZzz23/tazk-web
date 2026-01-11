@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
 import { Task, UserRole } from './types/database.types'
@@ -33,7 +34,9 @@ import {
   KanbanIcon,
   CalendarIcon,
   SettingsIcon,
-  PaletteIcon
+  PaletteIcon,
+  InfoIcon,
+  XIcon
 } from './components/iu/AnimatedIcons';
 import Toast from './Toast'
 
@@ -54,6 +57,7 @@ function Dashboard() {
   // Tarea abierta via URL
   const [openedTask, setOpenedTask] = useState<Task | null>(null)
   const [loadingTask, setLoadingTask] = useState(false)
+  const isClosingTaskRef = useRef(false)
 
   // Equipo actual
   const [currentTeamId, setCurrentTeamId] = useState<string | null>(null)
@@ -70,6 +74,7 @@ function Dashboard() {
   const [searchFocused, setSearchFocused] = useState(false)
   const [notificationCount, setNotificationCount] = useState(0)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const userEmailRef = useRef<string | null>(null)
 
   // Modales
   const [showActivityLogs, setShowActivityLogs] = useState(false)
@@ -80,6 +85,7 @@ function Dashboard() {
   const [userSettingsTab, setUserSettingsTab] = useState<'profile' | 'appearance' | 'shortcuts' | null>(null)
   const [showEmailSettings, setShowEmailSettings] = useState(false)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
+  const [showMemberWelcome, setShowMemberWelcome] = useState(false)
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ show: true, message, type })
@@ -93,6 +99,7 @@ function Dashboard() {
 
   // Función para cerrar la tarea (vuelve atrás o va al inicio)
   const closeTask = useCallback(() => {
+    isClosingTaskRef.current = true
     setOpenedTask(null)
     // Si hay estado con backgroundLocation, significa que navegamos desde la app
     // Si no hay historial previo o llegamos directamente a /task/:id, ir a /
@@ -106,6 +113,12 @@ function Dashboard() {
   // Cargar tarea cuando hay taskId en la URL
   useEffect(() => {
     const loadTaskFromUrl = async () => {
+      // No recargar si estamos cerrando el modal
+      if (isClosingTaskRef.current) {
+        isClosingTaskRef.current = false
+        return
+      }
+
       if (!taskId || openedTask?.id === taskId) return
 
       setLoadingTask(true)
@@ -176,11 +189,17 @@ function Dashboard() {
   const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
 
   // Funcionalidades para búsqueda
+  // Verificar si el usuario puede acceder a estados y correos (solo owner o tareas personales)
+  const canAccessOwnerFeatures = currentRole === 'owner' || !currentTeamId
+
   const features = [
     { id: 'new-task', icon: <PlusIcon size={20} />, label: 'Nueva tarea', action: () => setShowCreateTask(true) },
     { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', action: () => setShowMetrics(true) },
     { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', action: () => setShowActivityLogs(true) },
-    { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', action: () => setShowStatuses(true) },
+    // Estados solo para owner o tareas personales
+    ...(canAccessOwnerFeatures ? [
+      { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', action: () => setShowStatuses(true) },
+    ] : []),
     { id: 'notifications', icon: <BellIcon size={20} />, label: 'Notificaciones', action: () => setShowNotifications(true) },
     { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', action: () => setViewMode('list') },
     { id: 'view-kanban', icon: <KanbanIcon size={20} />, label: 'Vista Kanban', action: () => setViewMode('kanban') },
@@ -196,7 +215,7 @@ function Dashboard() {
     if (!searchTerm.trim()) return []
     const term = searchTerm.toLowerCase()
     return features.filter(f => f.label.toLowerCase().includes(term))
-  }, [searchTerm])
+  }, [searchTerm, canAccessOwnerFeatures])
 
   const loadUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -224,6 +243,9 @@ function Dashboard() {
 
     if (!userEmail) return
 
+    // Guardar email para la suscripción realtime
+    userEmailRef.current = userEmail
+
     const { count } = await supabase
       .from('team_invitations')
       .select('*', { count: 'exact', head: true })
@@ -238,6 +260,17 @@ function Dashboard() {
     setCurrentRole(role)
     setCurrentTeamName(teamName || null)
     setRefreshKey(prev => prev + 1)
+
+    // Mostrar mensaje de bienvenida solo para miembros la primera vez
+    if (teamId && role === 'member') {
+      const welcomeKey = `tazk_member_welcome_${teamId}`
+      if (!localStorage.getItem(welcomeKey)) {
+        setShowMemberWelcome(true)
+        localStorage.setItem(welcomeKey, 'true')
+      }
+    } else {
+      setShowMemberWelcome(false)
+    }
 
     // Persistir en localStorage
     if (teamId) {
@@ -262,6 +295,18 @@ function Dashboard() {
     loadUserData()
     loadNotificationCount()
   }, [])
+
+  // Suscripción realtime para notificaciones de invitaciones
+  useRealtimeSubscription({
+    subscriptions: [
+      { table: 'team_invitations' }
+    ],
+    onchange: useCallback(() => {
+      console.log('[Dashboard] Cambio en invitaciones, actualizando contador...')
+      loadNotificationCount()
+    }, []),
+    enabled: !!user
+  })
 
   // Persistir viewMode en localStorage
   useEffect(() => {
@@ -492,10 +537,17 @@ function Dashboard() {
 
         {/* Content */}
         <div className="p-6">
-          {/* Info para miembros */}
-          {currentTeamId && currentRole === 'member' && (
-            <div className="bg-yellow-400/10 border border-yellow-400/20 text-yellow-200 px-4 py-3 rounded-lg mb-6 text-sm">
-              ℹ️ Solo puedes ver y actualizar las tareas asignadas a ti.
+          {/* Bienvenida para miembros - solo se muestra una vez al unirse */}
+          {showMemberWelcome && (
+            <div className="bg-yellow-50 dark:bg-yellow-400/10 border border-yellow-300 dark:border-yellow-400/20 text-yellow-800 dark:text-yellow-300 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-3">
+              <span className="text-yellow-500 dark:text-yellow-400 flex-shrink-0"><InfoIcon size={20} /></span>
+              <span className="flex-1">Bienvenido al equipo. Aquí verás las tareas que te asignen los administradores.</span>
+              <button
+                onClick={() => setShowMemberWelcome(false)}
+                className="text-yellow-600 dark:text-yellow-400 hover:text-yellow-800 dark:hover:text-yellow-200 transition-colors"
+              >
+                <XIcon size={18} />
+              </button>
             </div>
           )}
 

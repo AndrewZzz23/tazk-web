@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
+import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { TeamInvitation, Profile } from './types/database.types'
 import Toast from './Toast'
 import ConfirmDialog from './ConfirmDialog'
-import { LoadingZapIcon, MailIcon, XIcon, UserIcon, TrashIcon } from './components/iu/AnimatedIcons'
+import { LoadingZapIcon, MailIcon, XIcon, UserIcon, TrashIcon, ShieldIcon } from './components/iu/AnimatedIcons'
 
 interface InviteMemberProps {
   teamId: string
@@ -54,6 +55,18 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
     setTimeout(() => setIsVisible(true), 10)
     loadPendingInvitations()
   }, [])
+
+  // Suscripción realtime para cambios en invitaciones del equipo
+  useRealtimeSubscription({
+    subscriptions: [
+      { table: 'team_invitations', filter: `team_id=eq.${teamId}` }
+    ],
+    onchange: useCallback(() => {
+      console.log('[InviteMember] Cambio detectado, recargando invitaciones...')
+      loadPendingInvitations()
+    }, [teamId]),
+    enabled: !!teamId
+  })
 
   const loadPendingInvitations = async () => {
     setLoadingInvitations(true)
@@ -210,6 +223,52 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
     }
   }
 
+  const handleResendInvitation = async (invitation: PendingInvitation) => {
+    // Obtener usuario actual
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Optimistic update - remover de rechazadas
+    setRejectedInvitations(prev => prev.filter(inv => inv.id !== invitation.id))
+
+    // Eliminar la invitación rechazada
+    const { error: deleteError } = await supabase
+      .from('team_invitations')
+      .delete()
+      .eq('id', invitation.id)
+
+    if (deleteError) {
+      loadPendingInvitations()
+      showToast('Error al reenviar invitación', 'error')
+      return
+    }
+
+    // Crear nueva invitación
+    const { data: newInvitation, error: inviteError } = await supabase
+      .from('team_invitations')
+      .insert({
+        team_id: teamId,
+        email: invitation.email,
+        role: invitation.role,
+        invited_by: user?.id
+      })
+      .select(`
+        *,
+        inviter:profiles!team_invitations_invited_by_fkey (*)
+      `)
+      .single()
+
+    if (inviteError) {
+      loadPendingInvitations()
+      showToast('Error al reenviar invitación', 'error')
+    } else {
+      if (newInvitation) {
+        setPendingInvitations(prev => [newInvitation, ...prev])
+      }
+      showToast('Invitación reenviada correctamente', 'success')
+      onMemberInvited()
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('es-CO', {
@@ -308,7 +367,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">🛡️</span>
+                      <ShieldIcon size={24} />
                       <div>
                         <div className="font-semibold">Admin</div>
                         <div className="text-xs opacity-70">Gestionar todo</div>
@@ -371,7 +430,9 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                           {invitation.email}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-neutral-400 mt-1">
-                          <span>{invitation.role === 'admin' ? '🛡️ Admin' : '👤 Miembro'}</span>
+                          <span className="flex items-center gap-1">
+                            {invitation.role === 'admin' ? <><ShieldIcon size={12} /> Admin</> : <><UserIcon size={12} /> Miembro</>}
+                          </span>
                           <span className="text-gray-300 dark:text-neutral-600">•</span>
                           <span>{formatDate(invitation.created_at)}</span>
                           <span className="text-gray-300 dark:text-neutral-600">•</span>
@@ -458,10 +519,7 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                           <TrashIcon size={18} />
                         </button>
                         <button
-                          onClick={() => {
-                            setEmail(invitation.email)
-                            setRole(invitation.role as 'admin' | 'member')
-                          }}
+                          onClick={() => handleResendInvitation(invitation)}
                           className="px-3 py-1.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-yellow-400 hover:text-neutral-900 transition-colors"
                         >
                           Reenviar

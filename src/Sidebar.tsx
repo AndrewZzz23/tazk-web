@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
+import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { Team, UserRole } from './types/database.types'
 import CreateTeam from './CreateTeam'
 import InviteMember from './InviteMember'
@@ -105,6 +106,19 @@ function Sidebar({
     loadTeams()
   }, [currentUserId])
 
+  // Suscripción realtime para cambios en team_members (nuevo equipo, eliminado, rol cambiado)
+  useRealtimeSubscription({
+    subscriptions: [
+      { table: 'team_members', filter: `user_id=eq.${currentUserId}` },
+      { table: 'teams' } // Para detectar cambios en nombre/color del equipo
+    ],
+    onchange: useCallback(() => {
+      console.log('[Sidebar] Cambio detectado en equipos, recargando...')
+      loadTeams()
+    }, [currentUserId]),
+    enabled: !!currentUserId
+  })
+
   const handleTeamSelect = (teamId: string | null) => {
     setShowTeamMenu(false)
 
@@ -154,11 +168,16 @@ function Sidebar({
     { id: 'calendar', icon: <CalendarIcon size={20} />, label: 'Calendario' },
   ]
 
+  // Filtrar herramientas según el rol en el equipo
+  // Owner: todo, Admin: métricas y actividad, Member: métricas y actividad
   const toolItems = [
     { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', onClick: onShowMetrics },
     { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', onClick: onShowActivityLogs },
-    { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', onClick: onShowStatuses },
-    { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos', onClick: onShowEmails },
+    // Estados y Correos solo para owner (o si no hay equipo seleccionado = tareas personales)
+    ...(selectedRole === 'owner' || !selectedTeamId ? [
+      { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', onClick: onShowStatuses },
+      { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos', onClick: onShowEmails },
+    ] : []),
   ]
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, isToday, isTomorrow, addDays, addWeeks, addMonths, startOfDay, endOfDay, endOfWeek } from 'date-fns'
+import { format, parse, startOfWeek, getDay, isToday, isTomorrow, addWeeks, addMonths, startOfDay, endOfDay, endOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { supabase } from './supabaseClient'
@@ -52,7 +52,7 @@ interface CalendarEvent {
   color: string
 }
 
-function CalendarView({ currentUserId, teamId, searchTerm, showToast, onOpenTask }: CalendarViewProps) {
+function CalendarView({ currentUserId, teamId, userRole, searchTerm, onOpenTask }: CalendarViewProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'day' | 'agenda'>('month')
@@ -73,6 +73,10 @@ function CalendarView({ currentUserId, teamId, searchTerm, showToast, onOpenTask
 
     if (teamId) {
       query = query.eq('team_id', teamId)
+      // Si es miembro, solo ver tareas asignadas a él
+      if (userRole === 'member') {
+        query = query.eq('assigned_to', currentUserId)
+      }
     } else {
       query = query.is('team_id', null).eq('created_by', currentUserId)
     }
@@ -90,7 +94,7 @@ function CalendarView({ currentUserId, teamId, searchTerm, showToast, onOpenTask
 
   useEffect(() => {
     loadTasks()
-  }, [teamId, currentUserId])
+  }, [teamId, currentUserId, userRole])
 
   // Filtrar y convertir a eventos
   const events: CalendarEvent[] = tasks

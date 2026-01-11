@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { TrashIcon, AlertTriangleIcon, InfoIcon } from './components/iu/AnimatedIcons'
 
 interface ConfirmDialogProps {
   title: string
@@ -37,19 +38,22 @@ function ConfirmDialog({
 
   const typeStyles = {
     danger: {
-      icon: '🗑️',
+      icon: <TrashIcon size={28} />,
       buttonBg: 'bg-red-500 hover:bg-red-600',
-      iconBg: 'bg-red-500/10'
+      iconBg: 'bg-red-500/10',
+      iconColor: 'text-red-500'
     },
     warning: {
-      icon: '⚠️',
+      icon: <AlertTriangleIcon size={28} />,
       buttonBg: 'bg-orange-500 hover:bg-orange-600',
-      iconBg: 'bg-orange-500/10'
+      iconBg: 'bg-orange-500/10',
+      iconColor: 'text-orange-500'
     },
     info: {
-      icon: 'ℹ️',
+      icon: <InfoIcon size={28} />,
       buttonBg: 'bg-blue-500 hover:bg-blue-600',
-      iconBg: 'bg-blue-500/10'
+      iconBg: 'bg-blue-500/10',
+      iconColor: 'text-blue-500'
     }
   }
 
@@ -70,7 +74,7 @@ function ConfirmDialog({
       >
         <div className="p-6">
           {/* Icono */}
-          <div className={`w-12 h-12 ${style.iconBg} rounded-full flex items-center justify-center text-2xl mx-auto mb-4`}>
+          <div className={`w-14 h-14 ${style.iconBg} ${style.iconColor} rounded-full flex items-center justify-center mx-auto mb-4`}>
             {style.icon}
           </div>
 

@@ -157,7 +157,7 @@ function DroppableColumn({
   )
 }
 
-function KanbanBoard({ currentUserId, teamId, userRole, userEmail, searchTerm, showToast, onOpenTask }: KanbanBoardProps) {
+function KanbanBoard({ currentUserId, teamId, userEmail, searchTerm, onOpenTask }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)

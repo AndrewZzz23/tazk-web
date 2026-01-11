@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
+import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { UserRole, Profile } from './types/database.types'
 import ConfirmDialog from './ConfirmDialog'
 import Toast from './Toast'
-import { LoadingZapIcon, UsersIcon, XIcon, TrashIcon } from './components/iu/AnimatedIcons'
+import { LoadingZapIcon, UsersIcon, XIcon, TrashIcon, ShieldIcon, UserIcon, CrownIcon } from './components/iu/AnimatedIcons'
 
 interface TeamMember {
   id: string
@@ -52,6 +53,18 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
     setTimeout(() => setIsVisible(true), 10)
     loadMembers()
   }, [])
+
+  // Suscripción realtime para cambios en miembros del equipo
+  useRealtimeSubscription({
+    subscriptions: [
+      { table: 'team_members', filter: `team_id=eq.${teamId}` }
+    ],
+    onchange: useCallback(() => {
+      console.log('[TeamMembers] Cambio detectado, recargando miembros...')
+      loadMembers()
+    }, [teamId]),
+    enabled: !!teamId
+  })
 
   const loadMembers = async () => {
     setLoading(true)
@@ -136,9 +149,9 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
 
   const getRoleIcon = (role: UserRole) => {
     switch (role) {
-      case 'owner': return '👑'
-      case 'admin': return '🛡️'
-      default: return '👤'
+      case 'owner': return <CrownIcon size={14} />
+      case 'admin': return <ShieldIcon size={14} />
+      default: return <UserIcon size={14} />
     }
   }
 
@@ -225,8 +238,8 @@ function TeamMembers({ teamId, currentUserId, currentUserRole, onClose }: TeamMe
                           onChange={(e) => handleRoleChange(member.id, e.target.value as UserRole)}
                           className="bg-gray-200 dark:bg-neutral-600 border border-neutral-500 text-gray-900 dark:text-white text-sm px-2 py-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
                         >
-                          <option value="member">👤 Miembro</option>
-                          <option value="admin">🛡️ Admin</option>
+                          <option value="member">Miembro</option>
+                          <option value="admin">Admin</option>
                         </select>
                       ) : (
                         <span className="text-gray-500 dark:text-neutral-400 text-sm flex items-center gap-1">
