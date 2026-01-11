@@ -7,6 +7,7 @@ import { EditIcon, XIcon, TrashIcon, SaveIcon } from './components/iu/AnimatedIc
 import TaskAttachments from './TaskAttachments'
 import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
+import { notifyTaskAssigned } from './lib/sendPushNotification'
 
 interface EditTaskProps {
   task: Task
@@ -127,11 +128,15 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
         logTaskUpdated(task.id, title.trim(), task.team_id, currentUserId, userEmail)
       }
 
-      // Log assignment changes
+      // Log assignment changes and send push notification
       if (task.assigned_to !== assignedTo) {
         if (assignedTo) {
           const assignedUser = users.find(u => u.id === assignedTo)
           logTaskAssigned(task.id, title.trim(), task.team_id, currentUserId, assignedUser?.email || '', userEmail)
+          // Send push notification to assigned user (don't notify yourself)
+          if (assignedTo !== currentUserId) {
+            notifyTaskAssigned(assignedTo, title.trim(), userEmail || 'Alguien', task.id)
+          }
         } else if (task.assigned_to) {
           logTaskUnassigned(task.id, title.trim(), task.team_id, currentUserId, userEmail)
         }

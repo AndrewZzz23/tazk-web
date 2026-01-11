@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient'
 import { TaskStatus, Profile } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { logTaskCreated } from './lib/activityLogger'
+import { notifyTaskAssigned } from './lib/sendPushNotification'
 
 interface CreateTaskProps {
   currentUserId: string
@@ -140,6 +141,10 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         const assignedUser = users.find(u => u.id === assignedTo)
         if (assignedUser?.email && !emailsToNotify.includes(assignedUser.email)) {
           emailsToNotify.push(assignedUser.email)
+        }
+        // Send push notification to assigned user (don't notify yourself)
+        if (assignedTo !== currentUserId) {
+          notifyTaskAssigned(assignedTo, title.trim(), userEmail || 'Alguien', data.id)
         }
       }
 
