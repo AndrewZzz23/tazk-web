@@ -308,6 +308,36 @@ function Dashboard() {
     enabled: !!user
   })
 
+  // Suscripción realtime para notificaciones de tareas asignadas (UPDATE y INSERT)
+  useRealtimeSubscription({
+    subscriptions: [
+      { table: 'tasks', event: 'UPDATE', filter: user?.id ? `assigned_to=eq.${user.id}` : undefined },
+      { table: 'tasks', event: 'INSERT', filter: user?.id ? `assigned_to=eq.${user.id}` : undefined }
+    ],
+    onchange: useCallback((payload) => {
+      const newData = payload.new as Task | undefined
+      const oldData = payload.old as { assigned_to?: string, created_by?: string } | undefined
+
+      // No notificar si yo creé la tarea
+      if (newData?.created_by === user?.id) return
+
+      if (payload.eventType === 'INSERT' && newData?.assigned_to === user?.id) {
+        // Nueva tarea creada y asignada a mí
+        console.log('[Dashboard] Nueva tarea asignada (INSERT):', newData.title)
+        showToast(`Nueva tarea: "${newData.title}"`, 'info')
+        setRefreshKey(k => k + 1)
+      } else if (payload.eventType === 'UPDATE' && newData && oldData) {
+        // Tarea existente recién asignada a mí
+        if (newData.assigned_to === user?.id && oldData.assigned_to !== user?.id) {
+          console.log('[Dashboard] Tarea reasignada a mí (UPDATE):', newData.title)
+          showToast(`Te asignaron: "${newData.title}"`, 'info')
+          setRefreshKey(k => k + 1)
+        }
+      }
+    }, [user?.id]),
+    enabled: !!user?.id
+  })
+
   // Persistir viewMode en localStorage
   useEffect(() => {
     localStorage.setItem('tazk_view_mode', viewMode)
