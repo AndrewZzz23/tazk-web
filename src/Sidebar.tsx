@@ -186,9 +186,18 @@ function Sidebar({
   if (isMobile) {
     return (
       <>
-        {/* Bottom Navigation Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 z-40 safe-area-bottom">
-          <div className="flex items-center justify-around px-2 py-2">
+        {/* Floating Glass Bottom Navigation Bar */}
+        <div className="fixed bottom-4 left-4 right-4 z-40 safe-area-bottom">
+          <div
+            className="flex items-center justify-around px-3 py-3 rounded-2xl"
+            style={{
+              background: 'rgba(23, 23, 23, 0.75)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+            }}
+          >
             {/* Team selector */}
             <button
               onClick={() => setShowTeamMenu(true)}
@@ -198,7 +207,7 @@ function Sidebar({
                 className="w-8 h-8 rounded-lg flex items-center justify-center"
                 style={selectedTeamId ? {
                   backgroundColor: selectedTeamColor || '#facc15'
-                } : { backgroundColor: '#404040' }}
+                } : { backgroundColor: 'rgba(64, 64, 64, 0.8)' }}
               >
                 {selectedTeamId ? (
                   <Users className="w-4 h-4 text-neutral-900" />
@@ -220,7 +229,7 @@ function Sidebar({
                 }`}
               >
                 <span>{item.icon}</span>
-                <span className="text-[10px]">{item.label}</span>
+                <span className="text-[10px] font-medium">{item.label}</span>
               </button>
             ))}
 
@@ -237,7 +246,7 @@ function Sidebar({
                   </span>
                 )}
               </span>
-              <span className="text-[10px]">Alertas</span>
+              <span className="text-[10px] font-medium">Alertas</span>
             </button>
 
             {/* More options */}
@@ -246,7 +255,7 @@ function Sidebar({
               className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
             >
               <ChartIcon size={20} />
-              <span className="text-[10px]">Más</span>
+              <span className="text-[10px] font-medium">Más</span>
             </button>
           </div>
         </div>

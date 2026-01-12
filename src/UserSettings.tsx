@@ -5,6 +5,7 @@ import Toast from './Toast'
 import { useTheme } from './ThemeContext'
 import { MoonIcon, SunMediumIcon, SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, SaveIcon, BellIcon } from './components/iu/AnimatedIcons';
 import { NotificationToggle } from './components/NotificationSettings'
+import { useIsMobile } from './hooks/useIsMobile'
 
 interface UserSettingsProps {
   user: User
@@ -17,6 +18,7 @@ type Tab = 'profile' | 'appearance' | 'notifications' | 'shortcuts'
 
 function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' }: UserSettingsProps) {
   const { theme, setTheme } = useTheme()
+  const isMobile = useIsMobile()
   const [isVisible, setIsVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [fullName, setFullName] = useState('')
@@ -80,109 +82,142 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   return (
     <>
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
+        className={`fixed inset-0 z-50 flex items-end md:items-center justify-center transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
         onClick={handleClose}
       >
         <div
-          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+          className={`bg-white dark:bg-neutral-800 shadow-2xl w-full overflow-hidden transform transition-all duration-200 ${
+            isMobile
+              ? 'rounded-t-3xl max-h-[90vh]'
+              : 'rounded-2xl max-w-2xl mx-4 max-h-[85vh]'
+          } ${isVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={24} /></span> Configuración
+          {/* Header */}
+          <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4' : 'p-6'}`}>
+            {isMobile && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-2 w-10 h-1 bg-gray-300 dark:bg-neutral-600 rounded-full" />
+            )}
+            <h2 className={`font-bold text-gray-900 dark:text-white flex items-center gap-2 ${isMobile ? 'text-lg mt-2' : 'text-xl'}`}>
+              <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={isMobile ? 20 : 24} /></span>
+              {isMobile ? 'Ajustes' : 'Configuración'}
             </h2>
-            <button onClick={handleClose} className="text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"><XIcon size={24} /></button>
+            <button onClick={handleClose} className={`text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors ${isMobile ? 'mt-2' : ''}`}>
+              <XIcon size={isMobile ? 20 : 24} />
+            </button>
           </div>
 
-          <div className="flex h-[calc(85vh-80px)]">
-            <div className="w-48 border-r border-gray-200 dark:border-neutral-700 p-2">
-              {tabs.map(tab => (
+          {/* Mobile: Tabs horizontales con iconos (sin atajos) */}
+          {isMobile && (
+            <div className="flex justify-around border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50">
+              {tabs.filter(tab => tab.id !== 'shortcuts').map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as Tab)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
                     activeTab === tab.id
-                      ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400'
-                      : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
+                      ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400'
+                      : 'text-gray-500 dark:text-neutral-400'
                   }`}
                 >
-                  <span>{tab.icon}</span>
-                  <span className="text-sm font-medium">{tab.label}</span>
+                  <span className="text-lg">{tab.icon}</span>
+                  <span className="text-[10px] font-medium">{tab.label}</span>
                 </button>
               ))}
             </div>
+          )}
 
-            <div className="flex-1 p-6 overflow-y-auto">
+          <div className={`flex ${isMobile ? 'flex-col' : ''} ${isMobile ? 'h-[calc(90vh-140px)]' : 'h-[calc(85vh-80px)]'}`}>
+            {/* Desktop: Sidebar vertical */}
+            {!isMobile && (
+              <div className="w-48 border-r border-gray-200 dark:border-neutral-700 p-2">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as Tab)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400'
+                        : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>{tab.icon}</span>
+                    <span className="text-sm font-medium">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className={`flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'p-6'}`}>
               {activeTab === 'profile' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mi Perfil</h3>
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-3xl">
+                  {!isMobile && <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mi Perfil</h3>}
+                  <div className={`flex items-center gap-4 ${isMobile ? 'mb-4' : 'mb-6'}`}>
+                    <div className={`bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold ${isMobile ? 'w-14 h-14 text-xl' : 'w-20 h-20 text-3xl'}`}>
                       {fullName ? fullName[0].toUpperCase() : userInitial}
                     </div>
-                    <div>
-                      <p className="text-gray-900 dark:text-white font-medium">{user.email}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-900 dark:text-white font-medium truncate">{user.email}</p>
                       <p className="text-gray-500 dark:text-neutral-500 text-sm">
-                        Miembro desde {new Date(user.created_at).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
+                        Desde {new Date(user.created_at).toLocaleDateString('es-CO', { month: 'short', year: 'numeric' })}
                       </p>
                     </div>
                   </div>
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Nombre completo</label>
+                  <div className={isMobile ? 'mb-4' : 'mb-6'}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Nombre</label>
                     <input
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Tu nombre"
-                      className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
                     />
                   </div>
-                  <div className="mb-6">
+                  <div className={isMobile ? 'mb-4' : 'mb-6'}>
                     <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Email</label>
                     <input
                       type="email"
                       value={user.email || ''}
                       disabled
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-lg text-gray-400 dark:text-neutral-500 cursor-not-allowed"
+                      className={`w-full bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-lg text-gray-400 dark:text-neutral-500 cursor-not-allowed ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
                     />
-                    <p className="text-gray-400 dark:text-neutral-600 text-xs mt-1">El email no se puede cambiar</p>
                   </div>
-                  <button onClick={handleSaveProfile} disabled={loading} className="px-6 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50">
-                    {loading ? 'Guardando...' : 'Guardar cambios'}
+                  <button onClick={handleSaveProfile} disabled={loading} className={`w-full md:w-auto bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 ${isMobile ? 'py-3 text-sm' : 'px-6 py-3'}`}>
+                    {loading ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               )}
 
               {activeTab === 'appearance' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Apariencia</h3>
-                  <p className="text-gray-600 dark:text-neutral-400 text-sm mb-4">Selecciona el tema de la aplicación</p>
-                  <div className="space-y-4">
+                  {!isMobile && <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Apariencia</h3>}
+                  {!isMobile && <p className="text-gray-600 dark:text-neutral-400 text-sm mb-4">Selecciona el tema de la aplicación</p>}
+                  <div className={isMobile ? 'space-y-3' : 'space-y-4'}>
                     <button
                       onClick={() => setTheme('dark')}
-                      className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                      className={`w-full flex items-center gap-3 rounded-xl border-2 transition-all ${isMobile ? 'p-3' : 'p-4 gap-4'} ${
                         theme === 'dark' ? 'bg-yellow-100 dark:bg-yellow-400/10 border-yellow-400' : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent hover:border-gray-300 dark:hover:border-neutral-600'
                       }`}
                     >
-                      <div className="w-12 h-12 bg-neutral-900 rounded-lg flex items-center justify-center border border-neutral-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <div className={`bg-neutral-900 rounded-lg flex items-center justify-center border border-neutral-600 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width={isMobile ? 18 : 24} height={isMobile ? 18 : 24} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                         </svg>
                       </div>
                       <div className="flex-1 text-left">
                         <div className="text-gray-900 dark:text-white font-medium">Oscuro</div>
-                        <div className="text-gray-500 dark:text-neutral-400 text-sm">Reduce fatiga visual</div>
+                        {!isMobile && <div className="text-gray-500 dark:text-neutral-400 text-sm">Reduce fatiga visual</div>}
                       </div>
                       {theme === 'dark' && <span className="text-yellow-500 dark:text-yellow-400 text-xl">✓</span>}
                     </button>
                     <button
                       onClick={() => setTheme('light')}
-                      className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                      className={`w-full flex items-center gap-3 rounded-xl border-2 transition-all ${isMobile ? 'p-3' : 'p-4 gap-4'} ${
                         theme === 'light' ? 'bg-yellow-100 dark:bg-yellow-400/10 border-yellow-400' : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent hover:border-gray-300 dark:hover:border-neutral-600'
                       }`}
                     >
-                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-gray-300">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <div className={`bg-white rounded-lg flex items-center justify-center border border-gray-300 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width={isMobile ? 18 : 24} height={isMobile ? 18 : 24} viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="4" />
                           <path d="M12 3v1" />
                           <path d="M12 20v1" />
@@ -196,7 +231,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                       </div>
                       <div className="flex-1 text-left">
                         <div className="text-gray-900 dark:text-white font-medium">Claro</div>
-                        <div className="text-gray-500 dark:text-neutral-400 text-sm">Mejor en ambientes iluminados</div>
+                        {!isMobile && <div className="text-gray-500 dark:text-neutral-400 text-sm">Mejor en ambientes iluminados</div>}
                       </div>
                       {theme === 'light' && <span className="text-yellow-500 dark:text-yellow-400 text-xl">✓</span>}
                     </button>
@@ -206,16 +241,18 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
 
               {activeTab === 'notifications' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Notificaciones</h3>
-                  <p className="text-gray-600 dark:text-neutral-400 text-sm mb-6">
-                    Recibe alertas cuando te asignen tareas o se acerquen fechas de vencimiento.
-                  </p>
-                  <div className="bg-gray-100 dark:bg-neutral-700/30 rounded-xl p-4">
+                  {!isMobile && <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Notificaciones</h3>}
+                  {!isMobile && (
+                    <p className="text-gray-600 dark:text-neutral-400 text-sm mb-6">
+                      Recibe alertas cuando te asignen tareas o se acerquen fechas de vencimiento.
+                    </p>
+                  )}
+                  <div className={`bg-gray-100 dark:bg-neutral-700/30 rounded-xl ${isMobile ? 'p-3' : 'p-4'}`}>
                     <NotificationToggle userId={user.id} showToast={showToast} />
                   </div>
-                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-400/10 border border-blue-200 dark:border-blue-400/30 rounded-lg">
-                    <p className="text-blue-800 dark:text-blue-200 text-sm">
-                      💡 <strong>Nota:</strong> Las notificaciones push funcionan mejor cuando instalas Tazk como aplicación desde tu navegador.
+                  <div className={`bg-blue-50 dark:bg-blue-400/10 border border-blue-200 dark:border-blue-400/30 rounded-lg ${isMobile ? 'mt-4 p-3' : 'mt-6 p-4'}`}>
+                    <p className={`text-blue-800 dark:text-blue-200 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                      💡 {isMobile ? 'Instala Tazk como app para mejores notificaciones.' : <><strong>Nota:</strong> Las notificaciones push funcionan mejor cuando instalas Tazk como aplicación desde tu navegador.</>}
                     </p>
                   </div>
                 </div>
