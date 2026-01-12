@@ -1,9 +1,25 @@
 // Service Worker para recibir push notifications
+console.log('[SW-Push] Service Worker push script loaded')
 
 self.addEventListener('push', (event) => {
-  if (!event.data) return
+  console.log('[SW-Push] Push event received:', event)
 
-  const data = event.data.json()
+  if (!event.data) {
+    console.log('[SW-Push] No data in push event')
+    return
+  }
+
+  let data
+  try {
+    data = event.data.json()
+    console.log('[SW-Push] Push data parsed:', data)
+  } catch (e) {
+    console.error('[SW-Push] Error parsing push data:', e)
+    // Try as text
+    const text = event.data.text()
+    console.log('[SW-Push] Raw push data:', text)
+    data = { title: 'Tazk', body: text }
+  }
 
   const options = {
     body: data.body || '',
@@ -12,14 +28,15 @@ self.addEventListener('push', (event) => {
     tag: data.tag || 'default',
     data: data.data || {},
     vibrate: [200, 100, 200],
-    actions: [
-      { action: 'open', title: 'Abrir' },
-      { action: 'close', title: 'Cerrar' }
-    ]
+    requireInteraction: true
   }
+
+  console.log('[SW-Push] Showing notification with options:', options)
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'Tazk', options)
+      .then(() => console.log('[SW-Push] Notification shown successfully'))
+      .catch(err => console.error('[SW-Push] Error showing notification:', err))
   )
 })
 
