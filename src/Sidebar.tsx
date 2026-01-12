@@ -39,6 +39,7 @@ interface SidebarProps {
   isCollapsed: boolean
   onToggleCollapse: () => void
   onShowEmails: () => void
+  isMobile?: boolean
 }
 
 function Sidebar({
@@ -53,7 +54,8 @@ function Sidebar({
   onShowStatuses,
   isCollapsed,
   onToggleCollapse,
-  onShowEmails
+  onShowEmails,
+  isMobile = false
 }: SidebarProps) {
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
@@ -180,6 +182,247 @@ function Sidebar({
     ] : []),
   ]
 
+  // Mobile bottom navigation
+  if (isMobile) {
+    return (
+      <>
+        {/* Bottom Navigation Bar */}
+        <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 z-40 safe-area-bottom">
+          <div className="flex items-center justify-around px-2 py-2">
+            {/* Team selector */}
+            <button
+              onClick={() => setShowTeamMenu(true)}
+              className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-yellow-400 transition-colors"
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={selectedTeamId ? {
+                  backgroundColor: selectedTeamColor || '#facc15'
+                } : { backgroundColor: '#404040' }}
+              >
+                {selectedTeamId ? (
+                  <Users className="w-4 h-4 text-neutral-900" />
+                ) : (
+                  <User className="w-4 h-4 text-neutral-400" />
+                )}
+              </div>
+            </button>
+
+            {/* Views */}
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                onClick={() => onViewChange(item.id)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
+                  currentView === item.id
+                    ? 'text-yellow-400'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span>{item.icon}</span>
+                <span className="text-[10px]">{item.label}</span>
+              </button>
+            ))}
+
+            {/* Notifications */}
+            <button
+              onClick={onShowNotifications}
+              className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-white transition-colors relative"
+            >
+              <span className="relative">
+                <BellIcon size={20} />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-neutral-900 text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {notificationCount}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px]">Alertas</span>
+            </button>
+
+            {/* More options */}
+            <button
+              onClick={onShowMetrics}
+              className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+            >
+              <ChartIcon size={20} />
+              <span className="text-[10px]">Más</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Team selector modal for mobile */}
+        {showTeamMenu && (
+          <>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowTeamMenu(false)} />
+            <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 max-h-[70vh] overflow-hidden safe-area-bottom">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+              </div>
+
+              {/* Header */}
+              <div className="px-4 py-2 border-b border-neutral-800">
+                <h3 className="text-white font-semibold">Espacios de trabajo</h3>
+              </div>
+
+              <div className="overflow-y-auto max-h-[50vh] py-2">
+                {/* Personal */}
+                <button
+                  onClick={() => handleTeamSelect(null)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 ${
+                    selectedTeamId === null ? 'bg-yellow-400/10' : ''
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    selectedTeamId === null
+                      ? 'bg-gradient-to-br from-yellow-400 to-orange-500'
+                      : 'bg-neutral-700'
+                  }`}>
+                    <User className={`w-5 h-5 ${selectedTeamId === null ? 'text-white' : 'text-neutral-400'}`} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className={`font-medium ${selectedTeamId === null ? 'text-yellow-400' : 'text-white'}`}>
+                      Tareas Personales
+                    </div>
+                    <div className="text-neutral-500 text-sm">Solo tú</div>
+                  </div>
+                  {selectedTeamId === null && (
+                    <Check className="w-5 h-5 text-yellow-400" />
+                  )}
+                </button>
+
+                {/* Teams */}
+                {teams.map(team => (
+                  <button
+                    key={team.id}
+                    onClick={() => handleTeamSelect(team.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 ${
+                      selectedTeamId === team.id ? 'bg-yellow-400/10' : ''
+                    }`}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: team.color || '#facc15' }}
+                    >
+                      <Users className="w-5 h-5 text-neutral-900" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className={`font-medium ${selectedTeamId === team.id ? 'text-yellow-400' : 'text-white'}`}>
+                        {team.name}
+                      </div>
+                      <div className="flex items-center gap-1 text-neutral-500 text-sm">
+                        {getRoleIcon(team.role)}
+                        <span>{getRoleLabel(team.role)}</span>
+                      </div>
+                    </div>
+                    {selectedTeamId === team.id && (
+                      <Check className="w-5 h-5 text-yellow-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="border-t border-neutral-800 p-4 space-y-2">
+                <button
+                  onClick={() => {
+                    setShowTeamMenu(false)
+                    setShowCreateTeam(true)
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-yellow-400 text-neutral-900 rounded-xl font-medium"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Crear nuevo equipo</span>
+                </button>
+
+                {selectedTeamId && canManageTeam && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowTeamMenu(false)
+                        setShowInviteMember(true)
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Invitar</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowTeamMenu(false)
+                        setShowTeamMembers(true)
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Miembros</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Modales */}
+        {showCreateTeam && (
+          <CreateTeam
+            currentUserId={currentUserId}
+            onTeamCreated={() => {
+              loadTeams()
+              setShowCreateTeam(false)
+            }}
+            onClose={() => setShowCreateTeam(false)}
+          />
+        )}
+
+        {showInviteMember && selectedTeamId && (
+          <InviteMember
+            teamId={selectedTeamId}
+            onMemberInvited={() => {}}
+            onClose={() => setShowInviteMember(false)}
+          />
+        )}
+
+        {showTeamMembers && selectedTeamId && selectedRole && (
+          <TeamMembers
+            teamId={selectedTeamId}
+            currentUserId={currentUserId}
+            currentUserRole={selectedRole}
+            onClose={() => setShowTeamMembers(false)}
+          />
+        )}
+
+        {showTeamSettings && selectedTeamId && selectedRole && selectedTeamName && (
+          <TeamSettings
+            teamId={selectedTeamId}
+            teamName={selectedTeamName}
+            teamColor={selectedTeamColor}
+            currentUserId={currentUserId}
+            currentUserRole={selectedRole}
+            onClose={() => setShowTeamSettings(false)}
+            onTeamDeleted={() => {
+              setShowTeamSettings(false)
+              setSelectedTeamId(null)
+              setSelectedTeamName(null)
+              setSelectedTeamColor(null)
+              setSelectedRole(null)
+              onTeamChange(null, null)
+              loadTeams()
+            }}
+            onTeamUpdated={(newName, newColor) => {
+              setSelectedTeamName(newName)
+              if (newColor) setSelectedTeamColor(newColor)
+              loadTeams()
+            }}
+          />
+        )}
+      </>
+    )
+  }
+
+  // Desktop sidebar
   return (
     <>
       <div

@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
+import { useIsMobile } from './hooks/useIsMobile'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
 import { Task, UserRole } from './types/database.types'
@@ -48,6 +49,7 @@ function Dashboard() {
   const navigate = useNavigate()
   const { taskId } = useParams<{ taskId: string }>()
   const location = useLocation()
+  const isMobile = useIsMobile()
 
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -65,7 +67,7 @@ function Dashboard() {
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null)
 
   // UI
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>(() => {
     const saved = localStorage.getItem('tazk_view_mode')
     return (saved === 'list' || saved === 'kanban' || saved === 'calendar') ? saved : 'list'
@@ -321,7 +323,7 @@ function Dashboard() {
       // No notificar si yo creé la tarea
       if (newData?.created_by === user?.id) return
 
-      if (payload.eventType === 'INSERT' && newData?.assigned_to === user?.id) {
+      if (payload.eventType === 'INSERT' && newData && newData.assigned_to === user?.id) {
         // Nueva tarea creada y asignada a mí
         console.log('[Dashboard] Nueva tarea asignada (INSERT):', newData.title)
         showToast(`Nueva tarea: "${newData.title}"`, 'info')
@@ -410,10 +412,11 @@ function Dashboard() {
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onShowEmails={() => setShowEmailSettings(true)}
+        isMobile={isMobile}
       />
 
       {/* Main */}
-      <main className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+      <main className={`transition-all duration-300 ${isMobile ? 'ml-0 pb-20' : sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
         {/* Header */}
         <header className="sticky top-0 z-30 bg-gray-50 dark:bg-neutral-900/80 backdrop-blur-sm border-b border-gray-300 dark:border-neutral-800">
           <div className="px-6 py-3 flex items-center gap-4">
