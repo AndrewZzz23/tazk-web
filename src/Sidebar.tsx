@@ -542,25 +542,6 @@ function Sidebar({
                   </button>
                 )}
 
-                {/* Correos - solo para owner o tareas personales */}
-                {(selectedRole === 'owner' || !selectedTeamId) && (
-                  <button
-                    onClick={() => {
-                      onShowEmails()
-                      setShowMoreMenu(false)
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3"
-                  >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
-                      <MailIcon size={20} />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="font-medium text-white">Correos</div>
-                      <div className="text-neutral-500 text-sm">Crear tareas desde email</div>
-                    </div>
-                    <Crown className="w-4 h-4 text-yellow-400" />
-                  </button>
-                )}
               </div>
             </div>
           </>
