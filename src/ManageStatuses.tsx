@@ -18,6 +18,8 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { LoadingZapIcon, XIcon, PaletteIcon, PlusIcon, EditIcon, TrashIcon, CheckIcon } from './components/iu/AnimatedIcons'
 import Toast from './Toast'
 import { logStatusCreated, logStatusUpdated, logStatusDeleted } from './lib/activityLogger'
+import { useIsMobile } from './hooks/useIsMobile'
+import { ChevronRight } from 'lucide-react'
 
 interface ManageStatusesProps {
   currentUserId: string
@@ -55,7 +57,7 @@ const PRESET_COLORS = [
   '#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#6b7280'
 ]
 
-// Tarjeta de estado arrastrable
+// Tarjeta de estado arrastrable (Desktop)
 function StatusCard({ status, onEdit, onDelete, onToggle }: {
   status: TaskStatus
   onEdit: () => void
@@ -120,6 +122,66 @@ function StatusCard({ status, onEdit, onDelete, onToggle }: {
             <TrashIcon size={14} />
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Tarjeta de estado para móvil (sin drag, táctil)
+function MobileStatusCard({ status, onEdit, onDelete, onToggle, category }: {
+  status: TaskStatus
+  onEdit: () => void
+  onDelete: () => void
+  onToggle: () => void
+  category: typeof CATEGORIES[0]
+}) {
+  return (
+    <div
+      className={`bg-neutral-800/50 rounded-2xl p-4 ${!status.is_active ? 'opacity-50' : ''}`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: status.color }}
+        >
+          <span className="text-white/90">{category.icon}</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className={`font-medium block truncate ${
+            status.is_active
+              ? 'text-white'
+              : 'text-neutral-500 line-through'
+          }`}>
+            {status.name}
+          </span>
+          <span className="text-xs text-neutral-500">{category.name}</span>
+        </div>
+        <button
+          onClick={onEdit}
+          className="p-2 text-neutral-400 active:bg-neutral-700 rounded-xl"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Acciones rápidas */}
+      <div className="flex gap-2 mt-3 pt-3 border-t border-neutral-700/50">
+        <button
+          onClick={onToggle}
+          className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+            status.is_active
+              ? 'bg-orange-500/20 text-orange-400'
+              : 'bg-emerald-500/20 text-emerald-400'
+          }`}
+        >
+          {status.is_active ? 'Desactivar' : 'Activar'}
+        </button>
+        <button
+          onClick={onDelete}
+          className="flex-1 py-2 bg-red-500/20 text-red-400 rounded-xl text-sm font-medium"
+        >
+          Eliminar
+        </button>
       </div>
     </div>
   )
@@ -272,10 +334,12 @@ const customCollisionDetection: CollisionDetection = (args) => {
 }
 
 function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onClose, onStatusesChanged }: ManageStatusesProps) {
+  const isMobile = useIsMobile()
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
   const [activeStatus, setActiveStatus] = useState<TaskStatus | null>(null)
+  const [mobileSelectedCategory, setMobileSelectedCategory] = useState<StatusCategory>('not_started')
 
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newName, setNewName] = useState('')
@@ -501,6 +565,361 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     setShowColorPicker(false)
   }
 
+  // Filtrar estados por categoría seleccionada en móvil
+  const filteredStatuses = statuses
+    .filter(s => s.category === mobileSelectedCategory)
+    .sort((a, b) => a.order_position - b.order_position)
+
+  // Renderizar modales compartidos
+  const renderModals = () => (
+    <>
+      {/* Modal editar */}
+      {editingStatus && (
+        isMobile ? (
+          <>
+            <div className={`fixed inset-0 z-[60] transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`} onClick={() => setEditingStatus(null)} />
+            <div className="fixed bottom-0 left-0 right-0 z-[60] bg-neutral-900 rounded-t-3xl overflow-hidden safe-area-bottom">
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+              </div>
+              <div className="px-4 pb-8">
+                <h3 className="text-lg font-bold text-white mb-4">Editar estado</h3>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Nombre del estado"
+                  className="w-full px-4 py-3 mb-4 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-base focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                  autoFocus
+                />
+                <div className="mb-4">
+                  <p className="text-sm text-neutral-400 mb-3">Color</p>
+                  <div className="flex flex-wrap gap-3">
+                    {PRESET_COLORS.map(color => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setEditColor(color)}
+                        className={`w-10 h-10 rounded-xl transition-all ${editColor === color ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-neutral-900 scale-110' : ''}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => openColorPicker('edit')}
+                      className="w-10 h-10 rounded-xl border-2 border-dashed border-neutral-600 flex items-center justify-center text-neutral-400"
+                    >
+                      <PlusIcon size={18} />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => setEditingStatus(null)} className="flex-1 py-3 bg-neutral-800 text-neutral-300 rounded-xl font-medium">Cancelar</button>
+                  <button onClick={handleSaveEdit} disabled={saving || !editName.trim()} className="flex-1 py-3 bg-yellow-400 text-neutral-900 rounded-xl font-bold disabled:opacity-50">{saving ? '...' : 'Guardar'}</button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setEditingStatus(null)}>
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 w-full max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Editar estado</h3>
+              <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingStatus(null) }} className="w-full px-3 py-2.5 mb-4 bg-gray-50 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-xl text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50" autoFocus />
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 mb-2">Color</p>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_COLORS.map(color => (
+                    <button key={color} type="button" onClick={() => setEditColor(color)} className={`w-7 h-7 rounded-lg transition-all ${editColor === color ? 'ring-2 ring-yellow-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: color }} />
+                  ))}
+                  <button type="button" onClick={() => openColorPicker('edit')} className="w-7 h-7 rounded-lg border-2 border-dashed border-gray-300 dark:border-neutral-600 flex items-center justify-center hover:border-yellow-400 text-gray-400">
+                    <PlusIcon size={14} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setEditingStatus(null)} className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-xl text-sm font-medium">Cancelar</button>
+                <button onClick={handleSaveEdit} disabled={saving || !editName.trim()} className="flex-1 px-4 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-medium disabled:opacity-50 text-sm">{saving ? '...' : 'Guardar'}</button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Color picker */}
+      {showColorPicker && (
+        isMobile ? (
+          <>
+            <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm" onClick={() => setShowColorPicker(false)} />
+            <div className="fixed bottom-0 left-0 right-0 z-[70] bg-neutral-900 rounded-t-3xl overflow-hidden safe-area-bottom">
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+              </div>
+              <div className="px-4 pb-8 flex flex-col items-center">
+                <h3 className="text-lg font-bold text-white mb-4 self-start">Seleccionar color</h3>
+                <HexColorPicker color={tempColor} onChange={setTempColor} style={{ width: '100%', height: '200px' }} />
+                <div className="flex gap-3 mt-4 w-full">
+                  <input
+                    type="text"
+                    value={tempColor}
+                    onChange={(e) => setTempColor(e.target.value)}
+                    className="flex-1 px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-xl text-center font-mono text-white"
+                  />
+                  <button
+                    onClick={saveColor}
+                    className="px-6 py-3 rounded-xl font-bold"
+                    style={{ backgroundColor: tempColor, color: '#171717' }}
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50" onClick={() => setShowColorPicker(false)}>
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <HexColorPicker color={tempColor} onChange={setTempColor} />
+              <div className="flex gap-2 mt-4">
+                <input type="text" value={tempColor} onChange={(e) => setTempColor(e.target.value)} className="flex-1 px-3 py-2 bg-gray-50 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-center font-mono text-sm" />
+                <button onClick={saveColor} className="px-4 py-2 rounded-lg font-medium text-sm" style={{ backgroundColor: tempColor, color: '#171717' }}>Aplicar</button>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
+      {/* Confirm delete */}
+      {deletingStatus && (
+        isMobile ? (
+          <>
+            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setDeletingStatus(null)} />
+            <div className="fixed bottom-0 left-0 right-0 z-[60] bg-neutral-900 rounded-t-3xl overflow-hidden safe-area-bottom">
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+              </div>
+              <div className="px-4 pb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-red-500/20">
+                    <TrashIcon size={24} className="text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Eliminar estado</h3>
+                    <p className="text-sm text-neutral-400">Esta acción no se puede deshacer</p>
+                  </div>
+                </div>
+                <div className="bg-neutral-800/50 rounded-xl p-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: deletingStatus.color }} />
+                    <span className="text-white font-medium">{deletingStatus.name}</span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setDeletingStatus(null)} disabled={deleting} className="flex-1 py-3 bg-neutral-800 text-neutral-300 rounded-xl font-medium">Cancelar</button>
+                  <button onClick={handleDeleteConfirm} disabled={deleting} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold">{deleting ? '...' : 'Eliminar'}</button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setDeletingStatus(null)}>
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 w-full max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">Eliminar estado</h3>
+              <p className="text-sm text-gray-500 mb-4">¿Eliminar "{deletingStatus.name}"?</p>
+              <div className="flex gap-2">
+              <button onClick={() => setDeletingStatus(null)} disabled={deleting} className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-xl text-sm font-medium">Cancelar</button>
+              <button onClick={handleDeleteConfirm} disabled={deleting} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-medium text-sm">{deleting ? '...' : 'Eliminar'}</button>
+            </div>
+          </div>
+        </div>
+        )
+      )}
+
+      {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
+    </>
+  )
+
+  // Mobile: Bottom Sheet
+  if (isMobile) {
+    return (
+      <>
+        <div
+          className={`fixed inset-0 z-50 transition-all duration-200 ${
+            isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+          }`}
+          onClick={handleClose}
+        />
+        <div
+          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden transform transition-all duration-300 safe-area-bottom ${
+            isVisible ? 'translate-y-0' : 'translate-y-full'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pb-3 border-b border-neutral-800">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400"><PaletteIcon size={24} /></span>
+              <div>
+                <h2 className="text-lg font-bold text-white">Estados</h2>
+                <p className="text-xs text-neutral-500">{statuses.filter(s => s.is_active).length} activos de {statuses.length}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 text-neutral-400 hover:text-white transition-colors rounded-full hover:bg-neutral-800"
+            >
+              <XIcon size={20} />
+            </button>
+          </div>
+
+          {/* Tabs de categorías */}
+          <div className="flex gap-2 px-4 py-3 border-b border-neutral-800 overflow-x-auto">
+            {CATEGORIES.map(cat => {
+              const count = statuses.filter(s => s.category === cat.id).length
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setMobileSelectedCategory(cat.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
+                    mobileSelectedCategory === cat.id
+                      ? 'bg-yellow-400 text-neutral-900'
+                      : 'bg-neutral-800 text-neutral-400'
+                  }`}
+                >
+                  <span className={mobileSelectedCategory === cat.id ? 'text-neutral-900' : cat.color}>
+                    {cat.icon}
+                  </span>
+                  <span className="text-sm font-medium">{cat.name}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    mobileSelectedCategory === cat.id
+                      ? 'bg-neutral-900/20 text-neutral-900'
+                      : 'bg-neutral-700 text-neutral-400'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Botón crear */}
+          {isOwnerOrAdmin && !showCreateForm && (
+            <div className="px-4 py-3">
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="w-full py-3 bg-yellow-400 text-neutral-900 rounded-xl font-bold flex items-center justify-center gap-2"
+              >
+                <PlusIcon size={18} />
+                Nuevo estado
+              </button>
+            </div>
+          )}
+
+          {/* Formulario crear */}
+          {showCreateForm && (
+            <div className="px-4 py-3 border-b border-neutral-800">
+              <div className="bg-neutral-800/50 rounded-xl p-4">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Nombre del estado..."
+                  className="w-full px-4 py-3 mb-3 bg-neutral-700 border border-neutral-600 rounded-xl text-white text-base focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
+                  autoFocus
+                />
+                <div className="flex gap-3 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => openColorPicker('new')}
+                    className="w-12 h-12 rounded-xl border-2 border-neutral-600 flex-shrink-0"
+                    style={{ backgroundColor: newColor }}
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs text-neutral-400 mb-1">Categoría</p>
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value as StatusCategory)}
+                      className="w-full px-3 py-2.5 bg-neutral-700 border border-neutral-600 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50 appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a3a3a3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 12px center',
+                        backgroundSize: '16px',
+                        paddingRight: '40px'
+                      }}
+                    >
+                      {CATEGORIES.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowCreateForm(false); setNewName('') }}
+                    className="flex-1 py-2.5 bg-neutral-700 text-neutral-300 rounded-xl font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreate}
+                    disabled={!newName.trim() || creating}
+                    className="flex-1 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-bold disabled:opacity-50"
+                  >
+                    {creating ? '...' : 'Crear'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Lista de estados */}
+          <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <LoadingZapIcon size={48} />
+              </div>
+            ) : filteredStatuses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <div className="w-16 h-16 bg-neutral-800 rounded-full flex items-center justify-center mb-4">
+                  <span className={CATEGORIES.find(c => c.id === mobileSelectedCategory)?.color}>
+                    {CATEGORIES.find(c => c.id === mobileSelectedCategory)?.icon}
+                  </span>
+                </div>
+                <p className="text-neutral-400 text-center">
+                  No hay estados en esta categoría
+                </p>
+              </div>
+            ) : (
+              filteredStatuses.map(status => {
+                const category = CATEGORIES.find(c => c.id === status.category)!
+                return (
+                  <MobileStatusCard
+                    key={status.id}
+                    status={status}
+                    category={category}
+                    onEdit={() => { setEditingStatus(status); setEditName(status.name); setEditColor(status.color) }}
+                    onDelete={() => setDeletingStatus(status)}
+                    onToggle={() => handleToggle(status)}
+                  />
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {renderModals()}
+      </>
+    )
+  }
+
+  // Desktop: Modal con DnD
   return (
     <DndContext
       sensors={sensors}
@@ -578,7 +997,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
         </div>
       </div>
 
-      {/* DragOverlay - FUERA del modal pero DENTRO del DndContext */}
+      {/* DragOverlay */}
       <DragOverlay dropAnimation={{
         duration: 200,
         easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
@@ -586,59 +1005,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
         {activeStatus && <StatusCardPreview status={activeStatus} />}
       </DragOverlay>
 
-      {/* Modal editar */}
-      {editingStatus && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setEditingStatus(null)}>
-          <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 w-full max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-4">Editar estado</h3>
-            <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingStatus(null) }} className="w-full px-3 py-2.5 mb-4 bg-gray-50 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-xl text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400/50" autoFocus />
-            <div className="mb-4">
-              <p className="text-xs text-gray-500 mb-2">Color</p>
-              <div className="flex flex-wrap gap-2">
-                {PRESET_COLORS.map(color => (
-                  <button key={color} type="button" onClick={() => setEditColor(color)} className={`w-7 h-7 rounded-lg transition-all ${editColor === color ? 'ring-2 ring-yellow-400 scale-110' : 'hover:scale-110'}`} style={{ backgroundColor: color }} />
-                ))}
-                <button type="button" onClick={() => openColorPicker('edit')} className="w-7 h-7 rounded-lg border-2 border-dashed border-gray-300 dark:border-neutral-600 flex items-center justify-center hover:border-yellow-400 text-gray-400">
-                  <PlusIcon size={14} />
-                </button>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setEditingStatus(null)} className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-xl text-sm font-medium">Cancelar</button>
-              <button onClick={handleSaveEdit} disabled={saving || !editName.trim()} className="flex-1 px-4 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-medium disabled:opacity-50 text-sm">{saving ? '...' : 'Guardar'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Color picker */}
-      {showColorPicker && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50" onClick={() => setShowColorPicker(false)}>
-          <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <HexColorPicker color={tempColor} onChange={setTempColor} />
-            <div className="flex gap-2 mt-4">
-              <input type="text" value={tempColor} onChange={(e) => setTempColor(e.target.value)} className="flex-1 px-3 py-2 bg-gray-50 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-center font-mono text-sm" />
-              <button onClick={saveColor} className="px-4 py-2 rounded-lg font-medium text-sm" style={{ backgroundColor: tempColor, color: '#171717' }}>Aplicar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm delete */}
-      {deletingStatus && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" onClick={() => setDeletingStatus(null)}>
-          <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 w-full max-w-sm mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">Eliminar estado</h3>
-            <p className="text-sm text-gray-500 mb-4">¿Eliminar "{deletingStatus.name}"?</p>
-            <div className="flex gap-2">
-              <button onClick={() => setDeletingStatus(null)} disabled={deleting} className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-xl text-sm font-medium">Cancelar</button>
-              <button onClick={handleDeleteConfirm} disabled={deleting} className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl font-medium text-sm">{deleting ? '...' : 'Eliminar'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
+      {renderModals()}
     </DndContext>
   )
 }

@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
+import { useIsMobile } from './hooks/useIsMobile'
 import { TaskStatus, Profile } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { logTaskCreated } from './lib/activityLogger'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
+import { Calendar, Clock, User, Tag, Mail, FileText, Type } from 'lucide-react'
 
 interface CreateTaskProps {
   currentUserId: string
@@ -17,6 +19,7 @@ interface CreateTaskProps {
 }
 
 function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, showToast }: CreateTaskProps) {
+  const isMobile = useIsMobile()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [statusId, setStatusId] = useState('')
@@ -100,7 +103,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!title.trim()) {
       showToast?.('El título es obligatorio', 'error')
       return
@@ -274,384 +277,440 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
     }
   }
 
-  return (
-    <>
-      {/* DatePicker Dark Mode Styles */}
-      <style>{`
-        .dark .react-datepicker {
-          background-color: #262626;
-          border: 1px solid #404040;
-          border-radius: 12px;
-          font-family: inherit;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-        }
-        .dark .react-datepicker__header {
-          background-color: #1f1f1f;
-          border-bottom: 1px solid #404040;
-          border-radius: 12px 12px 0 0;
-          padding-top: 12px;
-        }
-        .dark .react-datepicker__current-month,
-        .dark .react-datepicker__day-name,
-        .dark .react-datepicker-time__header {
-          color: #fff;
-        }
-        .dark .react-datepicker__day {
-          color: #e5e5e5;
-          border-radius: 8px;
-        }
-        .dark .react-datepicker__day:hover {
-          background-color: #404040;
-          border-radius: 8px;
-        }
-        .dark .react-datepicker__day--selected,
-        .dark .react-datepicker__day--keyboard-selected {
-          background-color: #facc15 !important;
-          color: #171717 !important;
-          font-weight: 600;
-        }
-        .dark .react-datepicker__day--today {
-          background-color: #404040;
-          font-weight: 600;
-        }
-        .dark .react-datepicker__day--outside-month {
-          color: #525252;
-        }
-        .dark .react-datepicker__day--disabled {
-          color: #404040;
-        }
-        .dark .react-datepicker__navigation-icon::before {
-          border-color: #a3a3a3;
-        }
-        .dark .react-datepicker__navigation:hover *::before {
-          border-color: #facc15;
-        }
-        .dark .react-datepicker__time-container {
-          border-left: 1px solid #404040;
-        }
-        .dark .react-datepicker__time {
-          background-color: #262626;
-          border-radius: 0 0 12px 0;
-        }
-        .dark .react-datepicker__time-box {
-          border-radius: 0 0 12px 0;
-        }
-        .dark .react-datepicker__time-list-item {
-          color: #e5e5e5;
-          height: auto !important;
-          padding: 8px 12px !important;
-        }
-        .dark .react-datepicker__time-list-item:hover {
-          background-color: #404040 !important;
-        }
-        .dark .react-datepicker__time-list-item--selected {
-          background-color: #facc15 !important;
-          color: #171717 !important;
-          font-weight: 600;
-        }
-        .dark .react-datepicker__triangle {
-          display: none;
-        }
-        .dark .react-datepicker__month-container {
-          background-color: #262626;
-        }
-        .dark .react-datepicker__year-dropdown,
-        .dark .react-datepicker__month-dropdown {
-          background-color: #262626;
-          border: 1px solid #404040;
-        }
-        .dark .react-datepicker__year-option:hover,
-        .dark .react-datepicker__month-option:hover {
-          background-color: #404040;
-        }
-        .react-datepicker-popper {
-          z-index: 9999 !important;
-        }
-        .react-datepicker__close-icon::after {
-          background-color: #737373 !important;
-        }
-        .react-datepicker__close-icon:hover::after {
-          background-color: #facc15 !important;
-        }
-      `}</style>
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto transition-all duration-200 ${
-        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
-      }`}
-      onClick={handleClose}
-    >
-      <div
-        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 ${
-          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-        }`}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-neutral-700 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="text-yellow-400"><ZapIcon size={24} /></span> Nueva Tarea
-          </h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+  // Estilos del DatePicker
+  const datePickerStyles = `
+    .dark .react-datepicker {
+      background-color: #262626;
+      border: 1px solid #404040;
+      border-radius: 12px;
+      font-family: inherit;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+    .dark .react-datepicker__header {
+      background-color: #1f1f1f;
+      border-bottom: 1px solid #404040;
+      border-radius: 12px 12px 0 0;
+      padding-top: 12px;
+    }
+    .dark .react-datepicker__current-month,
+    .dark .react-datepicker__day-name,
+    .dark .react-datepicker-time__header {
+      color: #fff;
+    }
+    .dark .react-datepicker__day {
+      color: #e5e5e5;
+      border-radius: 8px;
+    }
+    .dark .react-datepicker__day:hover {
+      background-color: #404040;
+      border-radius: 8px;
+    }
+    .dark .react-datepicker__day--selected,
+    .dark .react-datepicker__day--keyboard-selected {
+      background-color: #facc15 !important;
+      color: #171717 !important;
+      font-weight: 600;
+    }
+    .dark .react-datepicker__day--today {
+      background-color: #404040;
+      font-weight: 600;
+    }
+    .dark .react-datepicker__day--outside-month {
+      color: #525252;
+    }
+    .dark .react-datepicker__day--disabled {
+      color: #404040;
+    }
+    .dark .react-datepicker__navigation-icon::before {
+      border-color: #a3a3a3;
+    }
+    .dark .react-datepicker__navigation:hover *::before {
+      border-color: #facc15;
+    }
+    .dark .react-datepicker__time-container {
+      border-left: 1px solid #404040;
+    }
+    .dark .react-datepicker__time {
+      background-color: #262626;
+      border-radius: 0 0 12px 0;
+    }
+    .dark .react-datepicker__time-box {
+      border-radius: 0 0 12px 0;
+    }
+    .dark .react-datepicker__time-list-item {
+      color: #e5e5e5;
+      height: auto !important;
+      padding: 8px 12px !important;
+    }
+    .dark .react-datepicker__time-list-item:hover {
+      background-color: #404040 !important;
+    }
+    .dark .react-datepicker__time-list-item--selected {
+      background-color: #facc15 !important;
+      color: #171717 !important;
+      font-weight: 600;
+    }
+    .dark .react-datepicker__triangle {
+      display: none;
+    }
+    .dark .react-datepicker__month-container {
+      background-color: #262626;
+    }
+    .dark .react-datepicker__year-dropdown,
+    .dark .react-datepicker__month-dropdown {
+      background-color: #262626;
+      border: 1px solid #404040;
+    }
+    .dark .react-datepicker__year-option:hover,
+    .dark .react-datepicker__month-option:hover {
+      background-color: #404040;
+    }
+    .react-datepicker-popper {
+      z-index: 9999 !important;
+    }
+    .react-datepicker__close-icon::after {
+      background-color: #737373 !important;
+    }
+    .react-datepicker__close-icon:hover::after {
+      background-color: #facc15 !important;
+    }
+  `
+
+  // Contenido del formulario
+  const renderForm = () => (
+    <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-8' : 'p-6'}`}>
+      {/* Título */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <Type className="w-4 h-4" />
+          Título *
+        </label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Agrega un título a tu Tazk"
+          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+          autoFocus={!isMobile}
+          required
+        />
+      </div>
+
+      {/* Descripción */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <FileText className="w-4 h-4" />
+          Descripción
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Agrega más detalles..."
+          rows={isMobile ? 2 : 3}
+          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none text-base"
+        />
+      </div>
+
+      {/* Estado y Asignar */}
+      <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <Tag className="w-4 h-4" />
+            Estado
+          </label>
+          <select
+            value={statusId}
+            onChange={(e) => setStatusId(e.target.value)}
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
           >
-            <XIcon size={24} />
-          </button>
+            {statuses.map(status => (
+              <option key={status.id} value={status.id}>
+                {status.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Form */}
-        {loadingData ? (
-          <div className="p-6 flex flex-col items-center justify-center">
-            <LoadingZapIcon size={48} />
-          </div>
-        ) : statuses.length === 0 ? (
-          <div className="p-6 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-yellow-400/10 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              No hay estados disponibles
-            </h3>
-            <p className="text-gray-500 dark:text-neutral-400 text-sm mb-4">
-              Debes crear al menos un estado antes de poder crear tareas. Ve a "Estados" en el menú lateral para configurarlos.
-            </p>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 bg-yellow-400 text-neutral-900 rounded-lg font-medium hover:bg-yellow-300 transition-colors"
-            >
-              Entendido
-            </button>
-          </div>
-        ) : (
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto flex-1">
-          {/* Título */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-              Título *
+        {teamId && users.length > 0 && (
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+              <User className="w-4 h-4" />
+              Asignar a
             </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Agrega un título a tu Tazk"
-              className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
-              autoFocus
-              required
-            />
-          </div>
-
-          {/* Descripción */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-              Descripción
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Agrega detalles..."
-              rows={3}
-              className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none"
-            />
-          </div>
-
-          {/* Estado y Asignar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-                Estado
-              </label>
-              <select
-                value={statusId}
-                onChange={(e) => setStatusId(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
-              >
-                {statuses.map(status => (
-                  <option key={status.id} value={status.id}>
-                    {status.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {teamId && users.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-                  Asignar a
-                </label>
-                <select
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
-                >
-                  <option value="">Sin asignar</option>
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.full_name || user.email}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          {/* Emails de notificación */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-              Emails de notificación
-              <span className="text-gray-400 dark:text-neutral-500 font-normal ml-2">
-                ({notifyEmails.length}/3)
-              </span>
-            </label>
-
-            {/* Lista de emails agregados */}
-            {notifyEmails.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {notifyEmails.map((email, index) => (
-                  <div
-                    key={index}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400/20 dark:bg-yellow-400/10 border border-yellow-400/30 rounded-full text-sm text-yellow-700 dark:text-yellow-400"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span className="max-w-[180px] truncate">{email}</span>
-                    <button
-                      type="button"
-                      onClick={() => setNotifyEmails(notifyEmails.filter((_, i) => i !== index))}
-                      className="ml-1 hover:text-red-500 transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Input para agregar email */}
-            {notifyEmails.length < 3 && (
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400 dark:text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <input
-                  type="email"
-                  value={emailInput}
-                  onChange={(e) => setEmailInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      const email = emailInput.trim()
-                      if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
-                        setNotifyEmails([...notifyEmails, email])
-                        setEmailInput('')
-                      }
-                    }
-                  }}
-                  placeholder={notifyEmails.length === 0 ? "correo@ejemplo.com" : "Agregar otro correo..."}
-                  className="w-full pl-12 pr-24 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const email = emailInput.trim()
-                    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
-                      setNotifyEmails([...notifyEmails, email])
-                      setEmailInput('')
-                    }
-                  }}
-                  disabled={!emailInput.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-sm font-medium bg-yellow-400 text-neutral-900 rounded-md hover:bg-yellow-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Agregar
-                </button>
-              </div>
-            )}
-
-            <p className="text-xs text-gray-400 dark:text-neutral-500 mt-1.5 ml-1">
-              {notifyEmails.length < 3
-                ? "Opcional - Presiona Enter o clic en Agregar"
-                : "Máximo de 3 correos alcanzado"}
-            </p>
-          </div>
-
-          {/* Fechas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-                Fecha inicio
-              </label>
-              <DatePicker
-                selected={startDate}
-                onChange={(date) => setStartDate(date)}
-                showTimeSelect
-                timeFormat="HH:mm"
-                timeIntervals={15}
-                dateFormat="dd/MM/yyyy HH:mm"
-                placeholderText="Seleccionar"
-                className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                isClearable
-                popperPlacement="top-start"
-                portalId="root"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
-                Fecha límite
-              </label>
-              <DatePicker
-                selected={dueDate}
-                onChange={(date) => setDueDate(date)}
-                showTimeSelect
-                timeFormat="HH:mm"
-                timeIntervals={15}
-                dateFormat="dd/MM/yyyy HH:mm"
-                placeholderText="Seleccionar"
-                className="w-full px-4 py-3 bg-gray-100 dark:bg-neutral-700 border border-gray-300 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
-                minDate={startDate || undefined}
-                isClearable
-                popperPlacement="top-start"
-                portalId="root"
-              />
-            </div>
-          </div>
-
-          {/* Botones */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-neutral-600 transition-colors"
+            <select
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+              className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !title.trim()}
-              className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                'Creando...'
-              ) : (
-                <>
-                  <ZapIcon size={18} /> Crear Tarea
-                </>
-              )}
-            </button>
+              <option value="">Sin asignar</option>
+              {users.map(user => (
+                <option key={user.id} value={user.id}>
+                  {user.full_name || user.email}
+                </option>
+              ))}
+            </select>
           </div>
-        </form>
         )}
       </div>
-    </div>
 
-          </>
+      {/* Fechas */}
+      <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <Calendar className="w-4 h-4" />
+            Fecha inicio
+          </label>
+          <DatePicker
+            selected={startDate}
+            onChange={(date) => setStartDate(date)}
+            showTimeSelect
+            timeFormat="HH:mm"
+            timeIntervals={15}
+            dateFormat="dd/MM/yyyy HH:mm"
+            placeholderText="Seleccionar fecha"
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base"
+            isClearable
+            popperPlacement="top-start"
+            portalId="root"
+          />
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <Clock className="w-4 h-4" />
+            Fecha límite
+          </label>
+          <DatePicker
+            selected={dueDate}
+            onChange={(date) => setDueDate(date)}
+            showTimeSelect
+            timeFormat="HH:mm"
+            timeIntervals={15}
+            dateFormat="dd/MM/yyyy HH:mm"
+            placeholderText="Seleccionar fecha"
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base"
+            minDate={startDate || undefined}
+            isClearable
+            popperPlacement="top-start"
+            portalId="root"
+          />
+        </div>
+      </div>
+
+      {/* Emails de notificación */}
+      <div className="mb-6">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <Mail className="w-4 h-4" />
+          Notificar por email
+          <span className="text-neutral-400 dark:text-neutral-500 font-normal">
+            ({notifyEmails.length}/3)
+          </span>
+        </label>
+
+        {/* Lista de emails agregados */}
+        {notifyEmails.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {notifyEmails.map((email, index) => (
+              <div
+                key={index}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400/20 dark:bg-yellow-400/10 border border-yellow-400/30 rounded-full text-sm text-yellow-700 dark:text-yellow-400"
+              >
+                <span className="max-w-[150px] truncate">{email}</span>
+                <button
+                  type="button"
+                  onClick={() => setNotifyEmails(notifyEmails.filter((_, i) => i !== index))}
+                  className="ml-1 hover:text-red-500 transition-colors"
+                >
+                  <XIcon size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Input para agregar email */}
+        {notifyEmails.length < 3 && (
+          <div className="relative">
+            <input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  const email = emailInput.trim()
+                  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
+                    setNotifyEmails([...notifyEmails, email])
+                    setEmailInput('')
+                  }
+                }
+              }}
+              placeholder="correo@ejemplo.com"
+              className="w-full px-4 py-3 pr-24 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const email = emailInput.trim()
+                if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
+                  setNotifyEmails([...notifyEmails, email])
+                  setEmailInput('')
+                }
+              }}
+              disabled={!emailInput.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-sm font-medium bg-yellow-400 text-neutral-900 rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Agregar
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Botones */}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={handleClose}
+          className="flex-1 px-4 py-3 bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-xl font-medium hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-all active:scale-[0.98]"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={loading || !title.trim()}
+          className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-xl font-bold hover:bg-yellow-300 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-yellow-400/20"
+        >
+          {loading ? (
+            <LoadingZapIcon size={20} />
+          ) : (
+            <>
+              <ZapIcon size={20} />
+              <span>Crear</span>
+            </>
+          )}
+        </button>
+      </div>
+    </form>
+  )
+
+  // Contenido de carga o sin estados
+  const renderLoadingOrEmpty = () => {
+    if (loadingData) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center py-16">
+          <LoadingZapIcon size={48} />
+        </div>
+      )
+    }
+
+    if (statuses.length === 0) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-16">
+          <div className="w-16 h-16 bg-yellow-400/10 rounded-full flex items-center justify-center mb-4">
+            <Tag className="w-8 h-8 text-yellow-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">
+            No hay estados disponibles
+          </h3>
+          <p className="text-neutral-500 dark:text-neutral-400 text-sm mb-4 max-w-[280px]">
+            Debes crear al menos un estado antes de poder crear tareas.
+          </p>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-6 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-medium hover:bg-yellow-300 transition-colors"
+          >
+            Entendido
+          </button>
+        </div>
+      )
+    }
+
+    return null
+  }
+
+  // Mobile: Bottom Sheet (casi pantalla completa)
+  if (isMobile) {
+    return (
+      <>
+        <style>{datePickerStyles}</style>
+        <div
+          className={`fixed inset-0 z-50 transition-all duration-200 ${
+            isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+          }`}
+          onClick={handleClose}
+        />
+        <div
+          className={`fixed inset-x-0 bottom-0 top-4 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 safe-area-bottom ${
+            isVisible ? 'translate-y-0' : 'translate-y-full'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+            <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pb-3 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400"><ZapIcon size={24} /></span>
+              <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
+                Nueva Tarea
+              </h2>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
+              <XIcon size={20} />
+            </button>
+          </div>
+
+          {/* Content */}
+          {loadingData || statuses.length === 0 ? renderLoadingOrEmpty() : renderForm()}
+        </div>
+      </>
+    )
+  }
+
+  // Desktop: Modal centrado
+  return (
+    <>
+      <style>{datePickerStyles}</style>
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto transition-all duration-200 ${
+          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+        }`}
+        onClick={handleClose}
+      >
+        <div
+          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 ${
+            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          }`}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-5 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400"><ZapIcon size={24} /></span>
+              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
+                Nueva Tarea
+              </h2>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+            >
+              <XIcon size={20} />
+            </button>
+          </div>
+
+          {/* Content */}
+          {loadingData || statuses.length === 0 ? renderLoadingOrEmpty() : renderForm()}
+        </div>
+      </div>
+    </>
   )
 }
 

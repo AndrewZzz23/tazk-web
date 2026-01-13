@@ -378,6 +378,44 @@ function Sidebar({
 
               {/* Actions */}
               <div className="border-t border-neutral-800 p-4 space-y-2">
+                {/* Opciones del equipo seleccionado (solo para admin/owner) */}
+                {selectedTeamId && canManageTeam && (
+                  <>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowTeamMenu(false)
+                          setShowInviteMember(true)
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Invitar</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowTeamMenu(false)
+                          setShowTeamMembers(true)
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
+                      >
+                        <Users className="w-4 h-4" />
+                        <span>Miembros</span>
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowTeamMenu(false)
+                        setShowTeamSettings(true)
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
+                    >
+                      <SettingsIcon size={16} />
+                      <span>Configuración del equipo</span>
+                    </button>
+                  </>
+                )}
+
                 <button
                   onClick={() => {
                     setShowTeamMenu(false)
@@ -388,31 +426,6 @@ function Sidebar({
                   <Plus className="w-5 h-5" />
                   <span>Crear nuevo equipo</span>
                 </button>
-
-                {selectedTeamId && canManageTeam && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setShowTeamMenu(false)
-                        setShowInviteMember(true)
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Invitar</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowTeamMenu(false)
-                        setShowTeamMembers(true)
-                      }}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-neutral-800 text-white rounded-xl font-medium"
-                    >
-                      <Users className="w-4 h-4" />
-                      <span>Miembros</span>
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </>
