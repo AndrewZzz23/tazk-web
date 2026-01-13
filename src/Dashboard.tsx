@@ -624,14 +624,22 @@ function Dashboard() {
         </div>
       </main>
 
-      {/* FAB */}
+      {/* FAB - Floating Action Button */}
       {canCreateTasks && (
         <button
           onClick={() => setShowCreateTask(true)}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-yellow-400 text-neutral-900 rounded-full shadow-lg hover:bg-yellow-300 hover:scale-105 transition-all flex items-center justify-center z-50"
+          className={`fixed bg-yellow-400 text-neutral-900 rounded-full shadow-xl hover:bg-yellow-300 hover:scale-105 active:scale-95 transition-all flex items-center justify-center z-50 ${
+            isMobile
+              ? 'right-4 w-14 h-14'
+              : 'bottom-6 right-6 w-16 h-16'
+          }`}
+          style={isMobile ? {
+            bottom: 'calc(1rem + 15px)',
+            boxShadow: '0 8px 24px rgba(250, 204, 21, 0.4), 0 4px 8px rgba(0,0,0,0.15)'
+          } : undefined}
           title="Nueva tarea (Alt+N)"
         >
-          <PlusIcon size={32} />
+          <PlusIcon size={isMobile ? 28 : 32} />
         </button>
       )}
 

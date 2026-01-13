@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 import { User } from '@supabase/supabase-js'
 import Toast from './Toast'
 import { useTheme } from './ThemeContext'
-import { MoonIcon, SunMediumIcon, SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, SaveIcon, BellIcon } from './components/iu/AnimatedIcons';
+import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon } from './components/iu/AnimatedIcons';
 import { NotificationToggle } from './components/NotificationSettings'
 import { useIsMobile } from './hooks/useIsMobile'
 
@@ -109,18 +109,18 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
 
           {/* Mobile: Tabs horizontales con iconos (sin atajos) */}
           {isMobile && (
-            <div className="flex justify-around border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50">
+            <div className="flex justify-around items-end border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50">
               {tabs.filter(tab => tab.id !== 'shortcuts').map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as Tab)}
-                  className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
+                  className={`flex flex-col items-center justify-end gap-1 px-4 py-2 rounded-xl transition-all h-14 ${
                     activeTab === tab.id
                       ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400'
                       : 'text-gray-500 dark:text-neutral-400'
                   }`}
                 >
-                  <span className="text-lg">{tab.icon}</span>
+                  <span className="h-6 flex items-center justify-center">{tab.icon}</span>
                   <span className="text-[10px] font-medium">{tab.label}</span>
                 </button>
               ))}

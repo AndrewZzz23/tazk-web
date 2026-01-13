@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
+import { useTheme } from './ThemeContext'
 import { Team, UserRole } from './types/database.types'
 import CreateTeam from './CreateTeam'
 import InviteMember from './InviteMember'
@@ -19,7 +20,7 @@ import {
   MailIcon,
   SettingsIcon
 } from './components/iu/AnimatedIcons';
-import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield } from 'lucide-react'
+import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
 
 interface TeamWithRole extends Team {
   role: UserRole
@@ -57,6 +58,7 @@ function Sidebar({
   onShowEmails,
   isMobile = false
 }: SidebarProps) {
+  const { theme } = useTheme()
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [selectedTeamName, setSelectedTeamName] = useState<string | null>(null)
@@ -67,6 +69,8 @@ function Sidebar({
   const [showInviteMember, setShowInviteMember] = useState(false)
   const [showTeamMembers, setShowTeamMembers] = useState(false)
   const [showTeamSettings, setShowTeamSettings] = useState(false)
+  const [showViewsMenu, setShowViewsMenu] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   const loadTeams = async () => {
     const { data, error } = await supabase
@@ -186,62 +190,98 @@ function Sidebar({
   if (isMobile) {
     return (
       <>
-        {/* Floating Glass Bottom Navigation Bar */}
-        <div className="fixed bottom-4 left-4 right-4 z-40 safe-area-bottom">
+        {/* Liquid Glass Bottom Navigation Bar - iOS 26 Style */}
+        <div className="fixed bottom-4 left-4 right-20 z-40 safe-area-bottom">
           <div
-            className="flex items-center justify-around px-3 py-3 rounded-2xl"
+            className="relative flex items-center justify-around px-3 py-3 rounded-[28px] overflow-hidden"
             style={{
-              background: 'rgba(23, 23, 23, 0.75)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+              background: theme === 'dark'
+                ? 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.08) 100%)'
+                : 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.75) 50%, rgba(255,255,255,0.8) 100%)',
+              backdropFilter: 'blur(40px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+              border: theme === 'dark'
+                ? '1px solid rgba(255, 255, 255, 0.18)'
+                : '1px solid rgba(255, 255, 255, 0.6)',
+              boxShadow: theme === 'dark'
+                ? `
+                  0 8px 32px rgba(0, 0, 0, 0.35),
+                  0 2px 8px rgba(0, 0, 0, 0.2),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.15),
+                  inset 0 -1px 1px rgba(0, 0, 0, 0.1)
+                `
+                : `
+                  0 8px 32px rgba(0, 0, 0, 0.12),
+                  0 2px 8px rgba(0, 0, 0, 0.08),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.9),
+                  inset 0 -1px 1px rgba(0, 0, 0, 0.05)
+                `
             }}
           >
+            {/* Liquid highlight effect */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: theme === 'dark'
+                  ? 'linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.05) 100%)'
+                  : 'linear-gradient(180deg, rgba(255,255,255,0.7) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.3) 100%)',
+                borderRadius: 'inherit'
+              }}
+            />
             {/* Team selector */}
             <button
               onClick={() => setShowTeamMenu(true)}
-              className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-yellow-400 transition-colors"
+              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+                theme === 'dark'
+                  ? 'text-white/70 hover:text-yellow-400'
+                  : 'text-neutral-600 hover:text-yellow-600'
+              }`}
             >
               <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
                 style={selectedTeamId ? {
                   backgroundColor: selectedTeamColor || '#facc15'
-                } : { backgroundColor: 'rgba(64, 64, 64, 0.8)' }}
+                } : {
+                  background: theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                  border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)'
+                }}
               >
                 {selectedTeamId ? (
                   <Users className="w-4 h-4 text-neutral-900" />
                 ) : (
-                  <User className="w-4 h-4 text-neutral-400" />
+                  <User className={`w-4 h-4 ${theme === 'dark' ? 'text-white/60' : 'text-neutral-500'}`} />
                 )}
               </div>
             </button>
 
-            {/* Views */}
-            {navItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => onViewChange(item.id)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
-                  currentView === item.id
-                    ? 'text-yellow-400'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <span>{item.icon}</span>
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </button>
-            ))}
+            {/* Views selector */}
+            <button
+              onClick={() => setShowViewsMenu(true)}
+              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+                theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
+              }`}
+            >
+              <span>
+                {currentView === 'list' && <ListIcon size={20} />}
+                {currentView === 'kanban' && <KanbanIcon size={20} />}
+                {currentView === 'calendar' && <CalendarIcon size={20} />}
+              </span>
+              <span className="text-[10px] font-medium">Vistas</span>
+            </button>
 
             {/* Notifications */}
             <button
               onClick={onShowNotifications}
-              className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-white transition-colors relative"
+              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+                theme === 'dark'
+                  ? 'text-white/70 hover:text-white'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
             >
               <span className="relative">
                 <BellIcon size={20} />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-neutral-900 text-[10px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-neutral-900 text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
                     {notificationCount}
                   </span>
                 )}
@@ -251,10 +291,14 @@ function Sidebar({
 
             {/* More options */}
             <button
-              onClick={onShowMetrics}
-              className="flex flex-col items-center gap-1 p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+              onClick={() => setShowMoreMenu(true)}
+              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+                theme === 'dark'
+                  ? 'text-white/70 hover:text-white'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
             >
-              <ChartIcon size={20} />
+              <LayoutGrid className="w-5 h-5" />
               <span className="text-[10px] font-medium">Más</span>
             </button>
           </div>
@@ -368,6 +412,154 @@ function Sidebar({
                       <span>Miembros</span>
                     </button>
                   </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Views selector modal for mobile */}
+        {showViewsMenu && (
+          <>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowViewsMenu(false)} />
+            <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 overflow-hidden safe-area-bottom">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+              </div>
+
+              {/* Header */}
+              <div className="px-4 py-2 border-b border-neutral-800">
+                <h3 className="text-white font-semibold">Seleccionar vista</h3>
+              </div>
+
+              <div className="py-2 pb-6">
+                {navItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onViewChange(item.id)
+                      setShowViewsMenu(false)
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 ${
+                      currentView === item.id ? 'bg-yellow-400/10' : ''
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      currentView === item.id
+                        ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-neutral-900'
+                        : 'bg-neutral-700 text-neutral-400'
+                    }`}>
+                      {item.icon}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className={`font-medium ${currentView === item.id ? 'text-yellow-400' : 'text-white'}`}>
+                        {item.label}
+                      </div>
+                      <div className="text-neutral-500 text-sm">
+                        {item.id === 'list' && 'Ver tareas en lista'}
+                        {item.id === 'kanban' && 'Organizar por estados'}
+                        {item.id === 'calendar' && 'Ver por fechas'}
+                      </div>
+                    </div>
+                    {currentView === item.id && (
+                      <Check className="w-5 h-5 text-yellow-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* More options modal for mobile */}
+        {showMoreMenu && (
+          <>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowMoreMenu(false)} />
+            <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 overflow-hidden safe-area-bottom">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
+                <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+              </div>
+
+              {/* Header */}
+              <div className="px-4 py-2 border-b border-neutral-800">
+                <h3 className="text-white font-semibold">Herramientas</h3>
+              </div>
+
+              <div className="py-2 pb-6">
+                {/* Métricas - disponible para todos */}
+                <button
+                  onClick={() => {
+                    onShowMetrics()
+                    setShowMoreMenu(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3"
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
+                    <ChartIcon size={20} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="font-medium text-white">Métricas</div>
+                    <div className="text-neutral-500 text-sm">Estadísticas y rendimiento</div>
+                  </div>
+                </button>
+
+                {/* Actividad - disponible para todos */}
+                <button
+                  onClick={() => {
+                    onShowActivityLogs()
+                    setShowMoreMenu(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3"
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
+                    <ActivityIcon size={20} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="font-medium text-white">Actividad</div>
+                    <div className="text-neutral-500 text-sm">Historial de cambios</div>
+                  </div>
+                </button>
+
+                {/* Estados - solo para owner o tareas personales */}
+                {(selectedRole === 'owner' || !selectedTeamId) && (
+                  <button
+                    onClick={() => {
+                      onShowStatuses()
+                      setShowMoreMenu(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3"
+                  >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
+                      <PaletteIcon size={20} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium text-white">Estados</div>
+                      <div className="text-neutral-500 text-sm">Personalizar estados de tareas</div>
+                    </div>
+                    <Crown className="w-4 h-4 text-yellow-400" />
+                  </button>
+                )}
+
+                {/* Correos - solo para owner o tareas personales */}
+                {(selectedRole === 'owner' || !selectedTeamId) && (
+                  <button
+                    onClick={() => {
+                      onShowEmails()
+                      setShowMoreMenu(false)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3"
+                  >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
+                      <MailIcon size={20} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium text-white">Correos</div>
+                      <div className="text-neutral-500 text-sm">Crear tareas desde email</div>
+                    </div>
+                    <Crown className="w-4 h-4 text-yellow-400" />
+                  </button>
                 )}
               </div>
             </div>
