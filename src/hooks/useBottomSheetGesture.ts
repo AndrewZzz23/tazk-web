@@ -45,6 +45,8 @@ export function useBottomSheetGesture({
     if (dragY > threshold) {
       // Cerrar si se arrastró suficiente
       onClose()
+      // Resetear después de un pequeño delay para que la animación de cierre se complete
+      setTimeout(() => setDragY(0), 300)
     } else {
       // Volver a la posición original
       setDragY(0)

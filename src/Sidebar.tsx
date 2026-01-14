@@ -43,6 +43,7 @@ interface SidebarProps {
   onShowEmails: () => void
   isMobile?: boolean
   onBottomSheetChange?: (isOpen: boolean) => void
+  showFab?: boolean
 }
 
 function Sidebar({
@@ -209,7 +210,7 @@ function Sidebar({
         {/* Liquid Glass Bottom Navigation Bar - iOS 26 Style */}
         <div className="fixed bottom-4 left-4 right-20 z-40 safe-area-bottom">
           <div
-            className="relative flex items-center justify-around px-3 py-3 rounded-[28px] overflow-hidden"
+            className="relative flex items-center justify-around px-2 py-2 rounded-[24px] overflow-hidden"
             style={{
               background: theme === 'dark'
                 ? 'linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.08) 100%)'
@@ -247,14 +248,14 @@ function Sidebar({
             {/* Team selector */}
             <button
               onClick={() => setShowTeamMenu(true)}
-              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+              className={`relative z-10 flex flex-col items-center justify-center p-1.5 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
                   ? 'text-white/70 hover:text-yellow-400'
                   : 'text-neutral-600 hover:text-yellow-600'
               }`}
             >
               <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg"
+                className="w-8 h-8 rounded-xl flex items-center justify-center shadow-md"
                 style={selectedTeamId ? {
                   backgroundColor: selectedTeamColor || '#facc15'
                 } : {
@@ -273,7 +274,7 @@ function Sidebar({
             {/* Views selector */}
             <button
               onClick={() => setShowViewsMenu(true)}
-              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+              className={`relative z-10 flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
               }`}
             >
@@ -282,13 +283,13 @@ function Sidebar({
                 {currentView === 'kanban' && <KanbanIcon size={20} />}
                 {currentView === 'calendar' && <CalendarIcon size={20} />}
               </span>
-              <span className="text-[10px] font-medium">Vistas</span>
+              <span className="text-[9px] font-medium">Vistas</span>
             </button>
 
             {/* Notifications */}
             <button
               onClick={onShowNotifications}
-              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+              className={`relative z-10 flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
                   ? 'text-white/70 hover:text-white'
                   : 'text-neutral-600 hover:text-neutral-900'
@@ -297,25 +298,25 @@ function Sidebar({
               <span className="relative">
                 <BellIcon size={20} />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-neutral-900 text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-neutral-900 text-[9px] font-bold rounded-full flex items-center justify-center shadow-md">
                     {notificationCount}
                   </span>
                 )}
               </span>
-              <span className="text-[10px] font-medium">Alertas</span>
+              <span className="text-[9px] font-medium">Alertas</span>
             </button>
 
             {/* More options */}
             <button
               onClick={() => setShowMoreMenu(true)}
-              className={`relative z-10 flex flex-col items-center gap-1 p-2 rounded-2xl transition-all active:scale-95 ${
+              className={`relative z-10 flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
                   ? 'text-white/70 hover:text-white'
                   : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               <LayoutGrid className="w-5 h-5" />
-              <span className="text-[10px] font-medium">Más</span>
+              <span className="text-[9px] font-medium">Más</span>
             </button>
           </div>
         </div>

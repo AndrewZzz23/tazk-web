@@ -89,6 +89,7 @@ function Dashboard() {
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
   const [showMemberWelcome, setShowMemberWelcome] = useState(false)
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   // Swipe gesture para el menú de usuario móvil
   const userMenuGesture = useBottomSheetGesture({ onClose: () => setShowUserMenu(false) })
@@ -550,7 +551,7 @@ function Dashboard() {
                       <button
                         onClick={() => {
                           setShowUserMenu(false)
-                          handleLogout()
+                          setShowLogoutConfirm(true)
                         }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors"
                       >
@@ -636,7 +637,7 @@ function Dashboard() {
               : 'bottom-6 right-6 w-16 h-16'
           }`}
           style={isMobile ? {
-            bottom: 'calc(1rem + 15px)',
+            bottom: '1.3rem',
             boxShadow: '0 8px 24px rgba(250, 204, 21, 0.4), 0 4px 8px rgba(0,0,0,0.15)'
           } : undefined}
           title="Nueva tarea (Alt+N)"
@@ -760,44 +761,16 @@ function Dashboard() {
             </div>
 
             {/* Opciones */}
-            <div className="px-4 pb-2 space-y-1">
-              <button
-                onClick={() => {
-                  setShowUserMenu(false)
-                  setShowNotifications(true)
-                }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-neutral-800/50 text-white active:bg-neutral-700 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-xl bg-neutral-700 flex items-center justify-center text-neutral-300 relative">
-                  <BellIcon size={20} />
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-neutral-900 text-xs font-bold rounded-full flex items-center justify-center">
-                      {notificationCount}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="font-medium">Notificaciones</div>
-                  <div className="text-sm text-neutral-500">
-                    {notificationCount > 0 ? `${notificationCount} pendiente${notificationCount > 1 ? 's' : ''}` : 'Sin notificaciones'}
-                  </div>
-                </div>
-              </button>
-
+            <div className="px-4 pb-3 space-y-1">
               <button
                 onClick={() => {
                   setShowUserMenu(false)
                   setUserSettingsTab('profile')
                 }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-neutral-800/50 text-white active:bg-neutral-700 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white active:bg-neutral-800 transition-colors"
               >
-                <div className="w-10 h-10 rounded-xl bg-neutral-700 flex items-center justify-center text-neutral-300">
-                  <UserIcon />
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="font-medium">Mi perfil</div>
-                  <div className="text-sm text-neutral-500">Editar información personal</div>
-                </div>
+                <UserIcon size={22} />
+                <span className="font-medium">Mi perfil</span>
               </button>
 
               <button
@@ -805,15 +778,21 @@ function Dashboard() {
                   setShowUserMenu(false)
                   setUserSettingsTab('appearance')
                 }}
-                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-neutral-800/50 text-white active:bg-neutral-700 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white active:bg-neutral-800 transition-colors"
               >
-                <div className="w-10 h-10 rounded-xl bg-neutral-700 flex items-center justify-center text-neutral-300">
-                  {theme === 'dark' ? <MoonIcon /> : <SunMediumIcon />}
-                </div>
-                <div className="flex-1 text-left">
-                  <div className="font-medium">Apariencia</div>
-                  <div className="text-sm text-neutral-500">Tema {theme === 'dark' ? 'oscuro' : 'claro'}</div>
-                </div>
+                {theme === 'dark' ? <MoonIcon size={22} /> : <SunMediumIcon size={22} />}
+                <span className="font-medium">Apariencia</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowUserMenu(false)
+                  setUserSettingsTab('notifications')
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white active:bg-neutral-800 transition-colors"
+              >
+                <BellIcon size={22} />
+                <span className="font-medium">Notificaciones</span>
               </button>
             </div>
 
@@ -822,7 +801,7 @@ function Dashboard() {
               <button
                 onClick={() => {
                   setShowUserMenu(false)
-                  handleLogout()
+                  setShowLogoutConfirm(true)
                 }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-red-500/10 text-red-400 active:bg-red-500/20 transition-colors"
               >
@@ -841,6 +820,51 @@ function Dashboard() {
           type={toast.type}
           onClose={() => setToast({ ...toast, show: false })}
         />
+      )}
+
+      {/* Modal de confirmación de cierre de sesión */}
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden transform transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="w-14 h-14 bg-red-100 dark:bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <LogoutIcon size={28} className="text-red-500" />
+              </div>
+
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">
+                ¿Cerrar sesión?
+              </h3>
+
+              <p className="text-gray-500 dark:text-neutral-400 text-center text-sm mb-6">
+                Tendrás que volver a iniciar sesión para acceder a tu cuenta.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-neutral-700 text-gray-700 dark:text-neutral-300 font-medium hover:bg-gray-50 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false)
+                    handleLogout()
+                  }}
+                  className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
