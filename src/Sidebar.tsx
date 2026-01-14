@@ -21,6 +21,7 @@ import {
   SettingsIcon
 } from './components/iu/AnimatedIcons';
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 
 interface TeamWithRole extends Team {
   role: UserRole
@@ -41,6 +42,7 @@ interface SidebarProps {
   onToggleCollapse: () => void
   onShowEmails: () => void
   isMobile?: boolean
+  onBottomSheetChange?: (isOpen: boolean) => void
 }
 
 function Sidebar({
@@ -56,7 +58,8 @@ function Sidebar({
   isCollapsed,
   onToggleCollapse,
   onShowEmails,
-  isMobile = false
+  isMobile = false,
+  onBottomSheetChange
 }: SidebarProps) {
   const { theme } = useTheme()
   const [teams, setTeams] = useState<TeamWithRole[]>([])
@@ -71,6 +74,19 @@ function Sidebar({
   const [showTeamSettings, setShowTeamSettings] = useState(false)
   const [showViewsMenu, setShowViewsMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+
+  // Swipe to close gestures para bottom sheets móviles
+  const viewsGesture = useBottomSheetGesture({ onClose: () => setShowViewsMenu(false) })
+  const teamGesture = useBottomSheetGesture({ onClose: () => setShowTeamMenu(false) })
+  const moreGesture = useBottomSheetGesture({ onClose: () => setShowMoreMenu(false) })
+
+  // Notificar al Dashboard cuando hay un bottom sheet abierto (solo móvil)
+  useEffect(() => {
+    if (isMobile && onBottomSheetChange) {
+      const isAnyOpen = showViewsMenu || showTeamMenu || showMoreMenu
+      onBottomSheetChange(isAnyOpen)
+    }
+  }, [isMobile, showViewsMenu, showTeamMenu, showMoreMenu, onBottomSheetChange])
 
   const loadTeams = async () => {
     const { data, error } = await supabase
@@ -308,9 +324,20 @@ function Sidebar({
         {showTeamMenu && (
           <>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowTeamMenu(false)} />
-            <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 max-h-[70vh] overflow-hidden safe-area-bottom">
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-2">
+            <div
+              className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 max-h-[70vh] overflow-hidden safe-area-bottom"
+              style={{
+                ...teamGesture.dragStyle,
+                transition: teamGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
+              }}
+            >
+              {/* Handle - draggable area */}
+              <div
+                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+                onTouchStart={teamGesture.handleTouchStart}
+                onTouchMove={teamGesture.handleTouchMove}
+                onTouchEnd={teamGesture.handleTouchEnd}
+              >
                 <div className="w-10 h-1 bg-neutral-700 rounded-full" />
               </div>
 
@@ -435,9 +462,20 @@ function Sidebar({
         {showViewsMenu && (
           <>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowViewsMenu(false)} />
-            <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 overflow-hidden safe-area-bottom">
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-2">
+            <div
+              className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 overflow-hidden safe-area-bottom"
+              style={{
+                ...viewsGesture.dragStyle,
+                transition: viewsGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
+              }}
+            >
+              {/* Handle - draggable area */}
+              <div
+                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+                onTouchStart={viewsGesture.handleTouchStart}
+                onTouchMove={viewsGesture.handleTouchMove}
+                onTouchEnd={viewsGesture.handleTouchEnd}
+              >
                 <div className="w-10 h-1 bg-neutral-700 rounded-full" />
               </div>
 
@@ -489,15 +527,21 @@ function Sidebar({
         {showMoreMenu && (
           <>
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowMoreMenu(false)} />
-            <div className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 overflow-hidden safe-area-bottom">
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-2">
+            <div
+              className="fixed bottom-0 left-0 right-0 bg-neutral-900 border-t border-neutral-800 rounded-t-3xl z-50 overflow-hidden safe-area-bottom"
+              style={{
+                ...moreGesture.dragStyle,
+                transition: moreGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
+              }}
+            >
+              {/* Handle - draggable area */}
+              <div
+                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+                onTouchStart={moreGesture.handleTouchStart}
+                onTouchMove={moreGesture.handleTouchMove}
+                onTouchEnd={moreGesture.handleTouchEnd}
+              >
                 <div className="w-10 h-1 bg-neutral-700 rounded-full" />
-              </div>
-
-              {/* Header */}
-              <div className="px-4 py-2 border-b border-neutral-800">
-                <h3 className="text-white font-semibold">Herramientas</h3>
               </div>
 
               <div className="py-2 pb-6">

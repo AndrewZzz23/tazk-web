@@ -19,6 +19,7 @@ import { LoadingZapIcon, XIcon, PaletteIcon, PlusIcon, EditIcon, TrashIcon, Chec
 import Toast from './Toast'
 import { logStatusCreated, logStatusUpdated, logStatusDeleted } from './lib/activityLogger'
 import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { ChevronRight } from 'lucide-react'
 
 interface ManageStatusesProps {
@@ -419,6 +420,11 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     setTimeout(onClose, 200)
   }
 
+  // Swipe to close gesture
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+    onClose: handleClose
+  })
+
   const handleDragStart = (event: DragStartEvent) => {
     const status = statuses.find((s) => s.id === event.active.id)
     if (status) setActiveStatus(status)
@@ -749,13 +755,22 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
           onClick={handleClose}
         />
         <div
-          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden transform transition-all duration-300 safe-area-bottom ${
+          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden safe-area-bottom ${
             isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
+          style={{
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Handle */}
-          <div className="flex justify-center pt-3 pb-2">
+          {/* Handle - draggable area */}
+          <div
+            className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div className="w-10 h-1 bg-neutral-700 rounded-full" />
           </div>
 

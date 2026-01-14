@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { TeamInvitation } from './types/database.types'
 import Toast from './Toast'
 import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
@@ -85,6 +86,11 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
     setIsVisible(false)
     setTimeout(onClose, 200)
   }
+
+  // Swipe to close gesture
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+    onClose: handleClose
+  })
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ show: true, message, type })
@@ -242,13 +248,22 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
           onClick={handleClose}
         />
         <div
-          className={`fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-hidden transform transition-all duration-300 safe-area-bottom ${
+          className={`fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-hidden safe-area-bottom ${
             isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
+          style={{
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Handle */}
-          <div className="flex justify-center pt-3 pb-2">
+          {/* Handle - draggable area */}
+          <div
+            className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full" />
           </div>
 

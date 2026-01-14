@@ -4,6 +4,7 @@ import { Task, TaskStatus } from './types/database.types'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { LoadingZapIcon, ChartIcon, XIcon, ListIcon, CheckIcon, ClipboardIcon, UsersIcon } from './components/iu/AnimatedIcons'
 import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { TrendingUp, TrendingDown, Clock, AlertTriangle, Calendar, Target, Zap, BarChart3 } from 'lucide-react'
 
 interface MetricsProps {
@@ -85,6 +86,11 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     setIsVisible(false)
     setTimeout(onClose, 200)
   }
+
+  // Swipe to close gesture
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+    onClose: handleClose
+  })
 
   // Helper para obtener la categoría de una tarea (manejando estados nulos/eliminados)
   const getTaskCategory = (task: Task): 'not_started' | 'in_progress' | 'completed' | 'unknown' => {
@@ -538,13 +544,22 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
           onClick={handleClose}
         />
         <div
-          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden transform transition-all duration-300 safe-area-bottom flex flex-col ${
+          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col safe-area-bottom ${
             isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
+          style={{
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Handle */}
-          <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+          {/* Handle - draggable area */}
+          <div
+            className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div className="w-10 h-1 bg-neutral-700 rounded-full" />
           </div>
 

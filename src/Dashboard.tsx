@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
 import { Task, UserRole } from './types/database.types'
@@ -24,8 +25,7 @@ import {
   SunMoonIcon,
   MoonIcon,
   SunMediumIcon,
-  RabbitIcon,
-  UserIcon,
+    UserIcon,
   LoadingZapIcon,
   SearchIcon,
   ChartIcon,
@@ -88,6 +88,10 @@ function Dashboard() {
   const [showEmailSettings, setShowEmailSettings] = useState(false)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
   const [showMemberWelcome, setShowMemberWelcome] = useState(false)
+  const [bottomSheetOpen, setBottomSheetOpen] = useState(false)
+
+  // Swipe gesture para el menú de usuario móvil
+  const userMenuGesture = useBottomSheetGesture({ onClose: () => setShowUserMenu(false) })
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ show: true, message, type })
@@ -209,7 +213,6 @@ function Dashboard() {
     { id: 'settings', icon: <SettingsIcon size={20} />, label: 'Configuración', action: () => setUserSettingsTab('profile') },
     { id: 'profile', icon: <UserIcon size={20} />, label: 'Mi perfil', action: () => setUserSettingsTab('profile') },
     { id: 'theme', icon: <SunMoonIcon size={20} />, label: 'Cambiar tema', action: () => setUserSettingsTab('appearance') },
-    { id: 'shortcuts', icon: <RabbitIcon size={20} />, label: 'Atajos de teclado', action: () => setUserSettingsTab('shortcuts') },
   ]
 
   // Filtrar funcionalidades por búsqueda
@@ -413,6 +416,7 @@ function Dashboard() {
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onShowEmails={() => setShowEmailSettings(true)}
         isMobile={isMobile}
+        onBottomSheetChange={setBottomSheetOpen}
       />
 
       {/* Main */}
@@ -488,19 +492,19 @@ function Dashboard() {
                 </div>
               </button>
 
-              {/* Menu de usuario */}
-              {showUserMenu && (
+              {/* Menu de usuario - Desktop */}
+              {showUserMenu && !isMobile && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
                     {/* Info usuario */}
-                    <div className="p-4 border-b border-gray-200 dark:border-neutral-700">
+                    <div className="p-4 bg-gradient-to-br from-yellow-400/10 to-orange-500/10 dark:from-yellow-400/5 dark:to-orange-500/5">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-lg">
+                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-xl shadow-lg">
                           {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-gray-900 dark:text-white font-medium truncate">{userName}</div>
+                          <div className="text-gray-900 dark:text-white font-semibold truncate">{userName}</div>
                           <div className="text-gray-500 dark:text-neutral-400 text-sm truncate">{user?.email}</div>
                         </div>
                       </div>
@@ -513,58 +517,56 @@ function Dashboard() {
                           setShowUserMenu(false)
                           setUserSettingsTab('profile')
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <span><UserIcon /></span>
-                        <span className="text-sm">Mi perfil</span>
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-neutral-700 flex items-center justify-center">
+                          <UserIcon />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-medium">Mi perfil</div>
+                          <div className="text-xs text-gray-400 dark:text-neutral-500">Editar información</div>
+                        </div>
                       </button>
-
-                      
 
                       <button
                         onClick={() => {
                           setShowUserMenu(false)
                           setUserSettingsTab('appearance')
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        <span>{theme === 'dark' ? <MoonIcon /> : <SunMediumIcon />}</span>
-                        <span className="text-sm">Tema</span>
-                        <span className="ml-auto text-xs text-gray-400 dark:text-neutral-500">{theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false)
-                          setUserSettingsTab('shortcuts')
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white transition-colors"
-                      >
-                        <span><RabbitIcon /></span>
-                        <span className="text-sm">Atajos de teclado</span>
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-neutral-700 flex items-center justify-center">
+                          {theme === 'dark' ? <MoonIcon /> : <SunMediumIcon />}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-medium">Apariencia</div>
+                          <div className="text-xs text-gray-400 dark:text-neutral-500">Tema {theme === 'dark' ? 'oscuro' : 'claro'}</div>
+                        </div>
                       </button>
                     </div>
 
-                    {/* Separador */}
-                    <div className="border-t border-gray-200 dark:border-neutral-700" />
-
                     {/* Cerrar sesión */}
-                    <div className="p-2">
+                    <div className="p-2 border-t border-gray-200 dark:border-neutral-700">
                       <button
                         onClick={() => {
                           setShowUserMenu(false)
                           handleLogout()
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors"
                       >
-                        <span> <LogoutIcon  size={22} /> </span>
-                        <span className="text-sm">Cerrar sesión</span>
+                        <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
+                          <LogoutIcon size={20} />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-medium">Cerrar sesión</div>
+                        </div>
                       </button>
                     </div>
                   </div>
                 </>
               )}
-            </div>
+
+              </div>
           </div>
         </header>
 
@@ -625,10 +627,10 @@ function Dashboard() {
       </main>
 
       {/* FAB - Floating Action Button */}
-      {canCreateTasks && (
+      {canCreateTasks && !bottomSheetOpen && (
         <button
           onClick={() => setShowCreateTask(true)}
-          className={`fixed bg-yellow-400 text-neutral-900 rounded-full shadow-xl hover:bg-yellow-300 hover:scale-105 active:scale-95 transition-all flex items-center justify-center z-50 ${
+          className={`fixed bg-yellow-400 text-neutral-900 rounded-full shadow-xl hover:bg-yellow-300 hover:scale-105 active:scale-95 transition-all flex items-center justify-center z-40 ${
             isMobile
               ? 'right-4 w-14 h-14'
               : 'bottom-6 right-6 w-16 h-16'
@@ -718,6 +720,118 @@ function Dashboard() {
           onClose={closeTask}
           showToast={showToast}
         />
+      )}
+
+      {/* Menu de usuario - Mobile Bottom Sheet */}
+      {showUserMenu && isMobile && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            onClick={() => setShowUserMenu(false)}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 bg-neutral-900 rounded-t-3xl z-50 overflow-hidden safe-area-bottom"
+            style={{
+              ...userMenuGesture.dragStyle,
+              transition: userMenuGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
+            }}
+          >
+            {/* Handle - draggable area */}
+            <div
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
+              onTouchStart={userMenuGesture.handleTouchStart}
+              onTouchMove={userMenuGesture.handleTouchMove}
+              onTouchEnd={userMenuGesture.handleTouchEnd}
+            >
+              <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+            </div>
+
+            {/* Info usuario */}
+            <div className="px-4 pb-4">
+              <div className="flex items-center gap-4 p-4 bg-neutral-800 rounded-2xl">
+                <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 font-bold text-2xl shadow-lg">
+                  {userInitial}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white font-semibold text-lg truncate">{userName}</div>
+                  <div className="text-neutral-400 text-sm truncate">{user?.email}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Opciones */}
+            <div className="px-4 pb-2 space-y-1">
+              <button
+                onClick={() => {
+                  setShowUserMenu(false)
+                  setShowNotifications(true)
+                }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-neutral-800/50 text-white active:bg-neutral-700 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-neutral-700 flex items-center justify-center text-neutral-300 relative">
+                  <BellIcon size={20} />
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 text-neutral-900 text-xs font-bold rounded-full flex items-center justify-center">
+                      {notificationCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium">Notificaciones</div>
+                  <div className="text-sm text-neutral-500">
+                    {notificationCount > 0 ? `${notificationCount} pendiente${notificationCount > 1 ? 's' : ''}` : 'Sin notificaciones'}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowUserMenu(false)
+                  setUserSettingsTab('profile')
+                }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-neutral-800/50 text-white active:bg-neutral-700 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-neutral-700 flex items-center justify-center text-neutral-300">
+                  <UserIcon />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium">Mi perfil</div>
+                  <div className="text-sm text-neutral-500">Editar información personal</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowUserMenu(false)
+                  setUserSettingsTab('appearance')
+                }}
+                className="w-full flex items-center gap-4 px-4 py-3.5 rounded-xl bg-neutral-800/50 text-white active:bg-neutral-700 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-neutral-700 flex items-center justify-center text-neutral-300">
+                  {theme === 'dark' ? <MoonIcon /> : <SunMediumIcon />}
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium">Apariencia</div>
+                  <div className="text-sm text-neutral-500">Tema {theme === 'dark' ? 'oscuro' : 'claro'}</div>
+                </div>
+              </button>
+            </div>
+
+            {/* Cerrar sesión */}
+            <div className="px-4 pb-6 pt-2">
+              <button
+                onClick={() => {
+                  setShowUserMenu(false)
+                  handleLogout()
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-red-500/10 text-red-400 active:bg-red-500/20 transition-colors"
+              >
+                <LogoutIcon size={20} />
+                <span className="font-medium">Cerrar sesión</span>
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Toast Global */}

@@ -6,6 +6,7 @@ import { useTheme } from './ThemeContext'
 import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon } from './components/iu/AnimatedIcons';
 import { NotificationToggle } from './components/NotificationSettings'
 import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 
 interface UserSettingsProps {
   user: User
@@ -49,6 +50,11 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
     setTimeout(onClose, 200)
   }
 
+  // Swipe to close gesture
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+    onClose: handleClose
+  })
+
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ show: true, message, type })
   }
@@ -86,18 +92,31 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
         onClick={handleClose}
       >
         <div
-          className={`bg-white dark:bg-neutral-800 shadow-2xl w-full overflow-hidden transform transition-all duration-200 ${
+          className={`bg-white dark:bg-neutral-800 shadow-2xl w-full overflow-hidden ${
             isMobile
               ? 'rounded-t-3xl max-h-[90vh]'
-              : 'rounded-2xl max-w-2xl mx-4 max-h-[85vh]'
+              : 'rounded-2xl max-w-2xl mx-4 max-h-[85vh] transform transition-all duration-200'
           } ${isVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
+          style={isMobile ? {
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          } : undefined}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Handle - draggable area (mobile only) */}
+          {isMobile && (
+            <div
+              className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div className="w-10 h-1 bg-gray-300 dark:bg-neutral-600 rounded-full" />
+            </div>
+          )}
+
           {/* Header */}
-          <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4' : 'p-6'}`}>
-            {isMobile && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-2 w-10 h-1 bg-gray-300 dark:bg-neutral-600 rounded-full" />
-            )}
+          <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'px-4 pb-4' : 'p-6'}`}>
             <h2 className={`font-bold text-gray-900 dark:text-white flex items-center gap-2 ${isMobile ? 'text-lg mt-2' : 'text-xl'}`}>
               <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={isMobile ? 20 : 24} /></span>
               {isMobile ? 'Ajustes' : 'Configuración'}

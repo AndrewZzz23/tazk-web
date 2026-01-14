@@ -3,6 +3,7 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { Task, TaskStatus, Profile, UserRole } from './types/database.types'
 import { EditIcon, XIcon, TrashIcon, SaveIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import TaskAttachments from './TaskAttachments'
@@ -92,6 +93,11 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
     setIsVisible(false)
     setTimeout(onClose, 200)
   }
+
+  // Swipe to close gesture
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+    onClose: handleClose
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -464,13 +470,22 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
           onClick={handleClose}
         />
         <div
-          className={`fixed inset-x-0 bottom-0 top-4 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 safe-area-bottom ${
+          className={`fixed inset-x-0 bottom-0 top-4 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col safe-area-bottom ${
             isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
+          style={{
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Handle */}
-          <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+          {/* Handle - draggable area */}
+          <div
+            className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full" />
           </div>
 
