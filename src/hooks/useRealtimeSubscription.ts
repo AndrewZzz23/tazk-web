@@ -11,9 +11,14 @@ interface SubscriptionConfig {
   filter?: string
 }
 
+// Payload extendido con información de la tabla
+interface ExtendedPayload extends RealtimePostgresChangesPayload<Record<string, unknown>> {
+  table: string
+}
+
 interface UseRealtimeSubscriptionOptions {
   subscriptions: SubscriptionConfig[]
-  onchange: (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void
+  onchange: (payload: ExtendedPayload) => void
   enabled?: boolean
 }
 
@@ -61,24 +66,24 @@ export function useRealtimeSubscription({
           filter
         },
         (payload) => {
-          onchange(payload as RealtimePostgresChangesPayload<Record<string, unknown>>)
+          // Agregar la tabla al payload para identificar el origen
+          const extendedPayload = {
+            ...payload,
+            table
+          } as ExtendedPayload
+          onchange(extendedPayload)
         }
       )
     })
 
     // Suscribirse
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log(`[Realtime] Suscrito a: ${subscriptions.map(s => s.table).join(', ')}`)
-      }
-    })
+    channel.subscribe()
 
     channelRef.current = channel
 
     // Cleanup: desuscribirse cuando el componente se desmonte
     return () => {
       if (channelRef.current) {
-        console.log(`[Realtime] Desuscribiendo de: ${subscriptions.map(s => s.table).join(', ')}`)
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
       }
@@ -93,7 +98,7 @@ export function useRealtimeSubscription({
  */
 export function useTableSubscription(
   table: string,
-  onchange: (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => void,
+  onchange: (payload: ExtendedPayload) => void,
   filter?: string,
   enabled = true
 ) {
@@ -103,3 +108,6 @@ export function useTableSubscription(
     enabled
   })
 }
+
+// Exportar el tipo para uso externo
+export type { ExtendedPayload as RealtimePayload }

@@ -20,6 +20,7 @@ import Notifications from './Notifications'
 import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
 import EditTask from './EditTask'
+import Onboarding from './components/Onboarding'
 import {
   PlusIcon,
   LogoutIcon,
@@ -91,6 +92,7 @@ function Dashboard() {
   const [showMemberWelcome, setShowMemberWelcome] = useState(false)
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showUserOnboarding, setShowUserOnboarding] = useState(false)
 
   // Swipe gesture para el menú de usuario móvil
   const userMenuGesture = useBottomSheetGesture({ onClose: () => setShowUserMenu(false) })
@@ -243,6 +245,10 @@ function Dashboard() {
         setProfileName(profile.full_name)
       }
 
+      // Verificar si el usuario ha visto el onboarding
+      const onboardingKey = `tazk_onboarding_${user.id}`
+      const hasSeenOnboarding = localStorage.getItem(onboardingKey)
+
       // Verificar si el usuario tiene estados personales, si no, crear los por defecto
       const { data: existingStatuses } = await supabase
         .from('task_statuses')
@@ -251,7 +257,9 @@ function Dashboard() {
         .eq('created_by', user.id)
         .limit(1)
 
-      if (!existingStatuses || existingStatuses.length === 0) {
+      const isNewUser = !existingStatuses || existingStatuses.length === 0
+
+      if (isNewUser) {
         // Crear estados por defecto para tareas personales
         const defaultStatuses = [
           { name: 'Pendiente', color: '#6b7280', category: 'not_started', order_position: 1 },
@@ -268,6 +276,11 @@ function Dashboard() {
             is_active: true
           }))
         )
+      }
+
+      // Mostrar onboarding si es nuevo usuario o no lo ha visto
+      if (!hasSeenOnboarding) {
+        setShowUserOnboarding(true)
       }
     }
 
@@ -851,6 +864,21 @@ function Dashboard() {
       )}
 
       {/* Modal de confirmación de cierre de sesión */}
+      {/* Onboarding para usuarios nuevos */}
+      {showUserOnboarding && user && (
+        <Onboarding
+          type="user"
+          onComplete={() => {
+            localStorage.setItem(`tazk_onboarding_${user.id}`, 'true')
+            setShowUserOnboarding(false)
+          }}
+          onSkip={() => {
+            localStorage.setItem(`tazk_onboarding_${user.id}`, 'true')
+            setShowUserOnboarding(false)
+          }}
+        />
+      )}
+
       {showLogoutConfirm && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"

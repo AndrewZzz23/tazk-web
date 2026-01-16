@@ -35,6 +35,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
+  const [emailModuleEnabled, setEmailModuleEnabled] = useState(false)
 
   // ESC para cerrar
   useEffect(() => {
@@ -92,11 +93,25 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         }
       }
 
+      // Verificar si el módulo de correos está habilitado
+      let emailSettingsQuery = supabase
+        .from('email_settings')
+        .select('is_enabled')
+
+      if (teamId) {
+        emailSettingsQuery = emailSettingsQuery.eq('team_id', teamId)
+      } else {
+        emailSettingsQuery = emailSettingsQuery.eq('user_id', currentUserId).is('team_id', null)
+      }
+
+      const { data: emailSettings } = await emailSettingsQuery.maybeSingle()
+      setEmailModuleEnabled(emailSettings?.is_enabled || false)
+
       setLoadingData(false)
     }
 
     loadData()
-  }, [teamId])
+  }, [teamId, currentUserId])
 
   const handleClose = () => {
     setIsVisible(false)
@@ -507,74 +522,76 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         </div>
       </div>
 
-      {/* Emails de notificación */}
-      <div className="mb-6">
-        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
-          <Mail className="w-4 h-4" />
-          Notificar por email
-          <span className="text-neutral-400 dark:text-neutral-500 font-normal">
-            ({notifyEmails.length}/3)
-          </span>
-        </label>
+      {/* Emails de notificación - solo si el módulo está habilitado */}
+      {emailModuleEnabled && (
+        <div className="mb-6">
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <Mail className="w-4 h-4" />
+            Notificar por email
+            <span className="text-neutral-400 dark:text-neutral-500 font-normal">
+              ({notifyEmails.length}/3)
+            </span>
+          </label>
 
-        {/* Lista de emails agregados */}
-        {notifyEmails.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {notifyEmails.map((email, index) => (
-              <div
-                key={index}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400/20 dark:bg-yellow-400/10 border border-yellow-400/30 rounded-full text-sm text-yellow-700 dark:text-yellow-400"
-              >
-                <span className="max-w-[150px] truncate">{email}</span>
-                <button
-                  type="button"
-                  onClick={() => setNotifyEmails(notifyEmails.filter((_, i) => i !== index))}
-                  className="ml-1 hover:text-red-500 transition-colors"
+          {/* Lista de emails agregados */}
+          {notifyEmails.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {notifyEmails.map((email, index) => (
+                <div
+                  key={index}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400/20 dark:bg-yellow-400/10 border border-yellow-400/30 rounded-full text-sm text-yellow-700 dark:text-yellow-400"
                 >
-                  <XIcon size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <span className="max-w-[150px] truncate">{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyEmails(notifyEmails.filter((_, i) => i !== index))}
+                    className="ml-1 hover:text-red-500 transition-colors"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-        {/* Input para agregar email */}
-        {notifyEmails.length < 3 && (
-          <div className="relative">
-            <input
-              type="email"
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
+          {/* Input para agregar email */}
+          {notifyEmails.length < 3 && (
+            <div className="relative">
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const email = emailInput.trim()
+                    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
+                      setNotifyEmails([...notifyEmails, email])
+                      setEmailInput('')
+                    }
+                  }
+                }}
+                placeholder="correo@ejemplo.com"
+                className="w-full px-4 py-3 pr-24 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+              />
+              <button
+                type="button"
+                onClick={() => {
                   const email = emailInput.trim()
                   if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
                     setNotifyEmails([...notifyEmails, email])
                     setEmailInput('')
                   }
-                }
-              }}
-              placeholder="correo@ejemplo.com"
-              className="w-full px-4 py-3 pr-24 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const email = emailInput.trim()
-                if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !notifyEmails.includes(email)) {
-                  setNotifyEmails([...notifyEmails, email])
-                  setEmailInput('')
-                }
-              }}
-              disabled={!emailInput.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())}
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-sm font-medium bg-yellow-400 text-neutral-900 rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Agregar
-            </button>
-          </div>
-        )}
-      </div>
+                }}
+                disabled={!emailInput.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 text-sm font-medium bg-yellow-400 text-neutral-900 rounded-lg hover:bg-yellow-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Agregar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Botones */}
       <div className="flex gap-3">

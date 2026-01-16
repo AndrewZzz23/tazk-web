@@ -46,7 +46,6 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
       { table: 'team_invitations' }
     ],
     onchange: useCallback(() => {
-      console.log('[Notifications] Cambio detectado, recargando invitaciones...')
       loadInvitations()
     }, []),
     enabled: true
@@ -105,7 +104,6 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
 
     const { data, error } = await supabase
       .rpc('accept_invitation', { invitation_id: invitationId })
-      console.log('Accept result:', data, 'Error:', error)
     setProcessingId(null)
 
     if (error || !data) {

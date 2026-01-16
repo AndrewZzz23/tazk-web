@@ -23,6 +23,7 @@ import {
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
+import Onboarding from './components/Onboarding'
 
 interface TeamWithRole extends Team {
   role: UserRole
@@ -77,6 +78,8 @@ function Sidebar({
   const [showTeamSettings, setShowTeamSettings] = useState(false)
   const [showViewsMenu, setShowViewsMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showTeamOnboarding, setShowTeamOnboarding] = useState(false)
+  const [newTeamName, setNewTeamName] = useState<string | null>(null)
 
   // Swipe to close gestures para bottom sheets móviles
   const viewsGesture = useBottomSheetGesture({ onClose: () => setShowViewsMenu(false) })
@@ -138,12 +141,25 @@ function Sidebar({
   useRealtimeSubscription({
     subscriptions: [
       { table: 'team_members', filter: `user_id=eq.${currentUserId}` },
-      { table: 'teams' } // Para detectar cambios en nombre/color del equipo
+      { table: 'teams' } // Para detectar cambios en nombre/color del equipo o eliminación
     ],
-    onchange: useCallback(() => {
-      console.log('[Sidebar] Cambio detectado en equipos, recargando...')
+    onchange: useCallback((payload) => {
+      // Si se eliminó un equipo
+      if (payload.eventType === 'DELETE' && payload.table === 'teams') {
+        const deletedTeamId = payload.old?.id
+        // Si el equipo eliminado es el seleccionado, cambiar a personal
+        if (deletedTeamId && deletedTeamId === selectedTeamId) {
+          setSelectedTeamId(null)
+          setSelectedTeamName(null)
+          setSelectedTeamColor(null)
+          setSelectedRole(null)
+          localStorage.removeItem('tazk_selected_team')
+          onTeamChange(null, null)
+        }
+      }
+      // Recargar la lista de equipos
       loadTeams()
-    }, [currentUserId]),
+    }, [currentUserId, selectedTeamId, onTeamChange]),
     enabled: !!currentUserId
   })
 
@@ -279,49 +295,44 @@ function Sidebar({
             {/* Views selector */}
             <button
               onClick={() => setShowViewsMenu(true)}
-              className={`relative z-10 flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-all active:scale-95 ${
+              className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
               }`}
             >
-              <span>
-                {currentView === 'list' && <ListIcon size={20} />}
-                {currentView === 'kanban' && <KanbanIcon size={20} />}
-                {currentView === 'calendar' && <CalendarIcon size={20} />}
-              </span>
-              <span className="text-[9px] font-medium">Vistas</span>
+              {currentView === 'list' && <ListIcon size={22} />}
+              {currentView === 'kanban' && <KanbanIcon size={22} />}
+              {currentView === 'calendar' && <CalendarIcon size={22} />}
             </button>
 
             {/* Notifications */}
             <button
               onClick={onShowNotifications}
-              className={`relative z-10 flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-all active:scale-95 ${
+              className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
                   ? 'text-white/70 hover:text-white'
                   : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               <span className="relative">
-                <BellIcon size={20} />
+                <BellIcon size={22} />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 text-neutral-900 text-[9px] font-bold rounded-full flex items-center justify-center shadow-md">
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-yellow-400 text-neutral-900 text-[9px] font-bold rounded-full flex items-center justify-center shadow-md">
                     {notificationCount}
                   </span>
                 )}
               </span>
-              <span className="text-[9px] font-medium">Alertas</span>
             </button>
 
             {/* More options */}
             <button
               onClick={() => setShowMoreMenu(true)}
-              className={`relative z-10 flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-all active:scale-95 ${
+              className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
                   ? 'text-white/70 hover:text-white'
                   : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
-              <LayoutGrid className="w-5 h-5" />
-              <span className="text-[9px] font-medium">Más</span>
+              <LayoutGrid className="w-[22px] h-[22px]" />
             </button>
           </div>
         </div>
@@ -602,11 +613,37 @@ function Sidebar({
         {showCreateTeam && (
           <CreateTeam
             currentUserId={currentUserId}
-            onTeamCreated={() => {
+            onTeamCreated={(team) => {
+              // Seleccionar el nuevo equipo
+              setSelectedTeamId(team.id)
+              setSelectedTeamName(team.name)
+              setSelectedTeamColor(team.color)
+              setSelectedRole('owner')
+              localStorage.setItem('tazk_selected_team', team.id)
+              onTeamChange(team.id, 'owner', team.name)
               loadTeams()
               setShowCreateTeam(false)
+              // Mostrar onboarding del equipo
+              setNewTeamName(team.name)
+              setShowTeamOnboarding(true)
             }}
             onClose={() => setShowCreateTeam(false)}
+          />
+        )}
+
+        {/* Onboarding para equipos nuevos */}
+        {showTeamOnboarding && newTeamName && (
+          <Onboarding
+            type="team"
+            teamName={newTeamName}
+            onComplete={() => {
+              setShowTeamOnboarding(false)
+              setNewTeamName(null)
+            }}
+            onSkip={() => {
+              setShowTeamOnboarding(false)
+              setNewTeamName(null)
+            }}
           />
         )}
 
@@ -955,11 +992,37 @@ function Sidebar({
       {showCreateTeam && (
         <CreateTeam
           currentUserId={currentUserId}
-          onTeamCreated={() => {
+          onTeamCreated={(team) => {
+            // Seleccionar el nuevo equipo
+            setSelectedTeamId(team.id)
+            setSelectedTeamName(team.name)
+            setSelectedTeamColor(team.color)
+            setSelectedRole('owner')
+            localStorage.setItem('tazk_selected_team', team.id)
+            onTeamChange(team.id, 'owner', team.name)
             loadTeams()
             setShowCreateTeam(false)
+            // Mostrar onboarding del equipo
+            setNewTeamName(team.name)
+            setShowTeamOnboarding(true)
           }}
           onClose={() => setShowCreateTeam(false)}
+        />
+      )}
+
+      {/* Onboarding para equipos nuevos (desktop) */}
+      {showTeamOnboarding && newTeamName && (
+        <Onboarding
+          type="team"
+          teamName={newTeamName}
+          onComplete={() => {
+            setShowTeamOnboarding(false)
+            setNewTeamName(null)
+          }}
+          onSkip={() => {
+            setShowTeamOnboarding(false)
+            setNewTeamName(null)
+          }}
         />
       )}
 

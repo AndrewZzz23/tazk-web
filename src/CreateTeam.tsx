@@ -2,9 +2,15 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { UsersIcon, XIcon } from './components/iu/AnimatedIcons'
 
+interface CreatedTeam {
+  id: string
+  name: string
+  color: string | null
+}
+
 interface CreateTeamProps {
   currentUserId: string
-  onTeamCreated: () => void
+  onTeamCreated: (team: CreatedTeam) => void
   onClose: () => void
 }
 
@@ -87,7 +93,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
     )
 
     setLoading(false)
-    onTeamCreated()
+    onTeamCreated({ id: team.id, name: team.name, color: team.color })
   }
 
   return (

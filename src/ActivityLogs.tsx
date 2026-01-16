@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from './supabaseClient'
-import { LoadingZapIcon, XIcon } from './components/iu/AnimatedIcons'
+import { LoadingZapIcon, XIcon, ActivityIcon } from './components/iu/AnimatedIcons'
+import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 
 interface ActivityLog {
   id: string
