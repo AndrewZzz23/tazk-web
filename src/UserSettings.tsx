@@ -7,6 +7,7 @@ import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon } from
 import { NotificationToggle } from './components/NotificationSettings'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 
 interface UserSettingsProps {
   user: User
@@ -51,9 +52,12 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   }
 
   // Swipe to close gesture
-  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
+
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
+  useBodyScrollLock(isMobile && isVisible)
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ show: true, message, type })
@@ -102,15 +106,11 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
             transition: isDragging ? 'none' : 'transform 0.3s ease-out'
           } : undefined}
           onClick={(e) => e.stopPropagation()}
+          {...(isMobile ? containerProps : {})}
         >
-          {/* Handle - draggable area (mobile only) */}
+          {/* Handle (mobile only) */}
           {isMobile && (
-            <div
-              className="flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing touch-none"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
+            <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-300 dark:bg-neutral-600 rounded-full" />
             </div>
           )}

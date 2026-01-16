@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
 import { Task, UserRole } from './types/database.types'
@@ -93,6 +94,9 @@ function Dashboard() {
 
   // Swipe gesture para el menú de usuario móvil
   const userMenuGesture = useBottomSheetGesture({ onClose: () => setShowUserMenu(false) })
+
+  // Bloquear scroll del body cuando hay un bottom sheet abierto (móvil)
+  useBodyScrollLock(isMobile && (showUserMenu || bottomSheetOpen))
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ show: true, message, type })
@@ -226,7 +230,7 @@ function Dashboard() {
   const loadUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
-    
+
     // Cargar nombre del perfil
     if (user) {
       const { data: profile } = await supabase
@@ -234,12 +238,39 @@ function Dashboard() {
         .select('full_name')
         .eq('id', user.id)
         .single()
-      
+
       if (profile?.full_name) {
         setProfileName(profile.full_name)
       }
+
+      // Verificar si el usuario tiene estados personales, si no, crear los por defecto
+      const { data: existingStatuses } = await supabase
+        .from('task_statuses')
+        .select('id')
+        .is('team_id', null)
+        .eq('created_by', user.id)
+        .limit(1)
+
+      if (!existingStatuses || existingStatuses.length === 0) {
+        // Crear estados por defecto para tareas personales
+        const defaultStatuses = [
+          { name: 'Pendiente', color: '#6b7280', category: 'not_started', order_position: 1 },
+          { name: 'En progreso', color: '#3b82f6', category: 'in_progress', order_position: 2 },
+          { name: 'En revisión', color: '#f59e0b', category: 'in_progress', order_position: 3 },
+          { name: 'Completada', color: '#22c55e', category: 'completed', order_position: 4 },
+        ]
+
+        await supabase.from('task_statuses').insert(
+          defaultStatuses.map(status => ({
+            ...status,
+            team_id: null,
+            created_by: user.id,
+            is_active: true
+          }))
+        )
+      }
     }
-    
+
     setLoading(false)
   }
 

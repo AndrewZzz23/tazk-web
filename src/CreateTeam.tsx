@@ -63,13 +63,31 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
         role: 'owner'
       })
 
-    setLoading(false)
-
     if (memberError) {
       alert('Error al agregar miembro: ' + memberError.message)
-    } else {
-      onTeamCreated()
+      setLoading(false)
+      return
     }
+
+    // Crear estados por defecto para el equipo
+    const defaultStatuses = [
+      { name: 'Pendiente', color: '#6b7280', category: 'not_started', order_position: 1 },
+      { name: 'En progreso', color: '#3b82f6', category: 'in_progress', order_position: 2 },
+      { name: 'En revisión', color: '#f59e0b', category: 'in_progress', order_position: 3 },
+      { name: 'Completada', color: '#22c55e', category: 'completed', order_position: 4 },
+    ]
+
+    await supabase.from('task_statuses').insert(
+      defaultStatuses.map(status => ({
+        ...status,
+        team_id: team.id,
+        created_by: currentUserId,
+        is_active: true
+      }))
+    )
+
+    setLoading(false)
+    onTeamCreated()
   }
 
   return (

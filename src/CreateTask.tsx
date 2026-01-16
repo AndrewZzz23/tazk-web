@@ -4,6 +4,7 @@ import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { TaskStatus, Profile } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { logTaskCreated } from './lib/activityLogger'
@@ -103,9 +104,12 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
   }
 
   // Swipe to close gesture
-  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
+
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
+  useBodyScrollLock(isMobile && isVisible)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -655,14 +659,10 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             transition: isDragging ? 'none' : 'transform 0.3s ease-out'
           }}
           onClick={(e) => e.stopPropagation()}
+          {...containerProps}
         >
-          {/* Handle - draggable area */}
-          <div
-            className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
             <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full" />
           </div>
 

@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { LoadingZapIcon, ChartIcon, XIcon, ListIcon, CheckIcon, ClipboardIcon, UsersIcon } from './components/iu/AnimatedIcons'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { TrendingUp, TrendingDown, Clock, AlertTriangle, Calendar, Target, Zap, BarChart3 } from 'lucide-react'
 
 interface MetricsProps {
@@ -88,9 +89,12 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
   }
 
   // Swipe to close gesture
-  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
+
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
+  useBodyScrollLock(isMobile && isVisible)
 
   // Helper para obtener la categoría de una tarea (manejando estados nulos/eliminados)
   const getTaskCategory = (task: Task): 'not_started' | 'in_progress' | 'completed' | 'unknown' => {
@@ -552,14 +556,10 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             transition: isDragging ? 'none' : 'transform 0.3s ease-out'
           }}
           onClick={(e) => e.stopPropagation()}
+          {...containerProps}
         >
-          {/* Handle - draggable area */}
-          <div
-            className="flex justify-center pt-3 pb-2 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
             <div className="w-10 h-1 bg-neutral-700 rounded-full" />
           </div>
 

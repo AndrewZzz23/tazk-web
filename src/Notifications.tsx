@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { TeamInvitation } from './types/database.types'
 import Toast from './Toast'
 import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
@@ -88,9 +89,12 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
   }
 
   // Swipe to close gesture
-  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
+
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
+  useBodyScrollLock(isMobile && isVisible)
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ show: true, message, type })
@@ -256,14 +260,10 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
             transition: isDragging ? 'none' : 'transform 0.3s ease-out'
           }}
           onClick={(e) => e.stopPropagation()}
+          {...containerProps}
         >
-          {/* Handle - draggable area */}
-          <div
-            className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2">
             <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full" />
           </div>
 

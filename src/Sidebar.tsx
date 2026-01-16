@@ -22,6 +22,7 @@ import {
 } from './components/iu/AnimatedIcons';
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 
 interface TeamWithRole extends Team {
   role: UserRole
@@ -82,13 +83,16 @@ function Sidebar({
   const teamGesture = useBottomSheetGesture({ onClose: () => setShowTeamMenu(false) })
   const moreGesture = useBottomSheetGesture({ onClose: () => setShowMoreMenu(false) })
 
+  // Bloquear scroll del body cuando hay un bottom sheet abierto
+  const isAnyBottomSheetOpen = showViewsMenu || showTeamMenu || showMoreMenu
+  useBodyScrollLock(isMobile && isAnyBottomSheetOpen)
+
   // Notificar al Dashboard cuando hay un bottom sheet abierto (solo móvil)
   useEffect(() => {
     if (isMobile && onBottomSheetChange) {
-      const isAnyOpen = showViewsMenu || showTeamMenu || showMoreMenu
-      onBottomSheetChange(isAnyOpen)
+      onBottomSheetChange(isAnyBottomSheetOpen)
     }
-  }, [isMobile, showViewsMenu, showTeamMenu, showMoreMenu, onBottomSheetChange])
+  }, [isMobile, isAnyBottomSheetOpen, onBottomSheetChange])
 
   const loadTeams = async () => {
     const { data, error } = await supabase

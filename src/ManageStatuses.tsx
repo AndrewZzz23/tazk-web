@@ -20,6 +20,7 @@ import Toast from './Toast'
 import { logStatusCreated, logStatusUpdated, logStatusDeleted } from './lib/activityLogger'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { ChevronRight } from 'lucide-react'
 
 interface ManageStatusesProps {
@@ -421,9 +422,12 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
   }
 
   // Swipe to close gesture
-  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging } = useBottomSheetGesture({
+  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
+
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
+  useBodyScrollLock(isMobile && isVisible)
 
   const handleDragStart = (event: DragStartEvent) => {
     const status = statuses.find((s) => s.id === event.active.id)
@@ -763,14 +767,10 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
             transition: isDragging ? 'none' : 'transform 0.3s ease-out'
           }}
           onClick={(e) => e.stopPropagation()}
+          {...containerProps}
         >
-          {/* Handle - draggable area */}
-          <div
-            className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2">
             <div className="w-10 h-1 bg-neutral-700 rounded-full" />
           </div>
 
