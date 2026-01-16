@@ -60,7 +60,8 @@ function Sidebar({
   onToggleCollapse,
   onShowEmails,
   isMobile = false,
-  onBottomSheetChange
+  onBottomSheetChange,
+  showFab = true
 }: SidebarProps) {
   const { theme } = useTheme()
   const [teams, setTeams] = useState<TeamWithRole[]>([])
@@ -208,7 +209,7 @@ function Sidebar({
     return (
       <>
         {/* Liquid Glass Bottom Navigation Bar - iOS 26 Style */}
-        <div className="fixed bottom-4 left-4 right-20 z-40 safe-area-bottom">
+        <div className={`fixed bottom-4 left-4 z-40 safe-area-bottom ${showFab ? 'right-20' : 'right-4'}`}>
           <div
             className="relative flex items-center justify-around px-2 py-2 rounded-[24px] overflow-hidden"
             style={{
@@ -331,14 +332,10 @@ function Sidebar({
                 ...teamGesture.dragStyle,
                 transition: teamGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
               }}
+              {...teamGesture.containerProps}
             >
-              {/* Handle - draggable area */}
-              <div
-                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
-                onTouchStart={teamGesture.handleTouchStart}
-                onTouchMove={teamGesture.handleTouchMove}
-                onTouchEnd={teamGesture.handleTouchEnd}
-              >
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
                 <div className="w-10 h-1 bg-neutral-700 rounded-full" />
               </div>
 
@@ -347,7 +344,7 @@ function Sidebar({
                 <h3 className="text-white font-semibold">Espacios de trabajo</h3>
               </div>
 
-              <div className="overflow-y-auto max-h-[50vh] py-2">
+              <div ref={teamGesture.scrollRef} className="overflow-y-auto max-h-[50vh] py-2">
                 {/* Personal */}
                 <button
                   onClick={() => handleTeamSelect(null)}
@@ -469,14 +466,10 @@ function Sidebar({
                 ...viewsGesture.dragStyle,
                 transition: viewsGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
               }}
+              {...viewsGesture.containerProps}
             >
-              {/* Handle - draggable area */}
-              <div
-                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
-                onTouchStart={viewsGesture.handleTouchStart}
-                onTouchMove={viewsGesture.handleTouchMove}
-                onTouchEnd={viewsGesture.handleTouchEnd}
-              >
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
                 <div className="w-10 h-1 bg-neutral-700 rounded-full" />
               </div>
 
@@ -534,14 +527,10 @@ function Sidebar({
                 ...moreGesture.dragStyle,
                 transition: moreGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
               }}
+              {...moreGesture.containerProps}
             >
-              {/* Handle - draggable area */}
-              <div
-                className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
-                onTouchStart={moreGesture.handleTouchStart}
-                onTouchMove={moreGesture.handleTouchMove}
-                onTouchEnd={moreGesture.handleTouchEnd}
-              >
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-2">
                 <div className="w-10 h-1 bg-neutral-700 rounded-full" />
               </div>
 

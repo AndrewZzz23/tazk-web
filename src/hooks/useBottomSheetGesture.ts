@@ -12,6 +12,14 @@ interface UseBottomSheetGestureReturn {
   handleTouchMove: (e: React.TouchEvent) => void
   handleTouchEnd: () => void
   dragStyle: React.CSSProperties
+  // Props para aplicar a todo el contenedor
+  containerProps: {
+    onTouchStart: (e: React.TouchEvent) => void
+    onTouchMove: (e: React.TouchEvent) => void
+    onTouchEnd: () => void
+  }
+  // Ref para el contenedor scrollable (opcional)
+  scrollRef: React.RefObject<HTMLDivElement>
 }
 
 export function useBottomSheetGesture({
@@ -20,12 +28,23 @@ export function useBottomSheetGesture({
 }: UseBottomSheetGestureOptions): UseBottomSheetGestureReturn {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [canDrag, setCanDrag] = useState(true)
   const startY = useRef(0)
   const currentY = useRef(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY
     currentY.current = e.touches[0].clientY
+
+    // Verificar si el contenido scrollable está en la parte superior
+    const scrollElement = scrollRef.current
+    if (scrollElement && scrollElement.scrollTop > 0) {
+      setCanDrag(false)
+    } else {
+      setCanDrag(true)
+    }
+
     setIsDragging(true)
   }, [])
 
@@ -35,11 +54,11 @@ export function useBottomSheetGesture({
     currentY.current = e.touches[0].clientY
     const diff = currentY.current - startY.current
 
-    // Solo permitir arrastrar hacia abajo
-    if (diff > 0) {
+    // Solo permitir arrastrar hacia abajo si el scroll está arriba
+    if (diff > 0 && canDrag) {
       setDragY(diff)
     }
-  }, [isDragging])
+  }, [isDragging, canDrag])
 
   const handleTouchEnd = useCallback(() => {
     if (dragY > threshold) {
@@ -52,11 +71,18 @@ export function useBottomSheetGesture({
       setDragY(0)
     }
     setIsDragging(false)
+    setCanDrag(true)
   }, [dragY, threshold, onClose])
 
   const dragStyle: React.CSSProperties = {
     transform: `translateY(${dragY}px)`,
     transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+  }
+
+  const containerProps = {
+    onTouchStart: handleTouchStart,
+    onTouchMove: handleTouchMove,
+    onTouchEnd: handleTouchEnd
   }
 
   return {
@@ -65,6 +91,8 @@ export function useBottomSheetGesture({
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
-    dragStyle
+    dragStyle,
+    containerProps,
+    scrollRef
   }
 }

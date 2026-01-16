@@ -418,6 +418,7 @@ function Dashboard() {
         onShowEmails={() => setShowEmailSettings(true)}
         isMobile={isMobile}
         onBottomSheetChange={setBottomSheetOpen}
+        showFab={canCreateTasks}
       />
 
       {/* Main */}
@@ -736,14 +737,10 @@ function Dashboard() {
               ...userMenuGesture.dragStyle,
               transition: userMenuGesture.isDragging ? 'none' : 'transform 0.3s ease-out'
             }}
+            {...userMenuGesture.containerProps}
           >
-            {/* Handle - draggable area */}
-            <div
-              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing touch-none"
-              onTouchStart={userMenuGesture.handleTouchStart}
-              onTouchMove={userMenuGesture.handleTouchMove}
-              onTouchEnd={userMenuGesture.handleTouchEnd}
-            >
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-2">
               <div className="w-10 h-1 bg-neutral-700 rounded-full" />
             </div>
 
