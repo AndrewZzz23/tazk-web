@@ -111,6 +111,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
+  const isMobile = useIsMobile()
 
   // Filtros
   const [filterAction, setFilterAction] = useState<FilterAction>('all')
@@ -132,6 +133,19 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     setTimeout(() => setIsVisible(true), 10)
     loadLogs()
   }, [teamId])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  // Swipe to close gesture para móvil
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
+    onClose: handleClose
+  })
+
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
+  useBodyScrollLock(isMobile && isVisible)
 
   const loadLogs = async () => {
     setLoading(true)
@@ -185,11 +199,6 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     }
 
     setLoading(false)
-  }
-
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(onClose, 200)
   }
 
   // Obtener usuarios únicos para el filtro (usando user_id y performer)
@@ -516,6 +525,255 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     return groups
   }, [filteredLogs])
 
+  // Contenido de filtros
+  const renderFilters = () => (
+    <div className={`flex flex-wrap items-center gap-2 ${isMobile ? 'overflow-x-auto pb-2 -mx-4 px-4' : ''}`}>
+      <FilterSelect
+        label="Accion"
+        value={filterAction}
+        onChange={(v) => setFilterAction(v as FilterAction)}
+        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+        options={[
+          { id: 'all', label: 'Todas', count: logs.length },
+          { id: 'created', label: 'Creados', count: counts.byAction.created },
+          { id: 'updated', label: 'Editados', count: counts.byAction.updated },
+          { id: 'deleted', label: 'Eliminados', count: counts.byAction.deleted },
+          { id: 'status_changed', label: 'Cambios de estado', count: counts.byAction.status_changed },
+          { id: 'assigned', label: 'Asignaciones', count: counts.byAction.assigned },
+          { id: 'invited', label: 'Invitaciones', count: counts.byAction.invited },
+          { id: 'attachment', label: 'Adjuntos', count: counts.byAction.attachment },
+        ]}
+      />
+
+      <FilterSelect
+        label="Tipo"
+        value={filterEntity}
+        onChange={(v) => setFilterEntity(v as FilterEntity)}
+        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
+        options={[
+          { id: 'all', label: 'Todos' },
+          { id: 'task', label: 'Tareas', count: counts.byEntity.task },
+          { id: 'team_member', label: 'Miembros', count: counts.byEntity.team_member },
+          { id: 'status', label: 'Estados', count: counts.byEntity.status },
+          { id: 'attachment', label: 'Adjuntos', count: counts.byEntity.attachment },
+        ]}
+      />
+
+      <FilterSelect
+        label="Periodo"
+        value={filterTime}
+        onChange={(v) => setFilterTime(v as FilterTime)}
+        icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+        options={[
+          { id: 'all', label: 'Todo el tiempo' },
+          { id: 'today', label: 'Hoy' },
+          { id: 'week', label: 'Ultima semana' },
+          { id: 'month', label: 'Ultimo mes' },
+        ]}
+      />
+
+      {uniqueUsers.length > 1 && (
+        <FilterSelect
+          label="Usuario"
+          value={filterUser}
+          onChange={setFilterUser}
+          icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+          options={[
+            { id: 'all', label: 'Todos' },
+            ...uniqueUsers.map(user => ({ id: user.id, label: user.name }))
+          ]}
+        />
+      )}
+
+      {hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors flex-shrink-0"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Limpiar
+        </button>
+      )}
+    </div>
+  )
+
+  // Contenido de la lista de logs
+  const renderLogsList = () => (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <LoadingZapIcon size={48} />
+        </div>
+      ) : filteredLogs.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-400 dark:text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {hasActiveFilters ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              )}
+            </svg>
+          </div>
+          <p className="text-gray-500 dark:text-neutral-400 font-medium">
+            {hasActiveFilters ? 'Sin resultados para estos filtros' : 'Sin actividad registrada'}
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="mt-3 px-4 py-2 text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="p-4">
+          {groupedLogs.map((group, groupIndex) => (
+            <div key={groupIndex} className="mb-6 last:mb-0">
+              {/* Fecha del grupo */}
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-xs font-semibold text-gray-400 dark:text-neutral-500 uppercase tracking-wider">
+                  {group.date}
+                </span>
+                <div className="flex-1 h-px bg-gray-100 dark:bg-neutral-800" />
+              </div>
+
+              {/* Timeline de logs */}
+              <div className="relative">
+                {/* Linea vertical - a la izquierda de los iconos */}
+                {group.logs.length > 1 && (
+                  <div className="absolute left-1 top-8 bottom-8 w-0.5 bg-gray-200 dark:bg-neutral-700" />
+                )}
+                <div className="space-y-1">
+                  {group.logs.map(log => {
+                    const style = getActionStyle(log.action)
+                    return (
+                      <div
+                        key={log.id}
+                        className="relative flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors group"
+                      >
+                        {/* Icono */}
+                        <div className={`relative z-10 w-10 h-10 rounded-xl ${style.bg} flex items-center justify-center flex-shrink-0 ${style.color}`}>
+                          {style.icon}
+                        </div>
+
+                        {/* Contenido */}
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <p className="text-sm text-gray-900 dark:text-white">
+                            {getDescription(log)}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span className="text-xs font-medium text-gray-600 dark:text-neutral-300">
+                              {log.performer?.full_name || 'Usuario'}
+                            </span>
+                            {!isMobile && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600" />
+                                <span className="text-xs text-gray-400 dark:text-neutral-500">
+                                  {log.performer?.email || log.user_email || 'Sin correo'}
+                                </span>
+                              </>
+                            )}
+                            <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600" />
+                            <span className="text-xs text-gray-400 dark:text-neutral-500">
+                              {formatDate(log.created_at)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Badge - solo en desktop */}
+                        {!isMobile && (
+                          <div className={`px-2 py-1 rounded-lg text-xs font-medium ${style.bg} ${style.color} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                            {style.label}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+
+  // Vista móvil - Bottom Sheet
+  if (isMobile) {
+    return (
+      <div
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
+          isVisible ? 'bg-black/60' : 'bg-transparent pointer-events-none'
+        }`}
+        onClick={handleClose}
+      >
+        <div
+          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden safe-area-bottom transition-transform duration-300 ${
+            isVisible ? 'translate-y-0' : 'translate-y-full'
+          }`}
+          style={{
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          {...containerProps}
+        >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-10 h-1 bg-neutral-700 rounded-full" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pb-3 border-b border-neutral-800">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400"><ActivityIcon size={24} /></span>
+              <div>
+                <h2 className="text-lg font-bold text-white">Actividad</h2>
+                <p className="text-xs text-neutral-400">
+                  {filteredLogs.length} {filteredLogs.length === 1 ? 'registro' : 'registros'}
+                  {hasActiveFilters && ` de ${logs.length}`}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors"
+            >
+              <XIcon size={20} />
+            </button>
+          </div>
+
+          {/* Buscador */}
+          <div className="px-4 py-3 border-b border-neutral-800">
+            <div className="relative mb-3">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Buscar en actividad..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-xl text-white text-sm placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-transparent transition-all"
+              />
+            </div>
+            {renderFilters()}
+          </div>
+
+          {/* Lista */}
+          <div className="overflow-y-auto flex-1" style={{ height: 'calc(100% - 180px)' }}>
+            {renderLogsList()}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Vista desktop - Modal centrado
   return (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
@@ -534,9 +792,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-yellow-400/10 flex items-center justify-center">
-                <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <ActivityIcon size={20} className="text-yellow-500" />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">Actividad</h2>
@@ -568,171 +824,13 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
             />
           </div>
 
-          {/* Filtros como combobox */}
-          <div className="flex flex-wrap items-center gap-2">
-            <FilterSelect
-              label="Accion"
-              value={filterAction}
-              onChange={(v) => setFilterAction(v as FilterAction)}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-              options={[
-                { id: 'all', label: 'Todas', count: logs.length },
-                { id: 'created', label: 'Creados', count: counts.byAction.created },
-                { id: 'updated', label: 'Editados', count: counts.byAction.updated },
-                { id: 'deleted', label: 'Eliminados', count: counts.byAction.deleted },
-                { id: 'status_changed', label: 'Cambios de estado', count: counts.byAction.status_changed },
-                { id: 'assigned', label: 'Asignaciones', count: counts.byAction.assigned },
-                { id: 'invited', label: 'Invitaciones', count: counts.byAction.invited },
-                { id: 'attachment', label: 'Adjuntos', count: counts.byAction.attachment },
-              ]}
-            />
-
-            <FilterSelect
-              label="Tipo"
-              value={filterEntity}
-              onChange={(v) => setFilterEntity(v as FilterEntity)}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
-              options={[
-                { id: 'all', label: 'Todos' },
-                { id: 'task', label: 'Tareas', count: counts.byEntity.task },
-                { id: 'team_member', label: 'Miembros', count: counts.byEntity.team_member },
-                { id: 'status', label: 'Estados', count: counts.byEntity.status },
-                { id: 'attachment', label: 'Adjuntos', count: counts.byEntity.attachment },
-              ]}
-            />
-
-            <FilterSelect
-              label="Periodo"
-              value={filterTime}
-              onChange={(v) => setFilterTime(v as FilterTime)}
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
-              options={[
-                { id: 'all', label: 'Todo el tiempo' },
-                { id: 'today', label: 'Hoy' },
-                { id: 'week', label: 'Ultima semana' },
-                { id: 'month', label: 'Ultimo mes' },
-              ]}
-            />
-
-            {uniqueUsers.length > 1 && (
-              <FilterSelect
-                label="Usuario"
-                value={filterUser}
-                onChange={setFilterUser}
-                icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
-                options={[
-                  { id: 'all', label: 'Todos' },
-                  ...uniqueUsers.map(user => ({ id: user.id, label: user.name }))
-                ]}
-              />
-            )}
-
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Limpiar
-              </button>
-            )}
-          </div>
+          {/* Filtros */}
+          {renderFilters()}
         </div>
 
         {/* Lista */}
         <div className="overflow-y-auto flex-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <LoadingZapIcon size={48} />
-            </div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-400 dark:text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {hasActiveFilters ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  )}
-                </svg>
-              </div>
-              <p className="text-gray-500 dark:text-neutral-400 font-medium">
-                {hasActiveFilters ? 'Sin resultados para estos filtros' : 'Sin actividad registrada'}
-              </p>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="mt-3 px-4 py-2 text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
-                >
-                  Limpiar filtros
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="p-4">
-              {groupedLogs.map((group, groupIndex) => (
-                <div key={groupIndex} className="mb-6 last:mb-0">
-                  {/* Fecha del grupo */}
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-xs font-semibold text-gray-400 dark:text-neutral-500 uppercase tracking-wider">
-                      {group.date}
-                    </span>
-                    <div className="flex-1 h-px bg-gray-100 dark:bg-neutral-800" />
-                  </div>
-
-                  {/* Timeline de logs */}
-                  <div className="relative">
-                    {/* Linea vertical */}
-                    <div className="absolute left-[19px] top-3 bottom-3 w-0.5 bg-gray-100 dark:bg-neutral-800" />
-
-                    <div className="space-y-1">
-                      {group.logs.map(log => {
-                        const style = getActionStyle(log.action)
-                        return (
-                          <div
-                            key={log.id}
-                            className="relative flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors group"
-                          >
-                            {/* Icono */}
-                            <div className={`relative z-10 w-10 h-10 rounded-xl ${style.bg} flex items-center justify-center flex-shrink-0 ${style.color}`}>
-                              {style.icon}
-                            </div>
-
-                            {/* Contenido */}
-                            <div className="flex-1 min-w-0 pt-0.5">
-                              <p className="text-sm text-gray-900 dark:text-white">
-                                {getDescription(log)}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <span className="text-xs font-medium text-gray-600 dark:text-neutral-300">
-                                  {log.performer?.full_name || 'Usuario'}
-                                </span>
-                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600" />
-                                <span className="text-xs text-gray-400 dark:text-neutral-500">
-                                  {log.performer?.email || log.user_email || 'Sin correo'}
-                                </span>
-                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-neutral-600" />
-                                <span className="text-xs text-gray-400 dark:text-neutral-500">
-                                  {formatDate(log.created_at)}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Badge */}
-                            <div className={`px-2 py-1 rounded-lg text-xs font-medium ${style.bg} ${style.color} opacity-0 group-hover:opacity-100 transition-opacity`}>
-                              {style.label}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {renderLogsList()}
         </div>
       </div>
     </div>

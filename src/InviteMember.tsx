@@ -5,6 +5,9 @@ import { TeamInvitation, Profile } from './types/database.types'
 import Toast from './Toast'
 import ConfirmDialog from './ConfirmDialog'
 import { LoadingZapIcon, MailIcon, XIcon, UserIcon, TrashIcon, ShieldIcon } from './components/iu/AnimatedIcons'
+import { Clock, XCircle, Mail } from 'lucide-react'
+import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 
 interface InviteMemberProps {
   teamId: string
@@ -21,15 +24,26 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
   const [role, setRole] = useState<'admin' | 'member'>('member')
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
+  const isMobile = useIsMobile()
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
+    onClose: handleClose,
+    threshold: 100
+  })
 
   // ESC para cerrar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [])
   
   // Invitaciones
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([])
@@ -102,11 +116,6 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
     if (rejected) setRejectedInvitations(rejected)
 
     setLoadingInvitations(false)
-  }
-
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(onClose, 200)
   }
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
@@ -292,34 +301,48 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
 
   return (
     <>
+      {/* Overlay */}
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+        className={`fixed inset-0 z-50 transition-opacity duration-200 ${
+          isVisible ? 'bg-black/60' : 'bg-transparent opacity-0'
         }`}
         onClick={handleClose}
-      >
-        <div
-          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden transform transition-all duration-200 ${
-            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-yellow-400"><MailIcon size={24} /></span> Invitar al Equipo
-            </h2>
-            <button
-              onClick={handleClose}
-              className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <XIcon size={24} />
-            </button>
-          </div>
+      />
 
-          <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
-            {/* Formulario */}
-            <form onSubmit={handleSubmit} className="p-6 border-b border-gray-200 dark:border-neutral-700">
+      {/* Modal/Bottom Sheet */}
+      <div
+        className={`fixed z-50 bg-white dark:bg-neutral-800 shadow-2xl overflow-hidden flex flex-col will-change-transform ${
+          isMobile
+            ? `bottom-0 left-0 right-0 top-8 rounded-t-3xl safe-area-bottom ${
+                isVisible ? 'translate-y-0' : 'translate-y-full'
+              }`
+            : `top-1/2 left-1/2 -translate-x-1/2 rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] ${
+                isVisible ? '-translate-y-1/2 opacity-100 scale-100' : '-translate-y-1/2 opacity-0 scale-95'
+              }`
+        }`}
+        style={isMobile ? { ...dragStyle, transition: isDragging ? 'none' : 'transform 0.2s ease-out' } : undefined}
+        onClick={(e) => e.stopPropagation()}
+        {...(isMobile ? containerProps : {})}
+      >
+        {/* Header */}
+        <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4' : 'p-6'}`}>
+          {isMobile && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-neutral-600 rounded-full" />
+          )}
+          <h2 className={`font-bold text-gray-900 dark:text-white flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+            <span className="text-yellow-400"><MailIcon size={24} /></span> Invitar al Equipo
+          </h2>
+          <button
+            onClick={handleClose}
+            className="text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+          >
+            <XIcon size={24} />
+          </button>
+        </div>
+
+        <div className={`overflow-y-auto flex-1 ${isMobile ? 'pb-8' : ''}`}>
+          {/* Formulario */}
+          <form onSubmit={handleSubmit} className={`border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4' : 'p-6'}`}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
                   Email *
@@ -393,9 +416,9 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
             </form>
 
             {/* Invitaciones pendientes */}
-            <div className="p-6">
+            <div className={`${isMobile ? 'p-4' : 'p-6'}`}>
               <h3 className="text-sm font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-                <span>⏳</span> Invitaciones Pendientes
+                <Clock className="w-4 h-4" /> Invitaciones Pendientes
                 {pendingInvitations.length > 0 && (
                   <span className="bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-300 text-xs px-2 py-0.5 rounded-full">
                     {pendingInvitations.length}
@@ -409,66 +432,83 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
                 </div>
               ) : pendingInvitations.length === 0 ? (
                 <div className="text-center py-6">
-                  <div className="text-3xl mb-2">📭</div>
+                  <div className="w-12 h-12 bg-gray-100 dark:bg-neutral-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Mail className="w-6 h-6 text-gray-400 dark:text-neutral-500" />
+                  </div>
                   <p className="text-gray-400 dark:text-neutral-500 text-sm">No hay invitaciones pendientes</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {pendingInvitations.map(invitation => (
-                    <div
-                      key={invitation.id}
-                      className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-4 flex items-center gap-4 group"
-                    >
-                      {/* Avatar */}
-                      <div className="w-10 h-10 bg-gray-200 dark:bg-neutral-600 text-gray-500 dark:text-neutral-400 rounded-full flex items-center justify-center font-bold">
-                        {invitation.email[0].toUpperCase()}
-                      </div>
-
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-gray-900 dark:text-white font-medium truncate">
-                          {invitation.email}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-neutral-400 mt-1">
-                          <span className="flex items-center gap-1">
-                            {invitation.role === 'admin' ? <><ShieldIcon size={12} /> Admin</> : <><UserIcon size={12} /> Miembro</>}
-                          </span>
-                          <span className="text-gray-300 dark:text-neutral-600">•</span>
-                          <span>{formatDate(invitation.created_at)}</span>
-                          <span className="text-gray-300 dark:text-neutral-600">•</span>
-                          <span className={
-                            new Date(invitation.expires_at) <= new Date() 
-                              ? 'text-red-400' 
-                              : 'text-gray-500 dark:text-neutral-400'
-                          }>
-                            {getExpirationText(invitation.expires_at)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Cancelar */}
-                      <button
-                        onClick={() => setConfirmDialog({
-                          show: true,
-                          invitationId: invitation.id,
-                          email: invitation.email,
-                          type: 'pending'
-                        })}
-                        className="px-3 py-1.5 bg-gray-200 dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 rounded-lg text-sm hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  {pendingInvitations.map(invitation => {
+                    const isExpired = new Date(invitation.expires_at) <= new Date()
+                    return (
+                      <div
+                        key={invitation.id}
+                        className="bg-gray-50 dark:bg-neutral-700/30 rounded-xl p-4 border border-gray-200 dark:border-neutral-600/50"
                       >
-                        Cancelar
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-start gap-3">
+                          {/* Avatar */}
+                          <div className="w-10 h-10 bg-yellow-400/20 text-yellow-600 dark:text-yellow-400 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                            {invitation.email[0].toUpperCase()}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-gray-900 dark:text-white font-medium truncate text-sm">
+                              {invitation.email}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
+                                invitation.role === 'admin'
+                                  ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                                  : 'bg-gray-100 dark:bg-neutral-600 text-gray-600 dark:text-neutral-300'
+                              }`}>
+                                {invitation.role === 'admin' ? <><ShieldIcon size={10} /> Admin</> : <><UserIcon size={10} /> Miembro</>}
+                              </span>
+                              <span className={`text-xs ${isExpired ? 'text-red-500' : 'text-gray-500 dark:text-neutral-400'}`}>
+                                {getExpirationText(invitation.expires_at)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Cancelar */}
+                          <button
+                            onClick={() => setConfirmDialog({
+                              show: true,
+                              invitationId: invitation.id,
+                              email: invitation.email,
+                              type: 'pending'
+                            })}
+                            className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                            title="Cancelar invitación"
+                          >
+                            <XCircle className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        {/* Footer con fecha */}
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-neutral-600/50 flex items-center justify-between">
+                          <span className="text-xs text-gray-400 dark:text-neutral-500">
+                            Enviada {formatDate(invitation.created_at)}
+                          </span>
+                          {isExpired && (
+                            <span className="text-xs text-red-500 font-medium">
+                              Expirada
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
 
             {/* Invitaciones rechazadas */}
             {rejectedInvitations.length > 0 && (
-              <div className="p-6 border-t border-gray-200 dark:border-neutral-700">
+              <div className={`border-t border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4' : 'p-6'}`}>
                 <h3 className="text-sm font-semibold text-red-400/70 uppercase tracking-wide mb-4 flex items-center gap-2">
-                  <span>❌</span> Rechazadas
+                  <XCircle className="w-4 h-4" /> Rechazadas
                   <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded-full">
                     {rejectedInvitations.length}
                   </span>
@@ -531,7 +571,6 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
               </div>
             )}
           </div>
-        </div>
       </div>
 
       {/* Confirm Dialog */}

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { UsersIcon, XIcon } from './components/iu/AnimatedIcons'
+import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 
 interface CreatedTeam {
   id: string
@@ -18,24 +20,30 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
-
-  // ESC para cerrar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
-  useEffect(() => {
-    setTimeout(() => setIsVisible(true), 10)
-  }, [])
+  const isMobile = useIsMobile()
 
   const handleClose = () => {
     setIsVisible(false)
     setTimeout(onClose, 200)
   }
+
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
+    onClose: handleClose,
+    threshold: 100
+  })
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    setTimeout(() => setIsVisible(true), 10)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -97,21 +105,36 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
-      }`}
-      onClick={handleClose}
-    >
+    <>
+      {/* Overlay */}
       <div
-        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 transform transition-all duration-200 ${
-          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        className={`fixed inset-0 z-50 transition-opacity duration-200 ${
+          isVisible ? 'bg-black/60' : 'bg-transparent opacity-0'
         }`}
+        onClick={handleClose}
+      />
+
+      {/* Modal/Bottom Sheet */}
+      <div
+        className={`fixed z-50 bg-white dark:bg-neutral-800 shadow-2xl overflow-hidden flex flex-col will-change-transform ${
+          isMobile
+            ? `bottom-0 left-0 right-0 rounded-t-3xl safe-area-bottom ${
+                isVisible ? 'translate-y-0' : 'translate-y-full'
+              }`
+            : `top-1/2 left-1/2 -translate-x-1/2 rounded-2xl w-full max-w-md mx-4 ${
+                isVisible ? '-translate-y-1/2 opacity-100 scale-100' : '-translate-y-1/2 opacity-0 scale-95'
+              }`
+        }`}
+        style={isMobile ? { ...dragStyle, transition: isDragging ? 'none' : 'transform 0.2s ease-out' } : undefined}
         onClick={(e) => e.stopPropagation()}
+        {...(isMobile ? containerProps : {})}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4' : 'p-6'}`}>
+          {isMobile && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-neutral-600 rounded-full" />
+          )}
+          <h2 className={`font-bold text-gray-900 dark:text-white flex items-center gap-2 ${isMobile ? 'text-lg' : 'text-xl'}`}>
             <span className="text-yellow-400"><UsersIcon size={24} /></span> Crear Equipo
           </h2>
           <button
@@ -123,7 +146,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className={`${isMobile ? 'p-4 pb-8' : 'p-6'}`}>
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-600 dark:text-neutral-300 mb-2">
               Nombre del equipo *
@@ -157,7 +180,7 @@ function CreateTeam({ currentUserId, onTeamCreated, onClose }: CreateTeamProps) 
           </div>
         </form>
       </div>
-    </div>
+    </>
   )
 }
 

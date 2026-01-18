@@ -4,7 +4,9 @@ import { UserRole } from './types/database.types'
 import { HexColorPicker } from 'react-colorful'
 import Toast from './Toast'
 import { XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { Settings, AlertTriangle, Trash2, Users, Shield, Edit3, Check, X, Crown, User, ClipboardList, Palette } from 'lucide-react'
+import { Settings, AlertTriangle, Trash2, Users, Shield, Edit3, Check, X, Crown, User, ClipboardList } from 'lucide-react'
+import { useIsMobile } from './hooks/useIsMobile'
+import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 
 const PRESET_COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
@@ -63,6 +65,17 @@ function TeamSettings({
   }>({ show: false, message: '', type: 'info' })
 
   const isOwner = currentUserRole === 'owner'
+  const isMobile = useIsMobile()
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 200)
+  }
+
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
+    onClose: handleClose,
+    threshold: 100
+  })
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
@@ -109,11 +122,6 @@ function TeamSettings({
     setMemberCount(members || 0)
     setTaskCount(tasks || 0)
     setLoading(false)
-  }
-
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(onClose, 200)
   }
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
@@ -201,37 +209,51 @@ function TeamSettings({
 
   return (
     <>
+      {/* Overlay */}
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
-          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+        className={`fixed inset-0 z-50 transition-opacity duration-200 ${
+          isVisible ? 'bg-black/60' : 'bg-transparent opacity-0'
         }`}
         onClick={handleClose}
-      >
-        <div
-          className={`bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden transform transition-all duration-200 ${
-            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-800">
-            <div className="flex items-center gap-3">
-              <Settings className="w-6 h-6 text-yellow-500" />
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Configuración</h2>
-                <p className="text-sm text-gray-500 dark:text-neutral-400">{teamName}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-2 text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-all"
-            >
-              <XIcon size={20} />
-            </button>
-          </div>
+      />
 
-          {/* Content */}
-          <div className="overflow-y-auto max-h-[calc(90vh-80px)] p-6 space-y-6">
+      {/* Modal/Bottom Sheet */}
+      <div
+        className={`fixed z-50 bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden flex flex-col will-change-transform ${
+          isMobile
+            ? `bottom-0 left-0 right-0 top-12 rounded-t-3xl safe-area-bottom ${
+                isVisible ? 'translate-y-0' : 'translate-y-full'
+              }`
+            : `top-1/2 left-1/2 -translate-x-1/2 rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] ${
+                isVisible ? '-translate-y-1/2 opacity-100 scale-100' : '-translate-y-1/2 opacity-0 scale-95'
+              }`
+        }`}
+        style={isMobile ? { ...dragStyle, transition: isDragging ? 'none' : 'transform 0.2s ease-out' } : undefined}
+        onClick={(e) => e.stopPropagation()}
+        {...(isMobile ? containerProps : {})}
+      >
+        {/* Header */}
+        <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-800 ${isMobile ? 'p-4' : 'p-6'}`}>
+          {isMobile && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 bg-neutral-600 rounded-full" />
+          )}
+          <div className="flex items-center gap-3">
+            <Settings className="w-6 h-6 text-yellow-500" />
+            <div>
+              <h2 className={`font-bold text-gray-900 dark:text-white ${isMobile ? 'text-lg' : 'text-xl'}`}>Configuración</h2>
+              <p className="text-sm text-gray-500 dark:text-neutral-400">{teamName}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-2 text-gray-500 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-all"
+          >
+            <XIcon size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className={`overflow-y-auto flex-1 space-y-6 ${isMobile ? 'p-4 pb-8' : 'p-6'}`}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <LoadingZapIcon size={48} />
@@ -403,13 +425,12 @@ function TeamSettings({
               </>
             )}
           </div>
-        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
           onClick={() => {
             setShowDeleteConfirm(false)
             setDeleteConfirmText('')

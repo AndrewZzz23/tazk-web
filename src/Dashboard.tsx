@@ -250,12 +250,16 @@ function Dashboard() {
       const hasSeenOnboarding = localStorage.getItem(onboardingKey)
 
       // Verificar si el usuario tiene estados personales, si no, crear los por defecto
-      const { data: existingStatuses } = await supabase
+      const { data: existingStatuses, error: statusError } = await supabase
         .from('task_statuses')
         .select('id')
         .is('team_id', null)
         .eq('created_by', user.id)
         .limit(1)
+
+      if (statusError) {
+        console.error('Error verificando estados:', statusError)
+      }
 
       const isNewUser = !existingStatuses || existingStatuses.length === 0
 
@@ -268,14 +272,21 @@ function Dashboard() {
           { name: 'Completada', color: '#22c55e', category: 'completed', order_position: 4 },
         ]
 
-        await supabase.from('task_statuses').insert(
-          defaultStatuses.map(status => ({
+        // Insertar estados uno por uno para manejar duplicados
+        for (const status of defaultStatuses) {
+          const { error: insertError } = await supabase.from('task_statuses').insert({
             ...status,
             team_id: null,
             created_by: user.id,
             is_active: true
-          }))
-        )
+          })
+
+          // Ignorar error de duplicados (23505)
+          if (insertError && insertError.code !== '23505') {
+            console.error('Error creando estado por defecto:', insertError)
+          }
+        }
+        console.log('Estados por defecto procesados para usuario nuevo')
       }
 
       // Mostrar onboarding si es nuevo usuario o no lo ha visto
@@ -438,6 +449,11 @@ function Dashboard() {
         <LoadingZapIcon size={64} />
       </div>
     )
+  }
+
+  // Si no hay usuario autenticado, no renderizar nada (App.tsx redirigirá al login)
+  if (!user) {
+    return null
   }
 
   const userInitial = profileName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'

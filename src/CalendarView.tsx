@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, isToday, isTomorrow, addWeeks, addMonths, startOfDay, endOfDay, endOfWeek } from 'date-fns'
+import { format, parse, startOfWeek, getDay, isToday, isTomorrow, addWeeks, addMonths, startOfDay, endOfDay, endOfWeek, startOfMonth, endOfMonth, addDays, isSameMonth, isSameDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { supabase } from './supabaseClient'
 import { Task, UserRole } from './types/database.types'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, List, Clock, User } from 'lucide-react'
+import { useIsMobile } from './hooks/useIsMobile'
 
 const locales = { es }
 
@@ -53,10 +54,12 @@ interface CalendarEvent {
 }
 
 function CalendarView({ currentUserId, teamId, userRole, searchTerm, onOpenTask }: CalendarViewProps) {
+  const isMobile = useIsMobile()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [currentView, setCurrentView] = useState<'month' | 'week' | 'day' | 'agenda'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [agendaFilter, setAgendaFilter] = useState<'day' | 'week' | 'month' | 'all'>('all')
 
   const loadTasks = async () => {
@@ -241,6 +244,39 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm, onOpenTask 
     return format(date, "EEEE d", { locale: es })
   }
 
+  // Generar días del mes para el calendario móvil
+  const mobileCalendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentDate)
+    const monthEnd = endOfMonth(currentDate)
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+
+    const days: Date[] = []
+    let day = calendarStart
+    while (day <= calendarEnd) {
+      days.push(day)
+      day = addDays(day, 1)
+    }
+    return days
+  }, [currentDate])
+
+  // Eventos del día seleccionado (móvil)
+  const selectedDayEvents = useMemo(() => {
+    if (!selectedDate) return []
+    return events.filter(e => isSameDay(e.start, selectedDate) || isSameDay(e.end, selectedDate))
+  }, [events, selectedDate])
+
+  // Contar eventos por día (para mostrar indicadores)
+  const eventsByDay = useMemo(() => {
+    const map: { [key: string]: CalendarEvent[] } = {}
+    events.forEach(e => {
+      const key = format(e.start, 'yyyy-MM-dd')
+      if (!map[key]) map[key] = []
+      map[key].push(e)
+    })
+    return map
+  }, [events])
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -252,6 +288,203 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm, onOpenTask 
     )
   }
 
+  // Vista móvil optimizada
+  if (isMobile) {
+    const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+    return (
+      <div className="space-y-3">
+        {/* Header con navegación */}
+        <div className="bg-white dark:bg-neutral-800/50 rounded-2xl p-4 border border-gray-100 dark:border-neutral-700/50">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                const newDate = new Date(currentDate)
+                newDate.setMonth(newDate.getMonth() - 1)
+                setCurrentDate(newDate)
+              }}
+              className="p-2 text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded-xl transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white capitalize">
+                {format(currentDate, 'MMMM yyyy', { locale: es })}
+              </h2>
+              <button
+                onClick={() => {
+                  setCurrentDate(new Date())
+                  setSelectedDate(new Date())
+                }}
+                className="text-xs text-yellow-500 font-medium"
+              >
+                Ir a hoy
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                const newDate = new Date(currentDate)
+                newDate.setMonth(newDate.getMonth() + 1)
+                setCurrentDate(newDate)
+              }}
+              className="p-2 text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded-xl transition-colors"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Calendario compacto */}
+        <div className="bg-white dark:bg-neutral-800/50 rounded-2xl p-3 border border-gray-100 dark:border-neutral-700/50">
+          {/* Días de la semana */}
+          <div className="grid grid-cols-7 mb-2">
+            {weekDays.map(day => (
+              <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-neutral-500 py-2">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Días del mes */}
+          <div className="grid grid-cols-7 gap-1">
+            {mobileCalendarDays.map((day, idx) => {
+              const dayKey = format(day, 'yyyy-MM-dd')
+              const dayEvents = eventsByDay[dayKey] || []
+              const isCurrentMonth = isSameMonth(day, currentDate)
+              const isSelected = selectedDate && isSameDay(day, selectedDate)
+              const isTodayDate = isToday(day)
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedDate(day)}
+                  className={`
+                    relative aspect-square flex flex-col items-center justify-center rounded-xl transition-all
+                    ${isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-600'}
+                    ${isSelected ? 'bg-yellow-400 text-neutral-900' : ''}
+                    ${isTodayDate && !isSelected ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400' : ''}
+                    ${!isSelected && !isTodayDate ? 'hover:bg-gray-100 dark:hover:bg-neutral-700' : ''}
+                  `}
+                >
+                  <span className={`text-sm font-medium ${isSelected ? 'font-bold' : ''}`}>
+                    {format(day, 'd')}
+                  </span>
+                  {/* Indicadores de eventos */}
+                  {dayEvents.length > 0 && (
+                    <div className="flex gap-0.5 mt-0.5">
+                      {dayEvents.slice(0, 3).map((e, i) => (
+                        <div
+                          key={i}
+                          className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: isSelected ? '#171717' : e.color }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Tareas del día seleccionado */}
+        <div className="bg-white dark:bg-neutral-800/50 rounded-2xl border border-gray-100 dark:border-neutral-700/50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-neutral-700/50 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              {selectedDate ? (
+                isToday(selectedDate) ? 'Hoy' :
+                isTomorrow(selectedDate) ? 'Mañana' :
+                format(selectedDate, "EEEE d 'de' MMMM", { locale: es })
+              ) : 'Selecciona un día'}
+            </h3>
+            {selectedDate && (
+              <span className="text-xs text-gray-500 dark:text-neutral-400 bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded-full">
+                {selectedDayEvents.length} {selectedDayEvents.length === 1 ? 'tarea' : 'tareas'}
+              </span>
+            )}
+          </div>
+
+          {!selectedDate ? (
+            <div className="py-12 text-center">
+              <CalendarDays className="w-12 h-12 text-gray-300 dark:text-neutral-600 mx-auto mb-3" />
+              <p className="text-gray-500 dark:text-neutral-400 text-sm">
+                Toca un día para ver sus tareas
+              </p>
+            </div>
+          ) : selectedDayEvents.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-12 h-12 bg-gray-100 dark:bg-neutral-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CalendarIcon className="w-6 h-6 text-gray-400 dark:text-neutral-500" />
+              </div>
+              <p className="text-gray-500 dark:text-neutral-400 text-sm">
+                Sin tareas para este día
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 dark:divide-neutral-700/50">
+              {selectedDayEvents.map(event => (
+                <div
+                  key={event.id}
+                  onClick={() => onOpenTask?.(event.task)}
+                  className="flex items-center gap-3 px-4 py-3 active:bg-gray-50 dark:active:bg-neutral-700/50 transition-colors"
+                >
+                  <div
+                    className="w-1 h-10 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: event.color }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-gray-900 dark:text-white font-medium truncate text-sm">
+                      {event.title}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Clock className="w-3 h-3 text-gray-400 dark:text-neutral-500" />
+                      <span className="text-xs text-gray-500 dark:text-neutral-400">
+                        {format(event.start, 'HH:mm')}
+                      </span>
+                      {event.task.task_statuses && (
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: `${event.color}20`,
+                            color: event.color
+                          }}
+                        >
+                          {event.task.task_statuses.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {event.task.assigned_user && (
+                    <div className="w-7 h-7 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-neutral-900 text-xs font-bold flex-shrink-0">
+                      {event.task.assigned_user.full_name?.[0]?.toUpperCase() ||
+                       event.task.assigned_user.email?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Empty state general */}
+        {events.length === 0 && (
+          <div className="bg-white dark:bg-neutral-800/50 rounded-2xl p-8 border border-gray-100 dark:border-neutral-700/50 text-center">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-neutral-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CalendarDays className="w-8 h-8 text-gray-400 dark:text-neutral-500" />
+            </div>
+            <h3 className="text-gray-900 dark:text-white font-semibold mb-1">
+              Sin tareas programadas
+            </h3>
+            <p className="text-gray-500 dark:text-neutral-400 text-sm">
+              Agrega fechas a tus tareas para verlas aquí
+            </p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Vista desktop (original)
   return (
     <div className="space-y-4">
       {/* Custom Toolbar */}

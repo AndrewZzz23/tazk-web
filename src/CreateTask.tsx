@@ -403,7 +403,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
 
   // Contenido del formulario
   const renderForm = () => (
-    <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-8' : 'p-6'}`}>
+    <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pt-4 pb-8' : 'p-6'}`}>
       {/* Título */}
       <div className="mb-4">
         <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">

@@ -160,14 +160,17 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
 
   // Tareas creadas por semana (últimas 4 semanas)
   const weeksData = Array.from({ length: 4 }, (_, i) => {
-    const weekStart = new Date(now)
-    weekStart.setDate(weekStart.getDate() - (i + 1) * 7)
     const weekEnd = new Date(now)
     weekEnd.setDate(weekEnd.getDate() - i * 7)
+    weekEnd.setHours(23, 59, 59, 999) // Fin del día
+
+    const weekStart = new Date(weekEnd)
+    weekStart.setDate(weekStart.getDate() - 6)
+    weekStart.setHours(0, 0, 0, 0) // Inicio del día
 
     const count = tasks.filter(t => {
       const created = new Date(t.created_at)
-      return created >= weekStart && created < weekEnd
+      return created >= weekStart && created <= weekEnd
     }).length
 
     const label = i === 0 ? 'Esta sem' : i === 1 ? 'Anterior' : `Hace ${i + 1}`
@@ -349,32 +352,20 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
           <div className="space-y-4">
             {statusData.length > 0 ? (
               <>
+                {/* Barra de progreso visual en lugar de PieChart pesado */}
                 <div className="bg-neutral-800/50 rounded-2xl p-4">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={statusData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#262626',
-                          border: '1px solid #404040',
-                          borderRadius: '12px',
-                          color: '#fff'
+                  <div className="h-4 rounded-full overflow-hidden flex">
+                    {statusData.map((status, i) => (
+                      <div
+                        key={i}
+                        className="h-full first:rounded-l-full last:rounded-r-full"
+                        style={{
+                          backgroundColor: status.color,
+                          width: `${totalTasks > 0 ? (status.value / totalTasks) * 100 : 0}%`
                         }}
                       />
-                    </PieChart>
-                  </ResponsiveContainer>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Lista de estados */}
@@ -389,7 +380,18 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                       </div>
                       <div className="flex-1">
                         <p className="text-white font-medium text-sm">{status.name}</p>
-                        <p className="text-neutral-500 text-xs">{status.value} tarea{status.value !== 1 ? 's' : ''}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                backgroundColor: status.color,
+                                width: `${totalTasks > 0 ? (status.value / totalTasks) * 100 : 0}%`
+                              }}
+                            />
+                          </div>
+                          <span className="text-neutral-500 text-xs">{status.value}</span>
+                        </div>
                       </div>
                       <div className="text-right">
                         <span className="text-white font-bold">
@@ -412,6 +414,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         )
 
       case 'tiempo':
+        const maxTareas = Math.max(...weeksData.map(w => w.tareas), 1)
         return (
           <div className="space-y-4">
             <div className="bg-neutral-800/50 rounded-2xl p-4">
@@ -420,21 +423,23 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                 Actividad semanal
               </h4>
               {weeksData.some(w => w.tareas > 0) ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={weeksData}>
-                    <XAxis dataKey="name" stroke="#737373" fontSize={11} />
-                    <YAxis stroke="#737373" fontSize={12} allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#262626',
-                        border: '1px solid #404040',
-                        borderRadius: '12px',
-                        color: '#fff'
-                      }}
-                    />
-                    <Bar dataKey="tareas" fill="#facc15" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="flex items-end justify-between gap-2 h-32">
+                  {weeksData.map((week, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                      <span className="text-xs text-neutral-400">{week.tareas}</span>
+                      <div className="w-full bg-neutral-700 rounded-t-lg overflow-hidden" style={{ height: '100px' }}>
+                        <div
+                          className="w-full bg-yellow-400 rounded-t-lg mt-auto"
+                          style={{
+                            height: `${(week.tareas / maxTareas) * 100}%`,
+                            marginTop: `${100 - (week.tareas / maxTareas) * 100}%`
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs text-neutral-500">{week.name}</span>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12">
                   <p className="text-neutral-500">Sin actividad reciente</p>
@@ -461,52 +466,30 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         )
 
       case 'equipo':
+        const maxUserTasks = Math.max(...userData.map(u => u.count), 1)
         return (
           <div className="space-y-4">
             {userData.length > 0 ? (
               <>
-                <div className="bg-neutral-800/50 rounded-2xl p-4">
-                  <h4 className="text-white font-medium mb-4 flex items-center gap-2">
-                    <UsersIcon size={16} className="text-yellow-400" />
-                    Tareas por miembro
-                  </h4>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={userData} layout="vertical">
-                      <XAxis type="number" stroke="#737373" fontSize={12} />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        stroke="#737373"
-                        fontSize={11}
-                        width={80}
-                        tickFormatter={(value) => value.length > 10 ? value.slice(0, 10) + '...' : value}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#262626',
-                          border: '1px solid #404040',
-                          borderRadius: '12px',
-                          color: '#fff'
-                        }}
-                      />
-                      <Bar dataKey="count" fill="#facc15" radius={[0, 6, 6, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Lista de miembros */}
+                {/* Lista de miembros con barras de progreso */}
                 <div className="space-y-2">
                   {userData.map((user, i) => (
                     <div key={i} className="bg-neutral-800/50 rounded-xl p-3 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-neutral-900 font-bold">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-neutral-900 font-bold flex-shrink-0">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-medium text-sm truncate">{user.name}</p>
-                        <p className="text-neutral-500 text-xs">{user.completed} completadas de {user.count}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-white font-bold">{user.count > 0 ? Math.round((user.completed / user.count) * 100) : 0}%</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-2 bg-neutral-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-yellow-400 rounded-full"
+                              style={{ width: `${(user.count / maxUserTasks) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-neutral-400 text-xs">{user.count}</span>
+                        </div>
+                        <p className="text-neutral-500 text-xs mt-1">{user.completed} completadas ({user.count > 0 ? Math.round((user.completed / user.count) * 100) : 0}%)</p>
                       </div>
                     </div>
                   ))}
@@ -514,7 +497,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
 
                 {unassignedTasks > 0 && (
                   <div className="bg-neutral-700/30 rounded-xl p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-neutral-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-neutral-600 flex items-center justify-center flex-shrink-0">
                       <span className="text-neutral-400">?</span>
                     </div>
                     <div className="flex-1">
@@ -542,18 +525,18 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     return (
       <>
         <div
-          className={`fixed inset-0 z-50 transition-all duration-200 ${
-            isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+          className={`fixed inset-0 z-50 transition-opacity duration-200 ${
+            isVisible ? 'bg-black/60' : 'bg-transparent opacity-0'
           }`}
           onClick={handleClose}
         />
         <div
-          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col safe-area-bottom ${
+          className={`fixed bottom-0 left-0 right-0 top-8 z-50 bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col safe-area-bottom will-change-transform ${
             isVisible ? 'translate-y-0' : 'translate-y-full'
           }`}
           style={{
             ...dragStyle,
-            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out'
           }}
           onClick={(e) => e.stopPropagation()}
           {...containerProps}
@@ -581,7 +564,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 px-4 py-3 border-b border-neutral-800 overflow-x-auto flex-shrink-0">
+          <div className="flex gap-2 px-4 py-3 border-b border-neutral-800 overflow-x-auto flex-shrink-0" style={{ scrollbarWidth: 'none' }}>
             {[
               { id: 'resumen' as const, label: 'Resumen', icon: <Target className="w-4 h-4" /> },
               { id: 'estados' as const, label: 'Estados', icon: <ClipboardIcon size={16} /> },
@@ -591,10 +574,10 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
                   activeTab === tab.id
                     ? 'bg-yellow-400 text-neutral-900'
-                    : 'bg-neutral-800 text-neutral-400'
+                    : 'bg-neutral-800 text-neutral-400 active:bg-neutral-700'
                 }`}
               >
                 {tab.icon}

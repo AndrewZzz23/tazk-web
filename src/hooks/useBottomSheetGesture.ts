@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 interface UseBottomSheetGestureOptions {
   onClose: () => void
@@ -29,11 +29,59 @@ export function useBottomSheetGesture({
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [canDrag, setCanDrag] = useState(true)
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const startY = useRef(0)
   const currentY = useRef(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Detectar cuando se abre/cierra un datepicker (portal)
+  useEffect(() => {
+    const checkDatePickerOpen = () => {
+      const datePickerPopper = document.querySelector('.react-datepicker-popper')
+      setIsDatePickerOpen(datePickerPopper !== null)
+    }
+
+    // Observer para detectar cambios en el DOM (cuando aparece el datepicker portal)
+    const observer = new MutationObserver(checkDatePickerOpen)
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    return () => observer.disconnect()
+  }, [])
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Si hay un datepicker abierto, no hacer nada
+    if (isDatePickerOpen) {
+      setCanDrag(false)
+      setIsDragging(false)
+      return
+    }
+
+    const target = e.target as HTMLElement
+    const tagName = target.tagName.toLowerCase()
+
+    // Bloquear swipe para:
+    // 1. react-datepicker (detectar por clase o ancestro)
+    // 2. Selects, textareas e inputs
+    // 3. Elementos marcados con data-no-swipe
+    const isDatePicker = target.closest('.react-datepicker') !== null ||
+                         target.closest('.react-datepicker-popper') !== null ||
+                         target.closest('.react-datepicker-wrapper') !== null ||
+                         target.closest('.react-datepicker__input-container') !== null
+
+    const isInteractiveInput = (
+      isDatePicker ||
+      tagName === 'select' ||
+      tagName === 'textarea' ||
+      tagName === 'input' ||
+      target.closest('[data-no-swipe]') !== null
+    )
+
+    if (isInteractiveInput) {
+      setCanDrag(false)
+      setIsDragging(false)
+      return
+    }
+
     startY.current = e.touches[0].clientY
     currentY.current = e.touches[0].clientY
 
@@ -46,7 +94,7 @@ export function useBottomSheetGesture({
     }
 
     setIsDragging(true)
-  }, [])
+  }, [isDatePickerOpen])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return
