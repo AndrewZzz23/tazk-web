@@ -11,8 +11,16 @@ export interface Profile {
   id: string
   email: string
   full_name: string | null
+  phone: string | null
+  country: string | null
+  city: string | null
+  theme: 'light' | 'dark'
+  notifications_enabled: boolean
+  notify_on_assign: boolean
+  notify_on_due: boolean
   role: ProfileRole
   created_at: string
+  updated_at: string | null
 }
 
 export interface Team {

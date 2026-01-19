@@ -8,6 +8,7 @@ import { NotificationToggle } from './components/NotificationSettings'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
+import { MapPin, Phone, Globe } from 'lucide-react'
 
 interface UserSettingsProps {
   user: User
@@ -24,6 +25,9 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   const [isVisible, setIsVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>(initialTab)
   const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [country, setCountry] = useState('')
+  const [city, setCity] = useState('')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
 
@@ -42,8 +46,21 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   }, [])
 
   const loadProfile = async () => {
-    const { data } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
-    if (data) setFullName(data.full_name || '')
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, phone, country, city, theme')
+      .eq('id', user.id)
+      .single()
+    if (data) {
+      setFullName(data.full_name || '')
+      setPhone(data.phone || '')
+      setCountry(data.country || '')
+      setCity(data.city || '')
+      // Sincronizar tema del perfil con el contexto
+      if (data.theme && data.theme !== theme) {
+        setTheme(data.theme as 'light' | 'dark')
+      }
+    }
   }
 
   const handleClose = () => {
@@ -65,10 +82,29 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
 
   const handleSaveProfile = async () => {
     setLoading(true)
-    const { error } = await supabase.from('profiles').update({ full_name: fullName.trim() }).eq('id', user.id)
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: fullName.trim(),
+        phone: phone.trim() || null,
+        country: country.trim() || null,
+        city: city.trim() || null,
+        theme: theme,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id)
     setLoading(false)
     if (error) showToast('Error: ' + error.message, 'error')
     else { showToast('Perfil actualizado', 'success'); onProfileUpdated() }
+  }
+
+  // Guardar tema en el perfil cuando cambie
+  const handleThemeChange = async (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme)
+    await supabase
+      .from('profiles')
+      .update({ theme: newTheme, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
   }
 
   const tabs = [
@@ -201,6 +237,47 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                       className={`w-full bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-lg text-gray-400 dark:text-neutral-500 cursor-not-allowed ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
                     />
                   </div>
+                  <div className={isMobile ? 'mb-4' : 'mb-6'}>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">
+                      <Phone className="inline w-4 h-4 mr-1" />
+                      Teléfono
+                    </label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+57 300 123 4567"
+                      className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
+                    />
+                  </div>
+                  <div className={`grid ${isMobile ? 'grid-cols-1 gap-3 mb-4' : 'grid-cols-2 gap-4 mb-6'}`}>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">
+                        <Globe className="inline w-4 h-4 mr-1" />
+                        País
+                      </label>
+                      <input
+                        type="text"
+                        value={country}
+                        onChange={(e) => setCountry(e.target.value)}
+                        placeholder="Colombia"
+                        className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">
+                        <MapPin className="inline w-4 h-4 mr-1" />
+                        Ciudad
+                      </label>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="Bogotá"
+                        className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
+                      />
+                    </div>
+                  </div>
                   <button onClick={handleSaveProfile} disabled={loading} className={`w-full md:w-auto bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 ${isMobile ? 'py-3 text-sm' : 'px-6 py-3'}`}>
                     {loading ? 'Guardando...' : 'Guardar'}
                   </button>
@@ -213,7 +290,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                   {!isMobile && <p className="text-gray-600 dark:text-neutral-400 text-sm mb-4">Selecciona el tema de la aplicación</p>}
                   <div className={isMobile ? 'space-y-3' : 'space-y-4'}>
                     <button
-                      onClick={() => setTheme('dark')}
+                      onClick={() => handleThemeChange('dark')}
                       className={`w-full flex items-center gap-3 rounded-xl border-2 transition-all ${isMobile ? 'p-3' : 'p-4 gap-4'} ${
                         theme === 'dark' ? 'bg-yellow-100 dark:bg-yellow-400/10 border-yellow-400' : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent hover:border-gray-300 dark:hover:border-neutral-600'
                       }`}
@@ -230,7 +307,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                       {theme === 'dark' && <span className="text-yellow-500 dark:text-yellow-400 text-xl">✓</span>}
                     </button>
                     <button
-                      onClick={() => setTheme('light')}
+                      onClick={() => handleThemeChange('light')}
                       className={`w-full flex items-center gap-3 rounded-xl border-2 transition-all ${isMobile ? 'p-3' : 'p-4 gap-4'} ${
                         theme === 'light' ? 'bg-yellow-100 dark:bg-yellow-400/10 border-yellow-400' : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent hover:border-gray-300 dark:hover:border-neutral-600'
                       }`}

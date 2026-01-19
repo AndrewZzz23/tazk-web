@@ -21,6 +21,7 @@ import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
 import EditTask from './EditTask'
 import Onboarding from './components/Onboarding'
+import ProfileOnboarding from './components/ProfileOnboarding'
 import {
   PlusIcon,
   LogoutIcon,
@@ -93,6 +94,7 @@ function Dashboard() {
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showUserOnboarding, setShowUserOnboarding] = useState(false)
+  const [showProfileOnboarding, setShowProfileOnboarding] = useState(false)
 
   // Swipe gesture para el menú de usuario móvil
   const userMenuGesture = useBottomSheetGesture({ onClose: () => setShowUserMenu(false) })
@@ -248,6 +250,15 @@ function Dashboard() {
       // Verificar si el usuario ha visto el onboarding
       const onboardingKey = `tazk_onboarding_${user.id}`
       const hasSeenOnboarding = localStorage.getItem(onboardingKey)
+
+      // Verificar si el usuario ha completado el profile onboarding
+      const profileOnboardingKey = `tazk_profile_onboarding_${user.id}`
+      const hasSeenProfileOnboarding = localStorage.getItem(profileOnboardingKey)
+
+      // Mostrar profile onboarding si no tiene nombre configurado y no lo ha visto
+      if (!profile?.full_name && !hasSeenProfileOnboarding) {
+        setShowProfileOnboarding(true)
+      }
 
       // Verificar si el usuario tiene estados personales, si no, crear los por defecto
       const { data: existingStatuses, error: statusError } = await supabase
@@ -891,6 +902,23 @@ function Dashboard() {
           onSkip={() => {
             localStorage.setItem(`tazk_onboarding_${user.id}`, 'true')
             setShowUserOnboarding(false)
+          }}
+        />
+      )}
+
+      {/* Profile Onboarding para nuevos usuarios */}
+      {showProfileOnboarding && user && (
+        <ProfileOnboarding
+          user={user}
+          onComplete={() => {
+            localStorage.setItem(`tazk_profile_onboarding_${user.id}`, 'true')
+            setShowProfileOnboarding(false)
+            // Recargar datos del usuario para obtener el nombre actualizado
+            loadUserData()
+          }}
+          onSkip={() => {
+            localStorage.setItem(`tazk_profile_onboarding_${user.id}`, 'true')
+            setShowProfileOnboarding(false)
           }}
         />
       )}
