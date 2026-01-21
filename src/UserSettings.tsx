@@ -1,23 +1,52 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabaseClient'
 import { User } from '@supabase/supabase-js'
 import Toast from './Toast'
 import { useTheme } from './ThemeContext'
-import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon } from './components/iu/AnimatedIcons';
+import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon, TrashIcon } from './components/iu/AnimatedIcons';
 import { NotificationToggle } from './components/NotificationSettings'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { MapPin, Phone, Globe } from 'lucide-react'
+import { MapPin, Phone, Globe, Shield, AlertTriangle, ChevronRight, ChevronDown, Search } from 'lucide-react'
+import DeleteAccountModal from './DeleteAccountModal'
+
+// Datos de países y ciudades
+const countriesData: Record<string, { name: string; code: string; cities: string[] }> = {
+  CO: { name: 'Colombia', code: 'CO', cities: ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Cúcuta', 'Bucaramanga', 'Pereira', 'Santa Marta', 'Ibagué', 'Manizales', 'Villavicencio', 'Pasto', 'Montería', 'Neiva'] },
+  MX: { name: 'México', code: 'MX', cities: ['Ciudad de México', 'Guadalajara', 'Monterrey', 'Puebla', 'Tijuana', 'León', 'Juárez', 'Cancún', 'Mérida', 'Querétaro', 'San Luis Potosí', 'Aguascalientes', 'Hermosillo', 'Chihuahua', 'Morelia'] },
+  AR: { name: 'Argentina', code: 'AR', cities: ['Buenos Aires', 'Córdoba', 'Rosario', 'Mendoza', 'La Plata', 'San Miguel de Tucumán', 'Mar del Plata', 'Salta', 'Santa Fe', 'San Juan', 'Resistencia', 'Neuquén', 'Corrientes', 'Posadas', 'Bahía Blanca'] },
+  ES: { name: 'España', code: 'ES', cities: ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Zaragoza', 'Málaga', 'Murcia', 'Palma', 'Las Palmas', 'Bilbao', 'Alicante', 'Córdoba', 'Valladolid', 'Granada', 'Oviedo'] },
+  US: { name: 'Estados Unidos', code: 'US', cities: ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'San Jose', 'Austin', 'Miami', 'Seattle', 'Denver', 'Boston'] },
+  PE: { name: 'Perú', code: 'PE', cities: ['Lima', 'Arequipa', 'Trujillo', 'Chiclayo', 'Piura', 'Iquitos', 'Cusco', 'Huancayo', 'Tacna', 'Pucallpa', 'Chimbote', 'Juliaca', 'Ica', 'Ayacucho', 'Cajamarca'] },
+  CL: { name: 'Chile', code: 'CL', cities: ['Santiago', 'Valparaíso', 'Concepción', 'La Serena', 'Antofagasta', 'Temuco', 'Rancagua', 'Talca', 'Arica', 'Chillán', 'Iquique', 'Puerto Montt', 'Coquimbo', 'Valdivia', 'Osorno'] },
+  EC: { name: 'Ecuador', code: 'EC', cities: ['Quito', 'Guayaquil', 'Cuenca', 'Santo Domingo', 'Machala', 'Durán', 'Manta', 'Portoviejo', 'Loja', 'Ambato', 'Esmeraldas', 'Riobamba', 'Ibarra', 'Latacunga', 'Babahoyo'] },
+  VE: { name: 'Venezuela', code: 'VE', cities: ['Caracas', 'Maracaibo', 'Valencia', 'Barquisimeto', 'Maracay', 'Ciudad Guayana', 'Barcelona', 'Maturín', 'Petare', 'Turmero', 'Ciudad Bolívar', 'Cumaná', 'Mérida', 'Barinas', 'Cabimas'] },
+  BR: { name: 'Brasil', code: 'BR', cities: ['São Paulo', 'Rio de Janeiro', 'Brasília', 'Salvador', 'Fortaleza', 'Belo Horizonte', 'Manaus', 'Curitiba', 'Recife', 'Porto Alegre', 'Belém', 'Goiânia', 'Guarulhos', 'Campinas', 'São Luís'] },
+  BO: { name: 'Bolivia', code: 'BO', cities: ['La Paz', 'Santa Cruz', 'Cochabamba', 'Sucre', 'Oruro', 'Tarija', 'Potosí', 'Trinidad', 'Cobija', 'Riberalta'] },
+  PY: { name: 'Paraguay', code: 'PY', cities: ['Asunción', 'Ciudad del Este', 'San Lorenzo', 'Luque', 'Capiatá', 'Lambaré', 'Fernando de la Mora', 'Encarnación', 'Caaguazú', 'Coronel Oviedo'] },
+  UY: { name: 'Uruguay', code: 'UY', cities: ['Montevideo', 'Salto', 'Ciudad de la Costa', 'Paysandú', 'Las Piedras', 'Rivera', 'Maldonado', 'Tacuarembó', 'Melo', 'Mercedes'] },
+  PA: { name: 'Panamá', code: 'PA', cities: ['Ciudad de Panamá', 'San Miguelito', 'Tocumen', 'David', 'Arraiján', 'Colón', 'Las Cumbres', 'La Chorrera', 'Pacora', 'Santiago'] },
+  CR: { name: 'Costa Rica', code: 'CR', cities: ['San José', 'Limón', 'Alajuela', 'Heredia', 'Puntarenas', 'Cartago', 'Liberia', 'Paraíso', 'San Francisco', 'Desamparados'] },
+  GT: { name: 'Guatemala', code: 'GT', cities: ['Ciudad de Guatemala', 'Mixco', 'Villa Nueva', 'Petapa', 'San Juan Sacatepéquez', 'Quetzaltenango', 'Villa Canales', 'Escuintla', 'Chinautla', 'Chimaltenango'] },
+  HN: { name: 'Honduras', code: 'HN', cities: ['Tegucigalpa', 'San Pedro Sula', 'Choloma', 'La Ceiba', 'El Progreso', 'Choluteca', 'Comayagua', 'Puerto Cortés', 'Danlí', 'Siguatepeque'] },
+  SV: { name: 'El Salvador', code: 'SV', cities: ['San Salvador', 'Soyapango', 'Santa Ana', 'San Miguel', 'Mejicanos', 'Santa Tecla', 'Apopa', 'Delgado', 'Ilopango', 'Usulután'] },
+  NI: { name: 'Nicaragua', code: 'NI', cities: ['Managua', 'León', 'Masaya', 'Tipitapa', 'Chinandega', 'Matagalpa', 'Estelí', 'Granada', 'Ciudad Sandino', 'Jinotega'] },
+  DO: { name: 'República Dominicana', code: 'DO', cities: ['Santo Domingo', 'Santiago', 'Santo Domingo Este', 'Santo Domingo Norte', 'Los Alcarrizos', 'San Pedro de Macorís', 'La Romana', 'Bella Vista', 'San Cristóbal', 'Puerto Plata'] },
+  PR: { name: 'Puerto Rico', code: 'PR', cities: ['San Juan', 'Bayamón', 'Carolina', 'Ponce', 'Caguas', 'Guaynabo', 'Arecibo', 'Mayagüez', 'Toa Baja', 'Trujillo Alto'] },
+  CU: { name: 'Cuba', code: 'CU', cities: ['La Habana', 'Santiago de Cuba', 'Camagüey', 'Holguín', 'Santa Clara', 'Guantánamo', 'Bayamo', 'Las Tunas', 'Cienfuegos', 'Pinar del Río'] }
+}
+
+const countries = Object.values(countriesData).sort((a, b) => a.name.localeCompare(b.name))
 
 interface UserSettingsProps {
   user: User
   onClose: () => void
   onProfileUpdated: () => void
-  initialTab?: 'profile' | 'appearance' | 'notifications' | 'shortcuts'
+  initialTab?: 'profile' | 'appearance' | 'notifications' | 'shortcuts' | 'account'
 }
 
-type Tab = 'profile' | 'appearance' | 'notifications' | 'shortcuts'
+type Tab = 'profile' | 'appearance' | 'notifications' | 'shortcuts' | 'account'
 
 function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' }: UserSettingsProps) {
   const { theme, setTheme } = useTheme()
@@ -27,9 +56,33 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [country, setCountry] = useState('')
+  const [countryCode, setCountryCode] = useState('')
   const [city, setCity] = useState('')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  // Dropdown states
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false)
+  const [showCityDropdown, setShowCityDropdown] = useState(false)
+  const [countrySearch, setCountrySearch] = useState('')
+  const [citySearch, setCitySearch] = useState('')
+
+  // Get country and cities
+  const selectedCountry = countryCode ? countriesData[countryCode] : null
+  const availableCities = selectedCountry?.cities || []
+
+  // Filter countries by search
+  const filteredCountries = useMemo(() => {
+    if (!countrySearch) return countries
+    return countries.filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()))
+  }, [countrySearch])
+
+  // Filter cities by search
+  const filteredCities = useMemo(() => {
+    if (!citySearch) return availableCities
+    return availableCities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase()))
+  }, [citySearch, availableCities])
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
@@ -56,11 +109,33 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
       setPhone(data.phone || '')
       setCountry(data.country || '')
       setCity(data.city || '')
+      // Buscar el código del país si existe
+      if (data.country) {
+        const foundCountry = countries.find(c => c.name === data.country)
+        if (foundCountry) {
+          setCountryCode(foundCountry.code)
+        }
+      }
       // Sincronizar tema del perfil con el contexto
       if (data.theme && data.theme !== theme) {
         setTheme(data.theme as 'light' | 'dark')
       }
     }
+  }
+
+  const handleCountrySelect = (code: string) => {
+    const selected = countriesData[code]
+    setCountryCode(code)
+    setCountry(selected?.name || '')
+    setCity('') // Reset city when country changes
+    setShowCountryDropdown(false)
+    setCountrySearch('')
+  }
+
+  const handleCitySelect = (cityName: string) => {
+    setCity(cityName)
+    setShowCityDropdown(false)
+    setCitySearch('')
   }
 
   const handleClose = () => {
@@ -112,6 +187,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
     { id: 'appearance', icon: <SunMoonIcon />, label: 'Apariencia' },
     { id: 'notifications', icon: <BellIcon />, label: 'Notificaciones' },
     { id: 'shortcuts', icon: <RabbitIcon />, label: 'Atajos' },
+    { id: 'account', icon: <Shield className="w-5 h-5" />, label: 'Cuenta' },
   ]
 
   const shortcuts = [
@@ -164,7 +240,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
 
           {/* Mobile: Tabs horizontales con iconos (sin atajos) */}
           {isMobile && (
-            <div className="flex justify-around items-end border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50">
+            <div className="flex justify-around items-end border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
               {tabs.filter(tab => tab.id !== 'shortcuts').map(tab => (
                 <button
                   key={tab.id}
@@ -251,31 +327,121 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                     />
                   </div>
                   <div className={`grid ${isMobile ? 'grid-cols-1 gap-3 mb-4' : 'grid-cols-2 gap-4 mb-6'}`}>
-                    <div>
+                    {/* Country selector */}
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">
                         <Globe className="inline w-4 h-4 mr-1" />
                         País
                       </label>
-                      <input
-                        type="text"
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        placeholder="Colombia"
-                        className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCountryDropdown(!showCountryDropdown)
+                          setShowCityDropdown(false)
+                        }}
+                        className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
+                      >
+                        <span className={country ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-500'}>
+                          {country || 'Selecciona un país'}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-neutral-400 transition-transform ${showCountryDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showCountryDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-xl overflow-hidden">
+                          <div className="p-2 border-b border-gray-200 dark:border-neutral-700">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-neutral-500" />
+                              <input
+                                type="text"
+                                value={countrySearch}
+                                onChange={(e) => setCountrySearch(e.target.value)}
+                                placeholder="Buscar país..."
+                                className="w-full bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-600 rounded-md pl-9 pr-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:border-yellow-400"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto">
+                            {filteredCountries.map((c) => (
+                              <button
+                                key={c.code}
+                                onClick={() => handleCountrySelect(c.code)}
+                                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors ${
+                                  countryCode === c.code ? 'bg-yellow-50 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'
+                                }`}
+                              >
+                                {c.name}
+                              </button>
+                            ))}
+                            {filteredCountries.length === 0 && (
+                              <p className="px-4 py-3 text-sm text-gray-500 dark:text-neutral-500 text-center">No se encontraron países</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
+
+                    {/* City selector */}
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">
                         <MapPin className="inline w-4 h-4 mr-1" />
                         Ciudad
                       </label>
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="Bogotá"
-                        className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'}`}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (countryCode) {
+                            setShowCityDropdown(!showCityDropdown)
+                            setShowCountryDropdown(false)
+                          }
+                        }}
+                        disabled={!countryCode}
+                        className={`w-full bg-gray-100 dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-yellow-400 ${isMobile ? 'px-3 py-2.5 text-sm' : 'px-4 py-3'} ${
+                          !countryCode ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        <span className={city ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-neutral-500'}>
+                          {city || (countryCode ? 'Selecciona una ciudad' : 'Primero selecciona un país')}
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-neutral-400 transition-transform ${showCityDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {showCityDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-lg shadow-xl overflow-hidden">
+                          <div className="p-2 border-b border-gray-200 dark:border-neutral-700">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-neutral-500" />
+                              <input
+                                type="text"
+                                value={citySearch}
+                                onChange={(e) => setCitySearch(e.target.value)}
+                                placeholder="Buscar ciudad..."
+                                className="w-full bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-600 rounded-md pl-9 pr-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-neutral-500 focus:outline-none focus:border-yellow-400"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto">
+                            {filteredCities.map((cityName) => (
+                              <button
+                                key={cityName}
+                                onClick={() => handleCitySelect(cityName)}
+                                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors ${
+                                  city === cityName ? 'bg-yellow-50 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400' : 'text-gray-900 dark:text-white'
+                                }`}
+                              >
+                                {cityName}
+                              </button>
+                            ))}
+                            {filteredCities.length === 0 && (
+                              <p className="px-4 py-3 text-sm text-gray-500 dark:text-neutral-500 text-center">No se encontraron ciudades</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button onClick={handleSaveProfile} disabled={loading} className={`w-full md:w-auto bg-yellow-400 text-neutral-900 rounded-lg font-bold hover:bg-yellow-300 transition-colors disabled:opacity-50 ${isMobile ? 'py-3 text-sm' : 'px-6 py-3'}`}>
@@ -380,12 +546,109 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                   </div>
                 </div>
               )}
+
+              {activeTab === 'account' && (
+                <div>
+                  {!isMobile && <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Cuenta</h3>}
+
+                  {/* Información de la cuenta */}
+                  <div className={`bg-gray-100 dark:bg-neutral-800/50 rounded-xl border border-gray-200 dark:border-neutral-700 ${isMobile ? 'p-4 mb-4' : 'p-5 mb-6'}`}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Shield className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">Estado de la cuenta</p>
+                        <p className="text-sm text-green-500">Activa y verificada</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-500 dark:text-neutral-400">Creada</p>
+                        <p className="text-gray-900 dark:text-white font-medium">
+                          {new Date(user.created_at).toLocaleDateString('es-CO', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500 dark:text-neutral-400">Último acceso</p>
+                        <p className="text-gray-900 dark:text-white font-medium">
+                          {user.last_sign_in_at
+                            ? new Date(user.last_sign_in_at).toLocaleDateString('es-CO', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric'
+                              })
+                            : 'Ahora'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Zona de peligro */}
+                  <div className={`border-2 border-red-200 dark:border-red-500/30 rounded-xl overflow-hidden ${isMobile ? '' : ''}`}>
+                    <div className="bg-red-50 dark:bg-red-500/10 px-4 py-3 border-b border-red-200 dark:border-red-500/30">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                        <span className="font-semibold text-red-600 dark:text-red-400 text-sm">Zona de peligro</span>
+                      </div>
+                    </div>
+
+                    <div className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 dark:text-white mb-1">
+                            Eliminar cuenta permanentemente
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-neutral-400">
+                            {isMobile
+                              ? 'Se eliminarán todos tus datos. Esta acción no se puede deshacer.'
+                              : 'Una vez eliminada, todos tus datos, tareas, equipos y configuraciones serán borrados permanentemente. Esta acción no se puede deshacer.'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowDeleteModal(true)}
+                          className={`flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-all hover:shadow-lg hover:shadow-red-500/25 flex-shrink-0 ${
+                            isMobile ? 'px-3 py-2 text-sm' : 'px-4 py-2.5'
+                          }`}
+                        >
+                          <TrashIcon size={isMobile ? 16 : 18} />
+                          {!isMobile && <span>Eliminar</span>}
+                          <ChevronRight className={`${isMobile ? 'w-4 h-4' : 'w-4 h-4'}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info adicional */}
+                  <div className={`bg-amber-50 dark:bg-amber-400/10 border border-amber-200 dark:border-amber-400/30 rounded-xl ${isMobile ? 'mt-4 p-3' : 'mt-6 p-4'}`}>
+                    <p className={`text-amber-800 dark:text-amber-200 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                      💡 {isMobile
+                        ? 'Si solo quieres cerrar sesión, usa el botón en el menú de usuario.'
+                        : <><strong>Nota:</strong> Si solo deseas cerrar sesión temporalmente, puedes hacerlo desde el menú de usuario sin eliminar tu cuenta.</>}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
+
+      {/* Modal de eliminación de cuenta */}
+      {showDeleteModal && (
+        <DeleteAccountModal
+          user={user}
+          onClose={() => setShowDeleteModal(false)}
+          onDeleted={() => {
+            // Recargar la página para cerrar sesión
+            window.location.reload()
+          }}
+        />
+      )}
     </>
   )
 }

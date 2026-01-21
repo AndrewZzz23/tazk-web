@@ -255,26 +255,25 @@ function Dashboard() {
       const profileOnboardingKey = `tazk_profile_onboarding_${user.id}`
       const hasSeenProfileOnboarding = localStorage.getItem(profileOnboardingKey)
 
-      // Mostrar profile onboarding si no tiene nombre configurado y no lo ha visto
-      if (!profile?.full_name && !hasSeenProfileOnboarding) {
+      // Mostrar profile onboarding si es un usuario nuevo (no ha visto el onboarding)
+      if (!hasSeenProfileOnboarding) {
         setShowProfileOnboarding(true)
       }
 
-      // Verificar si el usuario tiene estados personales, si no, crear los por defecto
+      // Verificar si el usuario tiene estados personales activos, si no, crear los por defecto
       const { data: existingStatuses, error: statusError } = await supabase
         .from('task_statuses')
-        .select('id')
+        .select('id, name')
         .is('team_id', null)
         .eq('created_by', user.id)
-        .limit(1)
 
       if (statusError) {
         console.error('Error verificando estados:', statusError)
       }
 
-      const isNewUser = !existingStatuses || existingStatuses.length === 0
+      const hasStatuses = existingStatuses && existingStatuses.length > 0
 
-      if (isNewUser) {
+      if (!hasStatuses) {
         // Crear estados por defecto para tareas personales
         const defaultStatuses = [
           { name: 'Pendiente', color: '#6b7280', category: 'not_started', order_position: 1 },
@@ -285,16 +284,20 @@ function Dashboard() {
 
         // Insertar estados uno por uno para manejar duplicados
         for (const status of defaultStatuses) {
-          const { error: insertError } = await supabase.from('task_statuses').insert({
-            ...status,
-            team_id: null,
-            created_by: user.id,
-            is_active: true
-          })
+          try {
+            const { error: insertError } = await supabase.from('task_statuses').insert({
+              ...status,
+              team_id: null,
+              created_by: user.id,
+              is_active: true
+            })
 
-          // Ignorar error de duplicados (23505)
-          if (insertError && insertError.code !== '23505') {
-            console.error('Error creando estado por defecto:', insertError)
+            // Solo loguear errores que no sean de duplicados
+            if (insertError && !insertError.message?.toLowerCase().includes('duplicate') && !insertError.message?.toLowerCase().includes('conflict')) {
+              console.error('Error creando estado por defecto:', insertError)
+            }
+          } catch {
+            // Ignorar errores de conflicto silenciosamente
           }
         }
         console.log('Estados por defecto procesados para usuario nuevo')

@@ -300,7 +300,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm, 
 
                           {/* Acciones - solo para owner/admin o tareas personales */}
                           {(!teamId || userRole !== 'member') && (
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDeleteClick(task) }}
                                 className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all duration-200"
