@@ -20,8 +20,8 @@ import Notifications from './Notifications'
 import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
 import EditTask from './EditTask'
-import Onboarding from './components/Onboarding'
 import ProfileOnboarding from './components/ProfileOnboarding'
+import AppTour from './components/AppTour'
 import {
   PlusIcon,
   LogoutIcon,
@@ -80,6 +80,7 @@ function Dashboard() {
   const [notificationCount, setNotificationCount] = useState(0)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const userEmailRef = useRef<string | null>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
 
   // Modales
   const [showActivityLogs, setShowActivityLogs] = useState(false)
@@ -101,6 +102,30 @@ function Dashboard() {
 
   // Bloquear scroll del body cuando hay un bottom sheet abierto (móvil)
   useBodyScrollLock(isMobile && (showUserMenu || bottomSheetOpen))
+
+  // Cerrar menú de usuario al hacer clic fuera
+  useEffect(() => {
+    if (!showUserMenu || isMobile) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showUserMenu, isMobile])
+
+  // Detectar query param para abrir modal de email (después de OAuth callback)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('openEmailSettings') === 'true') {
+      setShowEmailSettings(true)
+      // Limpiar el query param de la URL
+      navigate('/', { replace: true })
+    }
+  }, [location.search, navigate])
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ show: true, message, type })
@@ -235,11 +260,11 @@ function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
 
-    // Cargar nombre del perfil
+    // Cargar perfil completo del usuario
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, has_completed_profile_onboarding, has_seen_tour_desktop, has_seen_tour_mobile')
         .eq('id', user.id)
         .single()
 
@@ -247,18 +272,15 @@ function Dashboard() {
         setProfileName(profile.full_name)
       }
 
-      // Verificar si el usuario ha visto el onboarding
-      const onboardingKey = `tazk_onboarding_${user.id}`
-      const hasSeenOnboarding = localStorage.getItem(onboardingKey)
-
-      // Verificar si el usuario ha completado el profile onboarding
-      const profileOnboardingKey = `tazk_profile_onboarding_${user.id}`
-      const hasSeenProfileOnboarding = localStorage.getItem(profileOnboardingKey)
-
-      // Mostrar profile onboarding si es un usuario nuevo (no ha visto el onboarding)
-      if (!hasSeenProfileOnboarding) {
+      // Mostrar profile onboarding solo si NO ha completado el onboarding (campo específico)
+      const hasCompletedProfile = profile?.has_completed_profile_onboarding === true
+      if (!hasCompletedProfile) {
         setShowProfileOnboarding(true)
       }
+
+      // Verificar tour según dispositivo (desde BD)
+      const tourFieldKey = isMobile ? 'has_seen_tour_mobile' : 'has_seen_tour_desktop'
+      const hasSeenTour = profile?.[tourFieldKey] === true
 
       // Verificar si el usuario tiene estados personales activos, si no, crear los por defecto
       const { data: existingStatuses, error: statusError } = await supabase
@@ -303,8 +325,8 @@ function Dashboard() {
         console.log('Estados por defecto procesados para usuario nuevo')
       }
 
-      // Mostrar onboarding si es nuevo usuario o no lo ha visto
-      if (!hasSeenOnboarding) {
+      // Mostrar tour solo si completó el perfil y no ha visto el tour en este dispositivo
+      if (hasCompletedProfile && !hasSeenTour) {
         setShowUserOnboarding(true)
       }
     }
@@ -508,7 +530,7 @@ function Dashboard() {
             </div>
 
             {/* Buscador centrado */}
-            <div className="flex-1 flex justify-center">
+            <div className="flex-1 flex justify-center" data-tour="search">
               <div className="relative w-full max-w-md">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-neutral-500">
                   <SearchIcon size={16} />
@@ -558,7 +580,7 @@ function Dashboard() {
             </div>
 
             {/* Perfil de usuario */}
-            <div className="flex-shrink-0 relative">
+            <div ref={userMenuRef} className="flex-shrink-0 relative" data-tour="user-menu">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white dark:hover:bg-neutral-800 transition-colors"
@@ -570,9 +592,7 @@ function Dashboard() {
 
               {/* Menu de usuario - Desktop */}
               {showUserMenu && !isMobile && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
                     {/* Info usuario */}
                     <div className="p-4 bg-gradient-to-br from-yellow-400/10 to-orange-500/10 dark:from-yellow-400/5 dark:to-orange-500/5">
                       <div className="flex items-center gap-3">
@@ -639,10 +659,8 @@ function Dashboard() {
                       </button>
                     </div>
                   </div>
-                </>
               )}
-
-              </div>
+            </div>
           </div>
         </header>
 
@@ -705,6 +723,7 @@ function Dashboard() {
       {/* FAB - Floating Action Button */}
       {canCreateTasks && !bottomSheetOpen && (
         <button
+          data-tour="create-task"
           onClick={() => setShowCreateTask(true)}
           className={`fixed bg-yellow-400 text-neutral-900 rounded-full shadow-xl hover:bg-yellow-300 hover:scale-105 active:scale-95 transition-all flex items-center justify-center z-40 ${
             isMobile
@@ -893,35 +912,37 @@ function Dashboard() {
         />
       )}
 
-      {/* Modal de confirmación de cierre de sesión */}
-      {/* Onboarding para usuarios nuevos */}
-      {showUserOnboarding && user && (
-        <Onboarding
-          type="user"
-          onComplete={() => {
-            localStorage.setItem(`tazk_onboarding_${user.id}`, 'true')
+      {/* Tour interactivo para usuarios nuevos */}
+      {showUserOnboarding && user && !showProfileOnboarding && (
+        <AppTour
+          onComplete={async () => {
+            // Guardar en BD según dispositivo
+            const updateField = isMobile ? 'has_seen_tour_mobile' : 'has_seen_tour_desktop'
+            await supabase
+              .from('profiles')
+              .update({ [updateField]: true })
+              .eq('id', user.id)
             setShowUserOnboarding(false)
           }}
-          onSkip={() => {
-            localStorage.setItem(`tazk_onboarding_${user.id}`, 'true')
+          onSkip={async () => {
+            const updateField = isMobile ? 'has_seen_tour_mobile' : 'has_seen_tour_desktop'
+            await supabase
+              .from('profiles')
+              .update({ [updateField]: true })
+              .eq('id', user.id)
             setShowUserOnboarding(false)
           }}
         />
       )}
 
-      {/* Profile Onboarding para nuevos usuarios */}
+      {/* Profile Onboarding para nuevos usuarios (obligatorio) */}
       {showProfileOnboarding && user && (
         <ProfileOnboarding
           user={user}
           onComplete={() => {
-            localStorage.setItem(`tazk_profile_onboarding_${user.id}`, 'true')
             setShowProfileOnboarding(false)
-            // Recargar datos del usuario para obtener el nombre actualizado
+            // Recargar datos del usuario - el tour se mostrará automáticamente si no lo ha visto
             loadUserData()
-          }}
-          onSkip={() => {
-            localStorage.setItem(`tazk_profile_onboarding_${user.id}`, 'true')
-            setShowProfileOnboarding(false)
           }}
         />
       )}

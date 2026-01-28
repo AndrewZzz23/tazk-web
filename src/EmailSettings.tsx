@@ -2,8 +2,27 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
 import { EmailSettings as EmailSettingsType, EmailTemplate, EmailLog } from './types/database.types'
 import { XIcon, LoadingZapIcon, MailIcon } from './components/iu/AnimatedIcons'
-import { Settings, FileText, History, Send, CheckCircle, Clock, AlertCircle, User, Zap, Bell, UserCheck, RefreshCw, Eye, Edit3, Copy, Check, Mail } from 'lucide-react'
+import { Settings, FileText, History, Send, CheckCircle, Clock, AlertCircle, Zap, Bell, UserCheck, RefreshCw, Eye, Edit3, Copy, Check, Mail, Link, Unlink } from 'lucide-react'
 import Toast from './Toast'
+
+// Iconos de proveedores
+const GoogleIcon = () => (
+  <svg className="w-5 h-5" viewBox="0 0 24 24">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+  </svg>
+)
+
+const MicrosoftIcon = () => (
+  <svg className="w-5 h-5" viewBox="0 0 24 24">
+    <path fill="#F25022" d="M1 1h10v10H1z"/>
+    <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+    <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+    <path fill="#FFB900" d="M13 13h10v10H13z"/>
+  </svg>
+)
 
 interface EmailSettingsProps {
   currentUserId: string
@@ -61,6 +80,10 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
   const [testEmail, setTestEmail] = useState('')
   const [sendingTest, setSendingTest] = useState(false)
 
+  // OAuth email state
+  const [connectedEmail, setConnectedEmail] = useState<{ provider: string; email: string } | null>(null)
+  const [connectingProvider, setConnectingProvider] = useState<string | null>(null)
+
   // Copy feedback
   const [copiedVar, setCopiedVar] = useState<string | null>(null)
 
@@ -76,6 +99,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     setTimeout(() => setIsVisible(true), 10)
     loadSettings()
     loadTemplates()
+    loadConnectedEmail()
   }, [])
 
   useEffect(() => {
@@ -131,6 +155,67 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     }
 
     setLoading(false)
+  }
+
+  const loadConnectedEmail = async () => {
+    // Verificar si hay un OAuth recién conectado en localStorage
+    const oauthConnected = localStorage.getItem('oauth_connected')
+    if (oauthConnected) {
+      try {
+        const { provider, email } = JSON.parse(oauthConnected)
+        setConnectedEmail({ provider, email })
+        localStorage.removeItem('oauth_connected')
+        showToast(`Correo ${email} conectado`, 'success')
+        return
+      } catch {
+        localStorage.removeItem('oauth_connected')
+      }
+    }
+
+    const { data } = await supabase
+      .from('email_oauth_tokens')
+      .select('provider, email')
+      .eq('user_id', currentUserId)
+      .maybeSingle()
+
+    if (data) {
+      setConnectedEmail({ provider: data.provider, email: data.email })
+    }
+  }
+
+  const connectEmail = async (provider: 'google' | 'microsoft') => {
+    setConnectingProvider(provider)
+
+    const baseUrl = window.location.origin
+    const redirectUri = `${baseUrl}/auth/${provider}/callback`
+
+    if (provider === 'google') {
+      const clientId = '123664543208-gkta467kt0ap5tpbresletpp7jojvis5.apps.googleusercontent.com'
+      const scopes = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email'
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&access_type=offline&prompt=consent`
+      window.location.href = authUrl
+    } else {
+      const clientId = 'd433a89f-67d6-4430-9a9b-b6b174453acb'
+      const scopes = 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access'
+      const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes)}&response_mode=query`
+      window.location.href = authUrl
+    }
+  }
+
+  const disconnectEmail = async () => {
+    try {
+      const { error } = await supabase
+        .from('email_oauth_tokens')
+        .delete()
+        .eq('user_id', currentUserId)
+
+      if (error) throw error
+
+      setConnectedEmail(null)
+      showToast('Correo desconectado', 'success')
+    } catch (err: any) {
+      showToast(err.message || 'Error al desconectar', 'error')
+    }
   }
 
   const loadTemplates = async () => {
@@ -506,26 +591,80 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                       </div>
                     </div>
 
-                    {/* From Name */}
+                    {/* Conectar correo OAuth */}
                     <div className="bg-gray-50 dark:bg-neutral-800/50 rounded-xl p-5 border border-gray-100 dark:border-neutral-800">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
-                          <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
+                          <Link className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                         </div>
-                        <label className="text-sm font-medium text-gray-900 dark:text-white">
-                          Nombre del remitente
-                        </label>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-900 dark:text-white">Conectar tu correo</h3>
+                          <p className="text-xs text-gray-500 dark:text-neutral-400">
+                            Los emails se enviarán desde tu cuenta personal
+                          </p>
+                        </div>
                       </div>
-                      <input
-                        type="text"
-                        value={fromName}
-                        onChange={(e) => setFromName(e.target.value)}
-                        placeholder="Tazk"
-                        className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition-all"
-                      />
-                      <p className="text-xs text-gray-400 dark:text-neutral-500 mt-2">
-                        Este nombre aparecerá como remitente en los correos
-                      </p>
+
+                      {connectedEmail ? (
+                        <div className="flex items-center justify-between p-4 bg-white dark:bg-neutral-800 rounded-xl border border-gray-200 dark:border-neutral-700">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center">
+                              {connectedEmail.provider === 'google' ? <GoogleIcon /> : <MicrosoftIcon />}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{connectedEmail.email}</p>
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Conectado con {connectedEmail.provider === 'google' ? 'Gmail' : 'Outlook'}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={disconnectEmail}
+                            className="flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium"
+                          >
+                            <Unlink className="w-4 h-4" />
+                            Desconectar
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <button
+                            onClick={() => connectEmail('google')}
+                            disabled={connectingProvider !== null}
+                            className="flex items-center justify-center gap-3 p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl hover:border-gray-300 dark:hover:border-neutral-600 hover:shadow-md transition-all disabled:opacity-50"
+                          >
+                            {connectingProvider === 'google' ? (
+                              <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                            ) : (
+                              <GoogleIcon />
+                            )}
+                            <span className="font-medium text-gray-700 dark:text-neutral-300">
+                              {connectingProvider === 'google' ? 'Conectando...' : 'Gmail'}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => connectEmail('microsoft')}
+                            disabled={connectingProvider !== null}
+                            className="flex items-center justify-center gap-3 p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl hover:border-gray-300 dark:hover:border-neutral-600 hover:shadow-md transition-all disabled:opacity-50"
+                          >
+                            {connectingProvider === 'microsoft' ? (
+                              <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                            ) : (
+                              <MicrosoftIcon />
+                            )}
+                            <span className="font-medium text-gray-700 dark:text-neutral-300">
+                              {connectingProvider === 'microsoft' ? 'Conectando...' : 'Outlook'}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+
+                      {!connectedEmail && (
+                        <p className="text-xs text-gray-400 dark:text-neutral-500 mt-3 text-center">
+                          Al conectar, autorizas a Tazk a enviar correos en tu nombre
+                        </p>
+                      )}
                     </div>
 
                     {/* Triggers */}
@@ -604,8 +743,9 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                         />
                         <button
                           onClick={sendTestEmail}
-                          disabled={sendingTest || !testEmail.trim()}
-                          className="px-5 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center gap-2"
+                          disabled={sendingTest || !testEmail.trim() || !connectedEmail}
+                          title={!connectedEmail ? 'Conecta una cuenta de correo primero' : ''}
+                          className="px-5 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all flex items-center gap-2"
                         >
                           {sendingTest ? (
                             <RefreshCw className="w-4 h-4 animate-spin" />

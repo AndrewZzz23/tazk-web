@@ -696,6 +696,7 @@ function Sidebar({
   return (
     <>
       <div
+        data-tour="sidebar"
         className={`fixed left-0 top-0 h-full bg-neutral-900 border-r border-neutral-800 z-40 transition-all duration-300 flex flex-col ${
           isCollapsed ? 'w-16' : 'w-64'
         }`}
@@ -708,12 +709,13 @@ function Sidebar({
                 onClick={onToggleCollapse}
                 className="w-full flex items-center justify-center text-yellow-400 hover:text-yellow-300 transition-colors"
                 title="Expandir sidebar"
+                data-tour="logo"
               >
                 <ZapIcon size={32} />
               </button>
             ) : (
               <>
-                <div className="flex items-center text-yellow-400">
+                <div className="flex items-center text-yellow-400" data-tour="logo">
                   <ZapIcon size={32} />
                   <span className="text-xl font-bold">Tazk</span>
                 </div>
@@ -915,7 +917,7 @@ function Sidebar({
         </div>
 
         {/* Notificaciones */}
-        <div className="p-2 border-t border-neutral-800">
+        <div className="p-2 border-t border-neutral-800" data-tour="notifications">
           <button
             onClick={onShowNotifications}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all ${
@@ -942,7 +944,7 @@ function Sidebar({
               Vistas
             </div>
           )}
-          <nav className="space-y-1">
+          <nav className="space-y-1" data-tour="view-modes">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -963,7 +965,7 @@ function Sidebar({
           </nav>
 
           {/* Herramientas */}
-          <div className="mt-4 p-2 border-t border-neutral-800">
+          <div className="mt-4 p-2 border-t border-neutral-800" data-tour="tools">
             {!isCollapsed && (
               <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-3 mb-2">
                 Herramientas

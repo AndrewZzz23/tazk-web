@@ -8,7 +8,6 @@ import { useTheme } from '../ThemeContext'
 interface ProfileOnboardingProps {
   user: SupabaseUser
   onComplete: () => void
-  onSkip?: () => void
 }
 
 type ThemeOption = 'dark' | 'light'
@@ -129,7 +128,7 @@ const countriesData: Record<string, { name: string; code: string; cities: string
 
 const countries = Object.values(countriesData).sort((a, b) => a.name.localeCompare(b.name))
 
-function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps) {
+function ProfileOnboarding({ user, onComplete }: ProfileOnboardingProps) {
   const { setTheme: applyTheme } = useTheme()
   const [currentStep, setCurrentStep] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
@@ -177,7 +176,7 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
     // Aplicar el tema seleccionado al contexto
     applyTheme(theme)
 
-    // Guardar perfil
+    // Guardar perfil y marcar onboarding como completado
     const { error } = await supabase
       .from('profiles')
       .update({
@@ -189,6 +188,7 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
         notifications_enabled: notificationsEnabled,
         notify_on_assign: notifyOnAssign,
         notify_on_due: notifyOnDue,
+        has_completed_profile_onboarding: true,
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id)
@@ -202,10 +202,6 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
     setTimeout(onComplete, 300)
   }
 
-  const handleSkip = () => {
-    setIsVisible(false)
-    setTimeout(onSkip || onComplete, 300)
-  }
 
   const handleCountrySelect = (code: string) => {
     setCountryCode(code)
@@ -263,7 +259,7 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
       content: (
         <div className="space-y-4">
           <p className="text-neutral-400 text-center text-sm mb-4">
-            Esta información es opcional pero ayuda a personalizar tu experiencia
+            Completa tu información para personalizar tu experiencia
           </p>
 
           <motion.div
@@ -273,7 +269,7 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
           >
             <label className="block text-sm font-medium text-neutral-300 mb-2">
               <User className="inline w-4 h-4 mr-1.5 text-yellow-400" />
-              Nombre completo
+              Nombre completo <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -282,8 +278,13 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Tu nombre"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400"
+              className={`w-full bg-neutral-800 border rounded-xl px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 ${
+                !fullName.trim() ? 'border-neutral-700' : 'border-green-500/50'
+              }`}
             />
+            {!fullName.trim() && (
+              <p className="text-neutral-500 text-xs mt-1">Este campo es obligatorio</p>
+            )}
           </motion.div>
 
           <motion.div
@@ -758,18 +759,13 @@ function ProfileOnboarding({ user, onComplete, onSkip }: ProfileOnboardingProps)
               Anterior
             </button>
           ) : (
-            <button
-              onClick={handleSkip}
-              className="px-4 py-2.5 text-neutral-500 hover:text-neutral-300 transition-colors text-sm"
-            >
-              Omitir
-            </button>
+            <div /> // Placeholder para mantener el layout
           )}
 
           <button
             onClick={nextStep}
-            disabled={saving}
-            className="flex-1 max-w-[200px] px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl font-semibold hover:shadow-lg hover:shadow-yellow-400/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            disabled={saving || (steps[currentStep].id === 'personal' && !fullName.trim())}
+            className="flex-1 max-w-[200px] px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl font-semibold hover:shadow-lg hover:shadow-yellow-400/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
               <div className="w-5 h-5 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />

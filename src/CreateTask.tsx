@@ -7,7 +7,6 @@ import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { TaskStatus, Profile } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { logTaskCreated } from './lib/activityLogger'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
 import { Calendar, Clock, User, Tag, Mail, FileText, Type } from 'lucide-react'
 
@@ -158,8 +157,6 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
       showToast?.('Error al crear tarea', 'error')
     } else {
       showToast?.('Tarea creada', 'success')
-      // Log activity
-      logTaskCreated(data.id, title.trim(), teamId, currentUserId, userEmail)
 
       // Recopilar emails a notificar
       const emailsToNotify = [...notifyEmails]

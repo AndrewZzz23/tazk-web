@@ -4,6 +4,7 @@ import { Session } from '@supabase/supabase-js'
 import { supabase } from './supabaseClient'
 import Login from './Login'
 import Dashboard from './Dashboard'
+import OAuthCallback from './OAuthCallback'
 import './index.css'
 import { ThemeProvider } from './ThemeContext'
 
@@ -36,6 +37,7 @@ function App() {
     <ThemeProvider>
       <Routes>
         <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/auth/:provider/callback" element={session ? <OAuthCallback /> : <Navigate to="/login" replace />} />
         <Route path="/task/:taskId" element={session ? <Dashboard /> : <Navigate to="/login" replace />} />
         <Route path="/*" element={session ? <Dashboard /> : <Navigate to="/login" replace />} />
       </Routes>
