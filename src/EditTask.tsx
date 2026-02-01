@@ -11,6 +11,7 @@ import TaskAttachments from './TaskAttachments'
 import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
+import { sendTaskAssignedEmail, sendTaskCompletedEmail } from './lib/emailNotifications'
 import { Calendar, Clock, User, Tag, FileText, Type } from 'lucide-react'
 
 interface EditTaskProps {
@@ -141,7 +142,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
         logTaskUpdated(task.id, title.trim(), task.team_id, currentUserId, userEmail)
       }
 
-      // Log assignment changes and send push notification
+      // Log assignment changes and send notifications
       if (task.assigned_to !== assignedTo) {
         if (assignedTo) {
           const assignedUser = users.find(u => u.id === assignedTo)
@@ -149,9 +150,54 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
           // Send push notification to assigned user (don't notify yourself)
           if (assignedTo !== currentUserId) {
             notifyTaskAssigned(assignedTo, title.trim(), userEmail || 'Alguien', task.id)
+            // Send email notification
+            if (assignedUser?.email) {
+              const dueDateStr = dueDate
+                ? dueDate.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : undefined
+              sendTaskAssignedEmail(currentUserId, task.team_id, [assignedUser.email], {
+                taskId: task.id,
+                taskTitle: title.trim(),
+                taskDescription: description.trim() || undefined,
+                statusName: newStatus?.name,
+                assignedToName: assignedUser.full_name || assignedUser.email,
+                dueDate: dueDateStr,
+                createdByName: userEmail
+              })
+            }
           }
         } else if (task.assigned_to) {
           logTaskUnassigned(task.id, title.trim(), task.team_id, currentUserId, userEmail)
+        }
+      }
+
+      // Check if task was completed (status changed to a 'completed' category)
+      if (task.status_id !== statusId && newStatus?.category === 'completed' && oldStatus?.category !== 'completed') {
+        // Get emails to notify - task creator and/or assigned user
+        const emailsToNotify: string[] = []
+
+        // Notify the task creator if different from current user
+        if (task.created_by_user?.email && task.created_by !== currentUserId) {
+          emailsToNotify.push(task.created_by_user.email)
+        }
+
+        // Notify the assigned user if different from current user and creator
+        if (task.assigned_to && task.assigned_to !== currentUserId) {
+          const assignedUser = users.find(u => u.id === task.assigned_to)
+          if (assignedUser?.email && !emailsToNotify.includes(assignedUser.email)) {
+            emailsToNotify.push(assignedUser.email)
+          }
+        }
+
+        if (emailsToNotify.length > 0) {
+          sendTaskCompletedEmail(currentUserId, task.team_id, emailsToNotify, {
+            taskId: task.id,
+            taskTitle: title.trim(),
+            taskDescription: description.trim() || undefined,
+            statusName: newStatus.name,
+            createdByName: userEmail,
+            completedDate: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+          })
         }
       }
 

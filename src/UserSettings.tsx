@@ -272,7 +272,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                         : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
                     }`}
                   >
-                    <span>{tab.icon}</span>
+                    <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
                     <span className="text-sm font-medium">{tab.label}</span>
                   </button>
                 ))}

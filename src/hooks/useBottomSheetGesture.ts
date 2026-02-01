@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
-interface UseBottomSheetGestureOptions {
+export interface UseBottomSheetGestureOptions {
   onClose: () => void
   threshold?: number // pixels to drag before closing (default: 100)
+  disabled?: boolean // disable gesture handling
 }
 
 interface UseBottomSheetGestureReturn {
@@ -19,12 +20,13 @@ interface UseBottomSheetGestureReturn {
     onTouchEnd: () => void
   }
   // Ref para el contenedor scrollable (opcional)
-  scrollRef: React.RefObject<HTMLDivElement>
+  scrollRef: React.RefObject<HTMLDivElement | null>
 }
 
 export function useBottomSheetGesture({
   onClose,
-  threshold = 100
+  threshold = 100,
+  disabled = false
 }: UseBottomSheetGestureOptions): UseBottomSheetGestureReturn {
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -49,8 +51,8 @@ export function useBottomSheetGesture({
   }, [])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Si hay un datepicker abierto, no hacer nada
-    if (isDatePickerOpen) {
+    // Si está deshabilitado o hay un datepicker abierto, no hacer nada
+    if (disabled || isDatePickerOpen) {
       setCanDrag(false)
       setIsDragging(false)
       return

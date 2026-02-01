@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
+import { RealtimeChannel } from '@supabase/supabase-js'
 
 type PostgresChangeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*'
 
@@ -12,8 +12,13 @@ interface SubscriptionConfig {
 }
 
 // Payload extendido con información de la tabla
-interface ExtendedPayload extends RealtimePostgresChangesPayload<Record<string, unknown>> {
+export interface ExtendedPayload {
   table: string
+  schema: string
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+  new: Record<string, unknown>
+  old: Record<string, unknown>
+  commit_timestamp: string
 }
 
 interface UseRealtimeSubscriptionOptions {
@@ -57,7 +62,13 @@ export function useRealtimeSubscription({
     subscriptions.forEach((config) => {
       const { table, schema = 'public', event = '*', filter } = config
 
-      channel = channel.on(
+      channel = (channel as unknown as {
+        on: (
+          event: string,
+          opts: { event: string; schema: string; table: string; filter?: string },
+          callback: (payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown>; commit_timestamp: string }) => void
+        ) => typeof channel
+      }).on(
         'postgres_changes',
         {
           event,
@@ -67,10 +78,12 @@ export function useRealtimeSubscription({
         },
         (payload) => {
           // Agregar la tabla al payload para identificar el origen
-          const extendedPayload = {
+          const extendedPayload: ExtendedPayload = {
             ...payload,
-            table
-          } as ExtendedPayload
+            table,
+            schema,
+            eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
+          }
           onchange(extendedPayload)
         }
       )

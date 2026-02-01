@@ -11,7 +11,7 @@ import { TrendingUp, TrendingDown, Clock, AlertTriangle, Calendar, Target, Zap, 
 interface MetricsProps {
   currentUserId: string
   teamId: string | null
-  onClose: () => void
+  onClose?: () => void
 }
 
 // Categorías con colores
@@ -24,14 +24,16 @@ const CATEGORY_COLORS = {
 
 function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
   const isMobile = useIsMobile()
+  const isViewMode = !onClose // Si no hay onClose, es modo vista (no modal)
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<'resumen' | 'estados' | 'tiempo' | 'equipo'>('resumen')
 
-  // ESC para cerrar
+  // ESC para cerrar (solo si es modal)
   useEffect(() => {
+    if (!onClose) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -84,17 +86,18 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
   }
 
   const handleClose = () => {
+    if (!onClose) return
     setIsVisible(false)
     setTimeout(onClose, 200)
   }
 
-  // Swipe to close gesture
+  // Swipe to close gesture (solo si es modal)
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
 
-  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil)
-  useBodyScrollLock(isMobile && isVisible)
+  // Bloquear scroll del body cuando el bottom sheet está abierto (móvil, solo en modal)
+  useBodyScrollLock(isMobile && isVisible && !isViewMode)
 
   // Helper para obtener la categoría de una tarea (manejando estados nulos/eliminados)
   const getTaskCategory = (task: Task): 'not_started' | 'in_progress' | 'completed' | 'unknown' => {
@@ -203,8 +206,6 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
   // Tareas sin asignar
   const unassignedTasks = tasks.filter(t => !t.assigned_to).length
 
-  // Prioridad alta
-  const highPriorityTasks = tasks.filter(t => t.priority === 'high' && getTaskCategory(t) !== 'completed').length
 
   // Contenido de tabs para móvil
   const renderMobileContent = () => {
@@ -295,9 +296,20 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             </div>
 
             {/* Alertas */}
-            {(todayTasks > 0 || upcomingTasks > 0 || highPriorityTasks > 0 || unknownStatusTasks > 0) && (
+            {(todayTasks > 0 || upcomingTasks > 0 || overdueTasks > 0 || unknownStatusTasks > 0) && (
               <div className="space-y-2">
                 <h4 className="text-white font-medium text-sm px-1">Atención</h4>
+                {overdueTasks > 0 && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-medium text-sm">{overdueTasks} tarea{overdueTasks > 1 ? 's' : ''} vencida{overdueTasks > 1 ? 's' : ''}</p>
+                      <p className="text-red-400/70 text-xs">Requieren atención</p>
+                    </div>
+                  </div>
+                )}
                 {todayTasks > 0 && (
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
@@ -317,17 +329,6 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                     <div className="flex-1">
                       <p className="text-white font-medium text-sm">{upcomingTasks} próximas a vencer</p>
                       <p className="text-yellow-400/70 text-xs">En los próximos 7 días</p>
-                    </div>
-                  </div>
-                )}
-                {highPriorityTasks > 0 && (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                      <Target className="w-5 h-5 text-red-400" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-white font-medium text-sm">{highPriorityTasks} de alta prioridad</p>
-                      <p className="text-red-400/70 text-xs">Pendientes de completar</p>
                     </div>
                   </div>
                 )}
@@ -518,6 +519,164 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
           </div>
         )
     }
+  }
+
+  // View mode (no modal wrapper)
+  if (isViewMode) {
+    return (
+      <div className={`${isMobile ? 'pb-24' : ''}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="text-yellow-400">
+              <ChartIcon size={28} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Métricas</h2>
+              <p className="text-sm text-gray-500 dark:text-neutral-400">{totalTasks} tareas · {completionRate}% completado</p>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <LoadingZapIcon size={48} />
+          </div>
+        ) : totalTasks === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
+              <ClipboardIcon size={40} className="text-neutral-400 dark:text-neutral-600" />
+            </div>
+            <p className="text-neutral-500 dark:text-neutral-400 text-center">No hay tareas para mostrar métricas</p>
+          </div>
+        ) : isMobile ? (
+          <>
+            {/* Tabs para móvil */}
+            <div className="flex gap-2 mb-4 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+              {[
+                { id: 'resumen' as const, label: 'Resumen', icon: <Target className="w-4 h-4" /> },
+                { id: 'estados' as const, label: 'Estados', icon: <ClipboardIcon size={16} /> },
+                { id: 'tiempo' as const, label: 'Tiempo', icon: <BarChart3 className="w-4 h-4" /> },
+                ...(teamId ? [{ id: 'equipo' as const, label: 'Equipo', icon: <UsersIcon size={16} /> }] : [])
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-yellow-400 text-neutral-900'
+                      : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                  }`}
+                >
+                  {tab.icon}
+                  <span className="text-sm font-medium">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+            {renderMobileContent()}
+          </>
+        ) : (
+          <>
+            {/* Cards de resumen - Desktop */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-8">
+              <div className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-4 border border-gray-300 dark:border-neutral-600">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-gray-400 dark:text-neutral-500"><ListIcon size={18} /></div>
+                </div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalTasks}</div>
+                <div className="text-gray-500 dark:text-neutral-400 text-xs mt-1">Total</div>
+              </div>
+              <div className="bg-neutral-500/10 rounded-xl p-4 border border-neutral-500/30">
+                <div className="flex items-center justify-between mb-2">
+                  <Clock className="w-[18px] h-[18px] text-gray-400" />
+                </div>
+                <div className="text-2xl font-bold text-gray-600 dark:text-neutral-300">{notStartedTasks}</div>
+                <div className="text-gray-500 dark:text-neutral-400 text-xs mt-1">Sin iniciar</div>
+              </div>
+              <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/30">
+                <div className="flex items-center justify-between mb-2">
+                  <Zap className="w-[18px] h-[18px] text-blue-400" />
+                </div>
+                <div className="text-2xl font-bold text-blue-400">{inProgressTasks}</div>
+                <div className="text-blue-400/70 text-xs mt-1">En progreso</div>
+              </div>
+              <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/30">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-emerald-400"><CheckIcon size={18} /></div>
+                </div>
+                <div className="text-2xl font-bold text-emerald-400">{completedTasks}</div>
+                <div className="text-emerald-400/70 text-xs mt-1">Completadas</div>
+              </div>
+              <div className={`rounded-xl p-4 border ${upcomingTasks > 0 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-gray-100 dark:bg-neutral-700/50 border-gray-300 dark:border-neutral-600'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <Calendar className={`w-[18px] h-[18px] ${upcomingTasks > 0 ? 'text-amber-400' : 'text-gray-400 dark:text-neutral-500'}`} />
+                </div>
+                <div className={`text-2xl font-bold ${upcomingTasks > 0 ? 'text-amber-400' : 'text-gray-500 dark:text-neutral-400'}`}>{upcomingTasks}</div>
+                <div className={`text-xs mt-1 ${upcomingTasks > 0 ? 'text-amber-400/70' : 'text-gray-500 dark:text-neutral-400'}`}>Próx. 7 días</div>
+              </div>
+              <div className={`rounded-xl p-4 border ${overdueTasks > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-gray-100 dark:bg-neutral-700/50 border-gray-300 dark:border-neutral-600'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <AlertTriangle className={`w-[18px] h-[18px] ${overdueTasks > 0 ? 'text-red-400' : 'text-gray-400 dark:text-neutral-500'}`} />
+                </div>
+                <div className={`text-2xl font-bold ${overdueTasks > 0 ? 'text-red-400' : 'text-gray-500 dark:text-neutral-400'}`}>{overdueTasks}</div>
+                <div className={`text-xs mt-1 ${overdueTasks > 0 ? 'text-red-400/70' : 'text-gray-500 dark:text-neutral-400'}`}>Vencidas</div>
+              </div>
+            </div>
+
+            {/* Gráficos - Desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Distribución por estado */}
+              <div className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-5 border border-gray-300 dark:border-neutral-600">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Distribución por estado</h3>
+                {statusData.length > 0 ? (
+                  <div className="flex items-center gap-6">
+                    <div className="w-32 h-32">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={statusData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} dataKey="value" strokeWidth={0}>
+                            {statusData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {statusData.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="text-sm text-gray-600 dark:text-neutral-400 truncate max-w-[120px]">{item.name}</span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 dark:text-neutral-400 text-sm">Sin datos</p>
+                )}
+              </div>
+
+              {/* Tendencia semanal */}
+              <div className="bg-gray-100 dark:bg-neutral-700/50 rounded-xl p-5 border border-gray-300 dark:border-neutral-600">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Tareas por semana</h3>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeksData}>
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} width={30} />
+                      <Tooltip contentStyle={{ backgroundColor: '#262626', border: 'none', borderRadius: '8px', color: '#fff' }} />
+                      <Bar dataKey="tareas" fill="#facc15" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    )
   }
 
   // Mobile: Bottom Sheet

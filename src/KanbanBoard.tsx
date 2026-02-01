@@ -14,6 +14,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { Calendar, Columns3, LayoutGrid } from 'lucide-react'
 import { logTaskStatusChanged } from './lib/activityLogger'
+import { sendTaskCompletedEmail } from './lib/emailNotifications'
 
 interface KanbanBoardProps {
   currentUserId: string
@@ -276,6 +277,35 @@ function KanbanBoard({ currentUserId, teamId, userEmail, searchTerm, onOpenTask 
       const newStatus = statuses.find((s) => s.id === newStatusId)
       if (oldStatus && newStatus) {
         logTaskStatusChanged(taskId, task.title, teamId, currentUserId, oldStatus.name, newStatus.name, userEmail)
+
+        // Send email notification if task was completed
+        if (newStatus.category === 'completed' && oldStatus.category !== 'completed') {
+          const emailsToNotify: string[] = []
+
+          // Notify the task creator if different from current user
+          if (task.created_by_user?.email && task.created_by !== currentUserId) {
+            emailsToNotify.push(task.created_by_user.email)
+          }
+
+          // Notify the assigned user if different from current user and creator
+          if (task.assigned_to && task.assigned_to !== currentUserId) {
+            const assignedEmail = task.assigned_user?.email
+            if (assignedEmail && !emailsToNotify.includes(assignedEmail)) {
+              emailsToNotify.push(assignedEmail)
+            }
+          }
+
+          if (emailsToNotify.length > 0) {
+            sendTaskCompletedEmail(currentUserId, teamId, emailsToNotify, {
+              taskId: task.id,
+              taskTitle: task.title,
+              taskDescription: task.description || undefined,
+              statusName: newStatus.name,
+              createdByName: userEmail,
+              completedDate: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            })
+          }
+        }
       }
     }
   }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
-import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
+import { useRealtimeSubscription, ExtendedPayload } from './hooks/useRealtimeSubscription'
 import { useTheme } from './ThemeContext'
 import { Team, UserRole } from './types/database.types'
 import CreateTeam from './CreateTeam'
@@ -18,7 +18,8 @@ import {
   BellIcon,
   PanelLeftCloseIcon,
   MailIcon,
-  SettingsIcon
+  SettingsIcon,
+  RepeatIcon
 } from './components/iu/AnimatedIcons';
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
@@ -36,13 +37,11 @@ interface SidebarProps {
   onTeamChange: (teamId: string | null, role: UserRole | null, teamName?: string) => void
   notificationCount: number
   onShowNotifications: () => void
-  onShowMetrics: () => void
   onShowActivityLogs: () => void
   onShowStatuses: () => void
   onLogout: () => void
   isCollapsed: boolean
   onToggleCollapse: () => void
-  onShowEmails: () => void
   isMobile?: boolean
   onBottomSheetChange?: (isOpen: boolean) => void
   showFab?: boolean
@@ -55,12 +54,10 @@ function Sidebar({
   onTeamChange,
   notificationCount,
   onShowNotifications,
-  onShowMetrics,
   onShowActivityLogs,
   onShowStatuses,
   isCollapsed,
   onToggleCollapse,
-  onShowEmails,
   isMobile = false,
   onBottomSheetChange,
   showFab = true
@@ -76,18 +73,18 @@ function Sidebar({
   const [showInviteMember, setShowInviteMember] = useState(false)
   const [showTeamMembers, setShowTeamMembers] = useState(false)
   const [showTeamSettings, setShowTeamSettings] = useState(false)
-  const [showViewsMenu, setShowViewsMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showViewsMenu, setShowViewsMenu] = useState(false)
   const [showTeamOnboarding, setShowTeamOnboarding] = useState(false)
   const [newTeamName, setNewTeamName] = useState<string | null>(null)
 
   // Swipe to close gestures para bottom sheets móviles
-  const viewsGesture = useBottomSheetGesture({ onClose: () => setShowViewsMenu(false) })
   const teamGesture = useBottomSheetGesture({ onClose: () => setShowTeamMenu(false) })
   const moreGesture = useBottomSheetGesture({ onClose: () => setShowMoreMenu(false) })
+  const viewsGesture = useBottomSheetGesture({ onClose: () => setShowViewsMenu(false) })
 
   // Bloquear scroll del body cuando hay un bottom sheet abierto
-  const isAnyBottomSheetOpen = showViewsMenu || showTeamMenu || showMoreMenu
+  const isAnyBottomSheetOpen = showTeamMenu || showMoreMenu || showViewsMenu
   useBodyScrollLock(isMobile && isAnyBottomSheetOpen)
 
   // Notificar al Dashboard cuando hay un bottom sheet abierto (solo móvil)
@@ -143,7 +140,7 @@ function Sidebar({
       { table: 'team_members', filter: `user_id=eq.${currentUserId}` },
       { table: 'teams' } // Para detectar cambios en nombre/color del equipo o eliminación
     ],
-    onchange: useCallback((payload) => {
+    onchange: useCallback((payload: ExtendedPayload) => {
       // Si se eliminó un equipo
       if (payload.eventType === 'DELETE' && payload.table === 'teams') {
         const deletedTeamId = payload.old?.id
@@ -206,21 +203,29 @@ function Sidebar({
     }
   }
 
-  const navItems = [
-    { id: 'list', icon: <ListIcon size={20} />, label: 'Lista' },
-    { id: 'kanban', icon: <KanbanIcon size={20} />, label: 'Kanban' },
-    { id: 'calendar', icon: <CalendarIcon size={20} />, label: 'Calendario' },
+  // Vistas principales (solo las 3 originales)
+  const viewItems = [
+    { id: 'list', icon: <ListIcon size={20} />, label: 'Lista', desc: 'Ver tareas en lista' },
+    { id: 'kanban', icon: <KanbanIcon size={20} />, label: 'Kanban', desc: 'Organizar por estados' },
+    { id: 'calendar', icon: <CalendarIcon size={20} />, label: 'Calendario', desc: 'Ver por fechas' },
   ]
 
-  // Filtrar herramientas según el rol en el equipo
-  // Owner: todo, Admin: métricas y actividad, Member: métricas y actividad
+  // Herramientas y configuración (modales)
   const toolItems = [
-    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', onClick: onShowMetrics },
     { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', onClick: onShowActivityLogs },
-    // Estados y Correos solo para owner (o si no hay equipo seleccionado = tareas personales)
+    // Estados solo para owner (o si no hay equipo seleccionado = tareas personales)
     ...(selectedRole === 'owner' || !selectedTeamId ? [
       { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', onClick: onShowStatuses },
-      { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos', onClick: onShowEmails },
+    ] : []),
+  ]
+
+  // Herramientas que son vistas (no modales)
+  const toolViewItems = [
+    { id: 'routines', icon: <RepeatIcon size={20} />, label: 'Rutinas' },
+    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas' },
+    // Correos solo para owner (o si no hay equipo seleccionado = tareas personales)
+    ...(selectedRole === 'owner' || !selectedTeamId ? [
+      { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos' },
     ] : []),
   ]
 
@@ -231,6 +236,7 @@ function Sidebar({
         {/* Liquid Glass Bottom Navigation Bar - iOS 26 Style */}
         <div className={`fixed bottom-4 left-4 z-40 safe-area-bottom ${showFab ? 'right-20' : 'right-4'}`}>
           <div
+            data-tour-mobile="nav-bar"
             className="relative flex items-center justify-around px-2 py-2 rounded-[24px] overflow-hidden"
             style={{
               background: theme === 'dark'
@@ -268,6 +274,7 @@ function Sidebar({
             />
             {/* Team selector */}
             <button
+              data-tour-mobile="teams"
               onClick={() => setShowTeamMenu(true)}
               className={`relative z-10 flex flex-col items-center justify-center p-1.5 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
@@ -292,20 +299,9 @@ function Sidebar({
               </div>
             </button>
 
-            {/* Views selector */}
-            <button
-              onClick={() => setShowViewsMenu(true)}
-              className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
-                theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
-              }`}
-            >
-              {currentView === 'list' && <ListIcon size={22} />}
-              {currentView === 'kanban' && <KanbanIcon size={22} />}
-              {currentView === 'calendar' && <CalendarIcon size={22} />}
-            </button>
-
             {/* Notifications */}
             <button
+              data-tour-mobile="notifications"
               onClick={onShowNotifications}
               className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
@@ -323,8 +319,25 @@ function Sidebar({
               </span>
             </button>
 
+            {/* Views selector */}
+            <button
+              data-tour-mobile="views"
+              onClick={() => setShowViewsMenu(true)}
+              className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
+                theme === 'dark'
+                  ? 'text-white/70 hover:text-white'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              {currentView === 'list' && <ListIcon size={22} />}
+              {currentView === 'kanban' && <KanbanIcon size={22} />}
+              {currentView === 'calendar' && <CalendarIcon size={22} />}
+              {currentView === 'routines' && <ListIcon size={22} />}
+            </button>
+
             {/* More options */}
             <button
+              data-tour-mobile="tools"
               onClick={() => setShowMoreMenu(true)}
               className={`relative z-10 flex items-center justify-center p-2 rounded-xl transition-all active:scale-95 ${
                 theme === 'dark'
@@ -490,11 +503,11 @@ function Sidebar({
 
               {/* Header */}
               <div className="px-4 py-2 border-b border-neutral-800">
-                <h3 className="text-white font-semibold">Seleccionar vista</h3>
+                <h3 className="text-white font-semibold">Vistas</h3>
               </div>
 
               <div className="py-2 pb-6">
-                {navItems.map(item => (
+                {viewItems.map(item => (
                   <button
                     key={item.id}
                     onClick={() => {
@@ -516,11 +529,7 @@ function Sidebar({
                       <div className={`font-medium ${currentView === item.id ? 'text-yellow-400' : 'text-white'}`}>
                         {item.label}
                       </div>
-                      <div className="text-neutral-500 text-sm">
-                        {item.id === 'list' && 'Ver tareas en lista'}
-                        {item.id === 'kanban' && 'Organizar por estados'}
-                        {item.id === 'calendar' && 'Ver por fechas'}
-                      </div>
+                      <div className="text-neutral-500 text-sm">{item.desc}</div>
                     </div>
                     {currentView === item.id && (
                       <Check className="w-5 h-5 text-yellow-400" />
@@ -550,60 +559,57 @@ function Sidebar({
               </div>
 
               <div className="py-2 pb-6">
-                {/* Métricas - disponible para todos */}
-                <button
-                  onClick={() => {
-                    onShowMetrics()
-                    setShowMoreMenu(false)
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3"
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
-                    <ChartIcon size={20} />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="font-medium text-white">Métricas</div>
-                    <div className="text-neutral-500 text-sm">Estadísticas y rendimiento</div>
-                  </div>
-                </button>
+                {/* Sección de Herramientas */}
+                <div className="px-4 py-2 border-b border-neutral-800 mb-2">
+                  <span className="text-neutral-500 text-xs font-medium uppercase tracking-wider">Herramientas</span>
+                </div>
 
-                {/* Actividad - disponible para todos */}
-                <button
-                  onClick={() => {
-                    onShowActivityLogs()
-                    setShowMoreMenu(false)
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3"
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
-                    <ActivityIcon size={20} />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="font-medium text-white">Actividad</div>
-                    <div className="text-neutral-500 text-sm">Historial de cambios</div>
-                  </div>
-                </button>
-
-                {/* Estados - solo para owner o tareas personales */}
-                {(selectedRole === 'owner' || !selectedTeamId) && (
+                {/* Herramientas que son vistas (sin Correos en móvil) */}
+                {toolViewItems.filter(item => item.id !== 'emails').map(item => (
                   <button
+                    key={item.id}
                     onClick={() => {
-                      onShowStatuses()
+                      onViewChange(item.id)
+                      setShowMoreMenu(false)
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 ${
+                      currentView === item.id ? 'bg-yellow-400/10' : ''
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      currentView === item.id
+                        ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-neutral-900'
+                        : 'bg-neutral-700 text-neutral-400'
+                    }`}>
+                      {item.icon}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className={`font-medium ${currentView === item.id ? 'text-yellow-400' : 'text-white'}`}>{item.label}</div>
+                    </div>
+                    {currentView === item.id && (
+                      <Check className="w-5 h-5 text-yellow-400" />
+                    )}
+                  </button>
+                ))}
+
+                {/* Herramientas que son modales */}
+                {toolItems.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      item.onClick()
                       setShowMoreMenu(false)
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3"
                   >
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-700 text-neutral-400">
-                      <PaletteIcon size={20} />
+                      {item.icon}
                     </div>
                     <div className="flex-1 text-left">
-                      <div className="font-medium text-white">Estados</div>
-                      <div className="text-neutral-500 text-sm">Personalizar estados de tareas</div>
+                      <div className="font-medium text-white">{item.label}</div>
                     </div>
-                    <Crown className="w-4 h-4 text-yellow-400" />
                   </button>
-                )}
-
+                ))}
               </div>
             </div>
           </>
@@ -937,15 +943,16 @@ function Sidebar({
           </button>
         </div>
 
-        {/* Navegación */}
-        <div className="flex-1 p-2 border-t border-neutral-800">
+        {/* Navegación y Herramientas */}
+        <div className="flex-1 p-2 border-t border-neutral-800 overflow-y-auto">
+          {/* Vistas */}
           {!isCollapsed && (
             <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-3 mb-2">
               Vistas
             </div>
           )}
           <nav className="space-y-1" data-tour="view-modes">
-            {navItems.map(item => (
+            {viewItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => onViewChange(item.id)}
@@ -965,13 +972,32 @@ function Sidebar({
           </nav>
 
           {/* Herramientas */}
-          <div className="mt-4 p-2 border-t border-neutral-800" data-tour="tools">
+          <div className="mt-4 pt-4 border-t border-neutral-800" data-tour="tools">
             {!isCollapsed && (
               <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-3 mb-2">
                 Herramientas
               </div>
             )}
             <nav className="space-y-1">
+              {/* Herramientas que son vistas */}
+              {toolViewItems.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => onViewChange(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                    isCollapsed ? 'justify-center' : ''
+                  } ${
+                    currentView === item.id
+                      ? 'bg-yellow-400/10 text-yellow-400'
+                      : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+                  }`}
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <span>{item.icon}</span>
+                  {!isCollapsed && <span className="text-sm">{item.label}</span>}
+                </button>
+              ))}
+              {/* Herramientas que son modales */}
               {toolItems.map(item => (
                 <button
                   key={item.id}

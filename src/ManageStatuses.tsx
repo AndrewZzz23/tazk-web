@@ -422,7 +422,7 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
   }
 
   // Swipe to close gesture
-  const { handleTouchStart, handleTouchMove, handleTouchEnd, dragStyle, isDragging, containerProps } = useBottomSheetGesture({
+  const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
   })
 

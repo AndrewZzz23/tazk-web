@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
+import { useRealtimeSubscription, ExtendedPayload } from './hooks/useRealtimeSubscription'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
@@ -19,6 +19,7 @@ import ManageStatuses from './ManageStatuses'
 import Notifications from './Notifications'
 import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
+import RecurringTasks from './RecurringTasks'
 import EditTask from './EditTask'
 import ProfileOnboarding from './components/ProfileOnboarding'
 import AppTour from './components/AppTour'
@@ -45,8 +46,6 @@ import {
 import Toast from './Toast'
 
 
-
-
 function Dashboard() {
   const { theme } = useTheme()
   const navigate = useNavigate()
@@ -61,7 +60,7 @@ function Dashboard() {
 
   // Tarea abierta via URL
   const [openedTask, setOpenedTask] = useState<Task | null>(null)
-  const [loadingTask, setLoadingTask] = useState(false)
+  const [, setLoadingTask] = useState(false)
   const isClosingTaskRef = useRef(false)
 
   // Equipo actual
@@ -71,9 +70,9 @@ function Dashboard() {
 
   // UI
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar'>(() => {
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails'>(() => {
     const saved = localStorage.getItem('tazk_view_mode')
-    return (saved === 'list' || saved === 'kanban' || saved === 'calendar') ? saved : 'list'
+    return (saved === 'list' || saved === 'kanban' || saved === 'calendar' || saved === 'routines' || saved === 'metrics' || saved === 'emails') ? saved : 'list'
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -84,12 +83,10 @@ function Dashboard() {
 
   // Modales
   const [showActivityLogs, setShowActivityLogs] = useState(false)
-  const [showMetrics, setShowMetrics] = useState(false)
   const [showStatuses, setShowStatuses] = useState(false)
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [userSettingsTab, setUserSettingsTab] = useState<'profile' | 'appearance' | 'shortcuts' | null>(null)
-  const [showEmailSettings, setShowEmailSettings] = useState(false)
+  const [userSettingsTab, setUserSettingsTab] = useState<'profile' | 'appearance' | 'shortcuts' | 'notifications' | null>(null)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
   const [showMemberWelcome, setShowMemberWelcome] = useState(false)
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false)
@@ -117,11 +114,11 @@ function Dashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showUserMenu, isMobile])
 
-  // Detectar query param para abrir modal de email (después de OAuth callback)
+  // Detectar query param para abrir vista de email (después de OAuth callback)
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('openEmailSettings') === 'true') {
-      setShowEmailSettings(true)
+      setViewMode('emails')
       // Limpiar el query param de la URL
       navigate('/', { replace: true })
     }
@@ -199,16 +196,12 @@ function Dashboard() {
         // Cerrar en orden de prioridad (el más reciente primero)
         if (openedTask) {
           closeTask()
-        } else if (showEmailSettings) {
-          setShowEmailSettings(false)
         } else if (userSettingsTab) {
           setUserSettingsTab(null)
         } else if (showCreateTask) {
           setShowCreateTask(false)
         } else if (showActivityLogs) {
           setShowActivityLogs(false)
-        } else if (showMetrics) {
-          setShowMetrics(false)
         } else if (showStatuses) {
           setShowStatuses(false)
         } else if (showNotifications) {
@@ -223,7 +216,7 @@ function Dashboard() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [openedTask, showEmailSettings, userSettingsTab, showCreateTask, showActivityLogs, showMetrics, showStatuses, showNotifications, showUserMenu, searchTerm, closeTask])
+  }, [openedTask, userSettingsTab, showCreateTask, showActivityLogs, showStatuses, showNotifications, showUserMenu, searchTerm, closeTask])
 
   //permisos
   const canCreateTasks = currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'
@@ -234,11 +227,12 @@ function Dashboard() {
 
   const features = [
     { id: 'new-task', icon: <PlusIcon size={20} />, label: 'Nueva tarea', action: () => setShowCreateTask(true) },
-    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', action: () => setShowMetrics(true) },
+    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', action: () => setViewMode('metrics') },
     { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', action: () => setShowActivityLogs(true) },
     // Estados solo para owner o tareas personales
     ...(canAccessOwnerFeatures ? [
       { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', action: () => setShowStatuses(true) },
+      { id: 'emails', icon: <BellIcon size={20} />, label: 'Correos', action: () => setViewMode('emails') },
     ] : []),
     { id: 'notifications', icon: <BellIcon size={20} />, label: 'Notificaciones', action: () => setShowNotifications(true) },
     { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', action: () => setViewMode('list') },
@@ -411,9 +405,9 @@ function Dashboard() {
       { table: 'tasks', event: 'UPDATE', filter: user?.id ? `assigned_to=eq.${user.id}` : undefined },
       { table: 'tasks', event: 'INSERT', filter: user?.id ? `assigned_to=eq.${user.id}` : undefined }
     ],
-    onchange: useCallback((payload) => {
-      const newData = payload.new as Task | undefined
-      const oldData = payload.old as { assigned_to?: string, created_by?: string } | undefined
+    onchange: useCallback((payload: ExtendedPayload) => {
+      const newData = payload.new as unknown as Task | undefined
+      const oldData = payload.old as unknown as { assigned_to?: string, created_by?: string } | undefined
 
       // No notificar si yo creé la tarea
       if (newData?.created_by === user?.id) return
@@ -501,17 +495,15 @@ function Dashboard() {
       <Sidebar
         currentUserId={user!.id}
         currentView={viewMode}
-        onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar')}
+        onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails')}
         onTeamChange={handleTeamChange}
         notificationCount={notificationCount}
         onShowNotifications={() => setShowNotifications(true)}
-        onShowMetrics={() => setShowMetrics(true)}
         onShowActivityLogs={() => setShowActivityLogs(true)}
         onShowStatuses={() => setShowStatuses(true)}
         onLogout={handleLogout}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onShowEmails={() => setShowEmailSettings(true)}
         isMobile={isMobile}
         onBottomSheetChange={setBottomSheetOpen}
         showFab={canCreateTasks}
@@ -717,6 +709,31 @@ function Dashboard() {
               onOpenTask={openTask}
             />
           )}
+
+          {viewMode === 'routines' && (
+            <RecurringTasks
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              showToast={showToast}
+            />
+          )}
+
+          {viewMode === 'metrics' && (
+            <Metrics
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+            />
+          )}
+
+          {viewMode === 'emails' && (
+            <EmailSettings
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+            />
+          )}
         </div>
       </main>
 
@@ -768,14 +785,6 @@ function Dashboard() {
         />
       )}
 
-      {showMetrics && (
-        <Metrics
-          currentUserId={user!.id}
-          teamId={currentTeamId}
-          onClose={() => setShowMetrics(false)}
-        />
-      )}
-
       {showStatuses && (
         <ManageStatuses
           currentUserId={user!.id}
@@ -792,14 +801,6 @@ function Dashboard() {
           onClose={() => setUserSettingsTab(null)}
           onProfileUpdated={loadUserData}
           initialTab={userSettingsTab}
-        />
-      )}
-
-      {showEmailSettings && (
-        <EmailSettings
-          currentUserId={user!.id}
-          teamId={currentTeamId}
-          onClose={() => setShowEmailSettings(false)}
         />
       )}
 
@@ -915,6 +916,7 @@ function Dashboard() {
       {/* Tour interactivo para usuarios nuevos */}
       {showUserOnboarding && user && !showProfileOnboarding && (
         <AppTour
+          isMobile={isMobile}
           onComplete={async () => {
             // Guardar en BD según dispositivo
             const updateField = isMobile ? 'has_seen_tour_mobile' : 'has_seen_tour_desktop'

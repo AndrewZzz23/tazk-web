@@ -181,3 +181,29 @@ export interface EmailLog {
   sent_at: string | null
   created_at: string
 }
+
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly'
+export type RecurringPriority = 'low' | 'medium' | 'high'
+
+export interface RecurringTask {
+  id: string
+  user_id: string
+  team_id: string | null
+  title: string
+  description: string | null
+  priority: RecurringPriority
+  frequency: RecurringFrequency
+  time_of_day: string // "HH:MM" format
+  days_of_week: number[] | null // 0-6 (Sunday-Saturday) for weekly
+  day_of_month: number | null // 1-31 for monthly
+  default_status_id: string | null
+  assigned_to: string | null
+  is_active: boolean
+  last_created_at: string | null
+  next_scheduled_at: string | null
+  created_at: string
+  updated_at: string
+  // Relations
+  assigned_user?: Profile | null
+  default_status?: TaskStatus | null
+}

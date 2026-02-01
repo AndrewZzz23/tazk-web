@@ -27,7 +27,7 @@ const MicrosoftIcon = () => (
 interface EmailSettingsProps {
   currentUserId: string
   teamId: string | null
-  onClose: () => void
+  onClose?: () => void
 }
 
 type Tab = 'settings' | 'templates' | 'logs'
@@ -51,6 +51,7 @@ const TEMPLATE_VARIABLES = [
 ]
 
 function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
+  const isViewMode = !onClose // Si no hay onClose, es modo vista (no modal)
   const [isVisible, setIsVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('settings')
   const [loading, setLoading] = useState(true)
@@ -272,6 +273,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
   }
 
   const handleClose = () => {
+    if (!onClose) return
     setIsVisible(false)
     setTimeout(onClose, 200)
   }
@@ -367,18 +369,119 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     }
   }
 
+  // Validar formato de email
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    return emailRegex.test(email)
+  }
+
+  // Detectar errores comunes de tipeo en dominios populares
+  const checkCommonTypos = (email: string): { hasTipo: boolean; suggestion?: string } => {
+    const domain = email.split('@')[1]?.toLowerCase()
+    if (!domain) return { hasTipo: false }
+
+    const typoMap: Record<string, string> = {
+      'gmial.com': 'gmail.com',
+      'gmal.com': 'gmail.com',
+      'gamil.com': 'gmail.com',
+      'gmail.co': 'gmail.com',
+      'gmaill.com': 'gmail.com',
+      'gnail.com': 'gmail.com',
+      'hotmal.com': 'hotmail.com',
+      'hotmial.com': 'hotmail.com',
+      'hotmai.com': 'hotmail.com',
+      'hotmail.co': 'hotmail.com',
+      'outlok.com': 'outlook.com',
+      'outloo.com': 'outlook.com',
+      'outlook.co': 'outlook.com',
+      'yahooo.com': 'yahoo.com',
+      'yaho.com': 'yahoo.com',
+      'yahoo.co': 'yahoo.com',
+    }
+
+    if (typoMap[domain]) {
+      const user = email.split('@')[0]
+      return { hasTipo: true, suggestion: `${user}@${typoMap[domain]}` }
+    }
+
+    return { hasTipo: false }
+  }
+
+  // Lista de dominios de correo desechables/temporales
+  const isDisposableEmail = (email: string): boolean => {
+    const domain = email.split('@')[1]?.toLowerCase()
+    const disposableDomains = [
+      'tempmail.com', 'throwaway.email', 'guerrillamail.com', 'mailinator.com',
+      '10minutemail.com', 'temp-mail.org', 'fakeinbox.com', 'trashmail.com',
+      'yopmail.com', 'getnada.com', 'maildrop.cc', 'dispostable.com',
+      'tempail.com', 'emailondeck.com', 'tempr.email', 'discard.email'
+    ]
+    return disposableDomains.includes(domain)
+  }
+
+  // Validar que el dominio del email sea válido (tiene MX records)
+  const validateEmailDomain = async (email: string): Promise<{ valid: boolean; message?: string }> => {
+    const domain = email.split('@')[1]
+    if (!domain) return { valid: false, message: 'Correo inválido' }
+
+    try {
+      // Usar API de DNS para verificar MX records
+      const response = await fetch(`https://dns.google/resolve?name=${domain}&type=MX`)
+      const data = await response.json()
+
+      if (data.Answer && data.Answer.length > 0) {
+        return { valid: true }
+      } else {
+        return { valid: false, message: `El dominio "${domain}" no puede recibir correos` }
+      }
+    } catch {
+      // Si falla la verificación DNS, permitir el envío (no bloquear por error de red)
+      return { valid: true }
+    }
+  }
+
   const sendTestEmail = async () => {
-    if (!testEmail.trim()) {
+    const email = testEmail.trim()
+
+    if (!email) {
       showToast('Ingresa un correo', 'error')
+      return
+    }
+
+    // Validar formato
+    if (!isValidEmail(email)) {
+      showToast('El formato del correo no es válido', 'error')
+      return
+    }
+
+    // Verificar errores de tipeo comunes
+    const typoCheck = checkCommonTypos(email)
+    if (typoCheck.hasTipo && typoCheck.suggestion) {
+      showToast(`¿Quisiste decir ${typoCheck.suggestion}?`, 'error')
+      setTestEmail(typoCheck.suggestion)
+      return
+    }
+
+    // Verificar si es correo desechable
+    if (isDisposableEmail(email)) {
+      showToast('No se permiten correos temporales o desechables', 'error')
       return
     }
 
     setSendingTest(true)
 
+    // Validar dominio (MX records)
+    const domainValidation = await validateEmailDomain(email)
+    if (!domainValidation.valid) {
+      showToast(domainValidation.message || 'Correo inválido', 'error')
+      setSendingTest(false)
+      return
+    }
+
     try {
       const { error } = await supabase.functions.invoke('send-email', {
         body: {
-          to: testEmail,
+          to: email,
           subject: 'Correo de prueba - Tazk',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -414,9 +517,12 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
 
       if (error) throw error
 
-      showToast('Correo de prueba enviado', 'success')
+      showToast('Correo enviado. Verifica tu bandeja de entrada.', 'success')
       setTestEmail('')
-      if (activeTab === 'logs') loadLogs()
+      // Recargar logs después de un momento para que se registre
+      setTimeout(() => {
+        if (activeTab === 'logs') loadLogs()
+      }, 1000)
     } catch (error: any) {
       showToast(error.message || 'Error al enviar', 'error')
     }
@@ -455,6 +561,662 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     { id: 'templates' as Tab, label: 'Plantillas', icon: FileText },
     { id: 'logs' as Tab, label: 'Historial', icon: History },
   ]
+
+  // Contenido de los tabs (reutilizable)
+  const renderTabContent = () => (
+    <>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <LoadingZapIcon size={48} />
+          <p className="text-gray-500 dark:text-neutral-400 mt-4">Cargando configuración...</p>
+        </div>
+      ) : (
+        <>
+          {activeTab === 'settings' && renderSettingsTab()}
+          {activeTab === 'templates' && renderTemplatesTab()}
+          {activeTab === 'logs' && renderLogsTab()}
+        </>
+      )}
+    </>
+  )
+
+  // Render settings tab content
+  const renderSettingsTab = () => (
+    <div className="space-y-6 max-w-2xl mx-auto">
+      {/* Master Toggle */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-yellow-400/10 via-orange-400/10 to-orange-500/10 dark:from-yellow-400/5 dark:via-orange-400/5 dark:to-orange-500/5 p-6 border border-yellow-400/20">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
+              isEnabled ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-lg shadow-yellow-400/30' : 'bg-gray-200 dark:bg-neutral-700'
+            }`}>
+              <Zap className={`w-6 h-6 ${isEnabled ? 'text-white' : 'text-gray-400 dark:text-neutral-500'}`} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Notificaciones por correo</h3>
+              <p className="text-sm text-gray-500 dark:text-neutral-400">
+                {isEnabled ? 'Recibir alertas de tus tareas' : 'Activar para recibir correos'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsEnabled(!isEnabled)}
+            className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
+              isEnabled ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 'bg-gray-300 dark:bg-neutral-600'
+            }`}
+          >
+            <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${
+              isEnabled ? 'left-7' : 'left-1'
+            }`} />
+          </button>
+        </div>
+      </div>
+
+      {isEnabled && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          {/* Conectar correo OAuth */}
+          <div className="bg-gray-50 dark:bg-neutral-800/50 rounded-xl p-5 border border-gray-200 dark:border-neutral-700">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 flex items-center justify-center">
+                <Link className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Conectar tu correo</h3>
+                <p className="text-xs text-gray-500 dark:text-neutral-400">
+                  Los emails se enviarán desde tu cuenta personal
+                </p>
+              </div>
+            </div>
+
+            {connectedEmail ? (
+              <div className="flex items-center justify-between p-4 bg-white dark:bg-neutral-800 rounded-xl border border-gray-200 dark:border-neutral-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center">
+                    {connectedEmail.provider === 'google' ? <GoogleIcon /> : <MicrosoftIcon />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{connectedEmail.email}</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Conectado con {connectedEmail.provider === 'google' ? 'Gmail' : 'Outlook'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={disconnectEmail}
+                  className="flex items-center gap-2 px-3 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <Unlink className="w-4 h-4" />
+                  Desconectar
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => connectEmail('google')}
+                  disabled={connectingProvider !== null}
+                  className="flex items-center justify-center gap-3 p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl hover:border-gray-300 dark:hover:border-neutral-600 hover:shadow-md transition-all disabled:opacity-50"
+                >
+                  {connectingProvider === 'google' ? (
+                    <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                  ) : (
+                    <GoogleIcon />
+                  )}
+                  <span className="font-medium text-gray-700 dark:text-neutral-300">
+                    {connectingProvider === 'google' ? 'Conectando...' : 'Gmail'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => connectEmail('microsoft')}
+                  disabled={connectingProvider !== null}
+                  className="flex items-center justify-center gap-3 p-4 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl hover:border-gray-300 dark:hover:border-neutral-600 hover:shadow-md transition-all disabled:opacity-50"
+                >
+                  {connectingProvider === 'microsoft' ? (
+                    <RefreshCw className="w-5 h-5 animate-spin text-gray-400" />
+                  ) : (
+                    <MicrosoftIcon />
+                  )}
+                  <span className="font-medium text-gray-700 dark:text-neutral-300">
+                    {connectingProvider === 'microsoft' ? 'Conectando...' : 'Outlook'}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {!connectedEmail && (
+              <p className="text-xs text-gray-400 dark:text-neutral-500 mt-3 text-center">
+                Al conectar, autorizas a Tazk a enviar correos en tu nombre
+              </p>
+            )}
+          </div>
+
+          {/* Eventos de notificación */}
+          <div className="bg-gray-50 dark:bg-neutral-800/50 rounded-xl p-5 border border-gray-200 dark:border-neutral-700">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-500/20 flex items-center justify-center">
+                <Bell className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Eventos de notificación</h3>
+            </div>
+            <div className="space-y-3">
+              {/* Tarea creada */}
+              <div
+                onClick={() => setNotifyOnCreate(!notifyOnCreate)}
+                className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
+                  notifyOnCreate
+                    ? 'bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/30'
+                    : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-gray-300 dark:hover:border-neutral-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    notifyOnCreate ? 'bg-yellow-100 dark:bg-yellow-500/20' : 'bg-gray-100 dark:bg-neutral-800'
+                  }`}>
+                    <FileText className={`w-5 h-5 ${notifyOnCreate ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-400 dark:text-neutral-500'}`} />
+                  </div>
+                  <div>
+                    <h4 className={`font-medium ${notifyOnCreate ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-neutral-400'}`}>
+                      Tarea creada
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-neutral-500">Al crear una nueva tarea</p>
+                  </div>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  notifyOnCreate ? 'bg-yellow-500 border-yellow-500' : 'border-gray-300 dark:border-neutral-600'
+                }`}>
+                  {notifyOnCreate && <Check className="w-3 h-3 text-white" />}
+                </div>
+              </div>
+
+              {/* Tarea asignada */}
+              <div
+                onClick={() => setNotifyOnAssign(!notifyOnAssign)}
+                className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
+                  notifyOnAssign
+                    ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30'
+                    : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-gray-300 dark:hover:border-neutral-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    notifyOnAssign ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-gray-100 dark:bg-neutral-800'
+                  }`}>
+                    <UserCheck className={`w-5 h-5 ${notifyOnAssign ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-neutral-500'}`} />
+                  </div>
+                  <div>
+                    <h4 className={`font-medium ${notifyOnAssign ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-neutral-400'}`}>
+                      Tarea asignada
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-neutral-500">Al asignar a un usuario</p>
+                  </div>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  notifyOnAssign ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-neutral-600'
+                }`}>
+                  {notifyOnAssign && <Check className="w-3 h-3 text-white" />}
+                </div>
+              </div>
+
+              {/* Tarea completada */}
+              <div
+                onClick={() => setNotifyOnComplete(!notifyOnComplete)}
+                className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
+                  notifyOnComplete
+                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30'
+                    : 'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700 hover:border-gray-300 dark:hover:border-neutral-600'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    notifyOnComplete ? 'bg-emerald-100 dark:bg-emerald-500/20' : 'bg-gray-100 dark:bg-neutral-800'
+                  }`}>
+                    <CheckCircle className={`w-5 h-5 ${notifyOnComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-neutral-500'}`} />
+                  </div>
+                  <div>
+                    <h4 className={`font-medium ${notifyOnComplete ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-neutral-400'}`}>
+                      Completada
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-neutral-500">Al marcar como completada</p>
+                  </div>
+                </div>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  notifyOnComplete ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 dark:border-neutral-600'
+                }`}>
+                  {notifyOnComplete && <Check className="w-3 h-3 text-white" />}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Test Email - Solo si hay correo conectado */}
+          {connectedEmail && (
+            <div className="bg-gray-50 dark:bg-neutral-800/50 rounded-xl p-5 border border-gray-200 dark:border-neutral-700">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 flex items-center justify-center">
+                  <Send className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Correo de prueba</h3>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="correo@ejemplo.com"
+                  className="flex-1 px-4 py-2.5 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent"
+                />
+                <button
+                  onClick={sendTestEmail}
+                  disabled={sendingTest || !testEmail.trim()}
+                  className="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {sendingTest ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Enviar
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-neutral-500 mt-2">
+                Se enviará desde {connectedEmail.email}
+              </p>
+            </div>
+          )}
+
+          {/* Guardar */}
+          <button
+            onClick={saveSettings}
+            disabled={saving}
+            className="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-yellow-400/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {saving ? <LoadingZapIcon size={20} /> : <Check className="w-5 h-5" />}
+            {saving ? 'Guardando...' : 'Guardar configuración'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  // Render templates tab
+  const renderTemplatesTab = () => (
+    <div className="space-y-6">
+      {templates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-neutral-800 flex items-center justify-center mb-4">
+            <FileText className="w-8 h-8 text-gray-400 dark:text-neutral-500" />
+          </div>
+          <p className="text-gray-500 dark:text-neutral-400">Cargando plantillas...</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {templates.map(template => {
+            const typeInfo = TEMPLATE_TYPES.find(t => t.id === template.type)
+            const Icon = typeInfo?.icon || FileText
+            return (
+              <div
+                key={template.id}
+                className={`group relative overflow-hidden rounded-2xl border transition-all duration-300 ${
+                  template.is_active
+                    ? 'bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 shadow-sm hover:shadow-md'
+                    : 'bg-gray-50 dark:bg-neutral-800/50 border-gray-100 dark:border-neutral-800 opacity-60 hover:opacity-80'
+                }`}
+              >
+                <div className={`absolute inset-0 opacity-5 bg-gradient-to-r ${typeInfo?.color || 'from-gray-400 to-gray-500'}`} />
+                <div className="relative p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br ${typeInfo?.color || 'from-gray-400 to-gray-500'} shadow-lg`}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className={`font-semibold ${typeInfo?.textColor || 'text-gray-600'}`}>
+                          {typeInfo?.name}
+                        </h4>
+                        <p className="text-gray-600 dark:text-neutral-300 text-sm mt-1 line-clamp-1">
+                          {template.subject}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => toggleTemplateActive(template)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          template.is_active
+                            ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-neutral-400'
+                        }`}
+                      >
+                        {template.is_active ? 'Activa' : 'Inactiva'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingTemplate(template)
+                          setEditSubject(template.subject)
+                          setEditHtml(template.body_html)
+                        }}
+                        className="p-2 bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded-lg hover:bg-yellow-200 dark:hover:bg-yellow-500/30 transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Variables disponibles */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+            <Zap className="w-4 h-4 text-white" />
+          </div>
+          <h4 className="text-blue-700 dark:text-blue-400 font-semibold">Variables disponibles</h4>
+        </div>
+        <p className="text-blue-600/70 dark:text-blue-400/70 text-sm mb-4">
+          Haz clic en una variable para copiarla al portapapeles
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {TEMPLATE_VARIABLES.map(v => (
+            <button
+              key={v.var}
+              onClick={() => copyVariable(v.var)}
+              className="flex items-center justify-between gap-2 p-2.5 bg-white/60 dark:bg-neutral-800/60 hover:bg-white dark:hover:bg-neutral-800 rounded-lg transition-all group text-left"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <code className="bg-blue-100 dark:bg-blue-500/30 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-mono">
+                  {v.var}
+                </code>
+                <span className="text-gray-500 dark:text-neutral-400 text-xs truncate">{v.desc}</span>
+              </div>
+              {copiedVar === v.var ? (
+                <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              ) : (
+                <Copy className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  // Render logs tab
+  const renderLogsTab = () => (
+    <div className="space-y-6">
+      {/* Stats */}
+      {logs.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Total */}
+          <div className="bg-gray-50 dark:bg-gray-500/10 rounded-xl p-4 border border-gray-100 dark:border-gray-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Mail className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-xs text-gray-600 dark:text-gray-400">Total</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-700 dark:text-gray-300">{logStats.total}</p>
+          </div>
+          {/* Enviados */}
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-xl p-4 border border-emerald-100 dark:border-emerald-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <CheckCircle className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+              <span className="text-xs text-emerald-600 dark:text-emerald-400">Enviados</span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{logStats.sent}</p>
+          </div>
+          {/* Pendientes */}
+          <div className="bg-amber-50 dark:bg-amber-500/10 rounded-xl p-4 border border-amber-100 dark:border-amber-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <span className="text-xs text-amber-600 dark:text-amber-400">Pendientes</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{logStats.pending}</p>
+          </div>
+          {/* Fallidos */}
+          <div className="bg-red-50 dark:bg-red-500/10 rounded-xl p-4 border border-red-100 dark:border-red-500/20">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400" />
+              <span className="text-xs text-red-600 dark:text-red-400">Fallidos</span>
+            </div>
+            <p className="text-2xl font-bold text-red-700 dark:text-red-300">{logStats.failed}</p>
+          </div>
+        </div>
+      )}
+
+      {logsLoading ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <LoadingZapIcon size={48} />
+          <p className="text-gray-500 dark:text-neutral-400 mt-4">Cargando historial...</p>
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-neutral-800 flex items-center justify-center mb-4">
+            <Mail className="w-8 h-8 text-gray-400 dark:text-neutral-500" />
+          </div>
+          <p className="text-gray-900 dark:text-white font-medium">Sin correos enviados</p>
+          <p className="text-gray-500 dark:text-neutral-400 text-sm mt-1">El historial de correos aparecerá aquí</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {logs.map(log => (
+            <div
+              key={log.id}
+              className="flex items-center gap-4 p-4 bg-white dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl hover:shadow-sm transition-all"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                log.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-500/20' :
+                log.status === 'failed' ? 'bg-red-100 dark:bg-red-500/20' : 'bg-amber-100 dark:bg-amber-500/20'
+              }`}>
+                {log.status === 'sent' ? (
+                  <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                ) : log.status === 'failed' ? (
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                ) : (
+                  <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-900 dark:text-white text-sm font-medium truncate">
+                  {log.subject || 'Sin asunto'}
+                </p>
+                <p className="text-gray-500 dark:text-neutral-400 text-xs truncate">
+                  {log.to_email}
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${
+                  log.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' :
+                  log.status === 'failed' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'
+                }`}>
+                  {log.status === 'sent' ? 'Enviado' : log.status === 'failed' ? 'Fallido' : 'Pendiente'}
+                </span>
+                <p className="text-gray-400 dark:text-neutral-500 text-xs mt-1">
+                  {new Date(log.created_at).toLocaleDateString('es-CO', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Refresh button */}
+      {logs.length > 0 && (
+        <button
+          onClick={loadLogs}
+          disabled={logsLoading}
+          className="w-full py-3 bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
+          Actualizar historial
+        </button>
+      )}
+    </div>
+  )
+
+  // View mode (no modal wrapper)
+  if (isViewMode) {
+    return (
+      <div className="pb-24 sm:pb-0">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <MailIcon size={32} />
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Configuración de Correos</h2>
+              <p className="text-sm text-gray-500 dark:text-neutral-400 flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                {teamId ? 'Configuración de equipo' : 'Configuración personal'} · {isEnabled ? 'Activo' : 'Inactivo'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-neutral-800 p-1 rounded-xl">
+          {tabs.map(tab => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-neutral-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 dark:text-neutral-400 hover:text-gray-700 dark:hover:text-neutral-300'
+                }`}
+              >
+                <Icon size={16} />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Content */}
+        {renderTabContent()}
+
+        {toast.show && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast({ ...toast, show: false })}
+          />
+        )}
+
+        {/* Modal Editor de Plantilla (también en view mode) */}
+        {editingTemplate && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setEditingTemplate(null)}
+          >
+            <div
+              className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-neutral-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-gray-100 dark:border-neutral-800 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white dark:from-neutral-900 dark:to-neutral-800">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${
+                    TEMPLATE_TYPES.find(t => t.id === editingTemplate.type)?.color || 'from-gray-400 to-gray-500'
+                  }`}>
+                    {(() => {
+                      const Icon = TEMPLATE_TYPES.find(t => t.id === editingTemplate.type)?.icon || FileText
+                      return <Icon className="w-5 h-5 text-white" />
+                    })()}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      {TEMPLATE_TYPES.find(t => t.id === editingTemplate.type)?.name}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-neutral-400">Editar plantilla de correo</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      showPreview
+                        ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 shadow-lg shadow-orange-500/20'
+                        : 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 hover:bg-gray-200 dark:hover:bg-neutral-700'
+                    }`}
+                  >
+                    {showPreview ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPreview ? 'Editor' : 'Vista previa'}
+                  </button>
+                  <button
+                    onClick={() => setEditingTemplate(null)}
+                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl transition-all"
+                  >
+                    <XIcon size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {showPreview ? (
+                  <div className="space-y-4">
+                    <div className="bg-gray-100 dark:bg-neutral-800 rounded-xl p-4">
+                      <p className="text-xs text-gray-500 dark:text-neutral-400 mb-1">Asunto:</p>
+                      <p className="text-gray-900 dark:text-white font-medium">{editSubject}</p>
+                    </div>
+                    <div className="bg-white dark:bg-neutral-800 rounded-xl border border-gray-200 dark:border-neutral-700 p-6">
+                      <div dangerouslySetInnerHTML={{ __html: editHtml }} className="prose dark:prose-invert max-w-none" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Asunto</label>
+                      <input
+                        type="text"
+                        value={editSubject}
+                        onChange={(e) => setEditSubject(e.target.value)}
+                        className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Contenido HTML</label>
+                      <textarea
+                        value={editHtml}
+                        onChange={(e) => setEditHtml(e.target.value)}
+                        rows={15}
+                        className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl text-gray-900 dark:text-white font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-5 border-t border-gray-100 dark:border-neutral-800 flex justify-end gap-3">
+                <button
+                  onClick={() => setEditingTemplate(null)}
+                  className="px-5 py-2.5 text-gray-600 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-xl font-medium transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => saveTemplate()}
+                  className="px-5 py-2.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-neutral-900 rounded-xl font-semibold hover:shadow-lg hover:shadow-orange-500/20 transition-all"
+                >
+                  Guardar cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <>
@@ -679,7 +1441,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                         {[
                           { id: 'create', label: 'Tarea creada', desc: 'Al crear una nueva tarea', icon: FileText, value: notifyOnCreate, setter: setNotifyOnCreate, color: 'yellow' },
                           { id: 'assign', label: 'Tarea asignada', desc: 'Al asignar a un usuario', icon: UserCheck, value: notifyOnAssign, setter: setNotifyOnAssign, color: 'blue' },
-                          { id: 'due', label: 'Por vencer', desc: 'Recordatorio de fecha límite', icon: Clock, value: notifyOnDue, setter: setNotifyOnDue, color: 'orange' },
                           { id: 'complete', label: 'Completada', desc: 'Al marcar como completada', icon: CheckCircle, value: notifyOnComplete, setter: setNotifyOnComplete, color: 'emerald' },
                         ].map(trigger => {
                           const Icon = trigger.icon
