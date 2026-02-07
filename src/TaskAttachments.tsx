@@ -2,14 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import { TaskAttachment } from './types/database.types'
 import Toast from './Toast'
+import { logAttachmentAdded, logAttachmentRemoved } from './lib/activityLogger'
 
 interface TaskAttachmentsProps {
   taskId: string
   currentUserId: string
+  teamId?: string | null
+  userEmail?: string
   canEdit?: boolean
 }
 
-function TaskAttachments({ taskId, currentUserId, canEdit = true }: TaskAttachmentsProps) {
+function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = true }: TaskAttachmentsProps) {
   const [attachments, setAttachments] = useState<TaskAttachment[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -107,6 +110,9 @@ function TaskAttachments({ taskId, currentUserId, canEdit = true }: TaskAttachme
 
     setAttachments(prev => [data, ...prev])
     showToast(`${file.name} subido`, 'success')
+
+    // Log activity
+    logAttachmentAdded(data.id, file.name, taskId, teamId || null, currentUserId, userEmail)
   }
 
   const handleDelete = async (e?: React.MouseEvent) => {
@@ -143,6 +149,9 @@ function TaskAttachments({ taskId, currentUserId, canEdit = true }: TaskAttachme
     } else {
       setAttachments(prev => prev.filter(a => a.id !== confirmDelete.id))
       showToast('Archivo eliminado', 'success')
+
+      // Log activity
+      logAttachmentRemoved(confirmDelete.id, confirmDelete.file_name, taskId, teamId || null, currentUserId, userEmail)
     }
 
     setConfirmDelete(null)

@@ -6,6 +6,7 @@ import { Plus, Clock, Calendar, Repeat, Trash2, Edit3, Play, Pause, AlertCircle,
 import { useIsMobile } from './hooks/useIsMobile'
 import CreateRecurringTask from './CreateRecurringTask'
 import ConfirmDialog from './ConfirmDialog'
+import { logRecurringTaskDeleted, logRecurringTaskActivated, logRecurringTaskDeactivated } from './lib/activityLogger'
 
 interface RecurringTasksProps {
   currentUserId: string
@@ -91,6 +92,12 @@ function RecurringTasks({ currentUserId, teamId, showToast }: RecurringTasksProp
       showToast?.('Error al actualizar', 'error')
     } else {
       showToast?.(newIsActive ? 'Rutina activada' : 'Rutina pausada', 'success')
+      // Log activity
+      if (newIsActive) {
+        logRecurringTaskActivated(task.id, task.title, teamId, currentUserId)
+      } else {
+        logRecurringTaskDeactivated(task.id, task.title, teamId, currentUserId)
+      }
     }
   }
 
@@ -107,6 +114,8 @@ function RecurringTasks({ currentUserId, teamId, showToast }: RecurringTasksProp
     } else {
       setRecurringTasks(prev => prev.filter(t => t.id !== deletingTask.id))
       showToast?.('Rutina eliminada', 'success')
+      // Log activity
+      logRecurringTaskDeleted(deletingTask.id, deletingTask.title, teamId, currentUserId)
     }
 
     setDeletingTask(null)

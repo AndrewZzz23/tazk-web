@@ -5,10 +5,10 @@ import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { TaskStatus, Profile } from './types/database.types'
+import { TaskStatus, Profile, TaskPriority } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
-import { Calendar, Clock, User, Tag, Mail, FileText, Type } from 'lucide-react'
+import { Calendar, Clock, User, Tag, Mail, FileText, Type, AlertCircle, Maximize2, X } from 'lucide-react'
 
 interface CreateTaskProps {
   currentUserId: string
@@ -29,12 +29,14 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
   const [emailInput, setEmailInput] = useState('')
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [dueDate, setDueDate] = useState<Date | null>(null)
+  const [priority, setPriority] = useState<TaskPriority | ''>('')
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
   const [emailModuleEnabled, setEmailModuleEnabled] = useState(false)
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false)
 
   // ESC para cerrar
   useEffect(() => {
@@ -133,6 +135,12 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
       return
     }
 
+    // Validar que fecha límite sea posterior a fecha de inicio
+    if (startDate && dueDate && dueDate < startDate) {
+      showToast?.('La fecha límite debe ser posterior a la fecha de inicio', 'error')
+      return
+    }
+
     setLoading(true)
 
     const { data, error } = await supabase
@@ -144,6 +152,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         team_id: teamId,
         created_by: currentUserId,
         assigned_to: assignedTo || null,
+        priority: priority || null,
         start_date: startDate?.toISOString() || null,
         due_date: dueDate?.toISOString() || null,
         notify_email: notifyEmails.length > 0 ? notifyEmails.join(',') : null
@@ -403,14 +412,20 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
     <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pt-4 pb-8' : 'p-6'}`}>
       {/* Título */}
       <div className="mb-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
-          <Type className="w-4 h-4" />
-          Título *
+        <label className="flex items-center justify-between text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <span className="flex items-center gap-2">
+            <Type className="w-4 h-4" />
+            Título *
+          </span>
+          <span className={`text-xs ${title.length > 90 ? 'text-yellow-500' : 'text-neutral-400'}`}>
+            {title.length}/100
+          </span>
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          maxLength={100}
           placeholder="Agrega un título a tu Tazk"
           className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
           autoFocus={!isMobile}
@@ -420,9 +435,19 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
 
       {/* Descripción */}
       <div className="mb-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
-          <FileText className="w-4 h-4" />
-          Descripción
+        <label className="flex items-center justify-between text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <span className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Descripción
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowDescriptionModal(true)}
+            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-yellow-500 transition-colors"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Expandir</span>
+          </button>
         </label>
         <textarea
           value={description}
@@ -473,6 +498,34 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             </select>
           </div>
         )}
+      </div>
+
+      {/* Prioridad */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <AlertCircle className="w-4 h-4" />
+          Prioridad
+        </label>
+        <div className="flex gap-2">
+          {[
+            { value: 'low', label: 'Baja', color: 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30' },
+            { value: 'medium', label: 'Media', color: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/30' },
+            { value: 'high', label: 'Alta', color: 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30' }
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPriority(priority === opt.value ? '' : opt.value as TaskPriority)}
+              className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                priority === opt.value
+                  ? opt.color
+                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Fechas */}
@@ -739,6 +792,49 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
           {loadingData || statuses.length === 0 ? renderLoadingOrEmpty() : renderForm()}
         </div>
       </div>
+
+      {/* Modal de descripción expandida */}
+      {showDescriptionModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowDescriptionModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-yellow-500" />
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Descripción</h3>
+              </div>
+              <button
+                onClick={() => setShowDescriptionModal(false)}
+                className="p-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 p-4 overflow-hidden">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Agrega más detalles sobre la tarea..."
+                className="w-full h-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent resize-none text-base min-h-[300px]"
+                autoFocus
+              />
+            </div>
+            <div className="p-4 border-t border-neutral-200 dark:border-neutral-700 flex justify-end">
+              <button
+                onClick={() => setShowDescriptionModal(false)}
+                className="px-6 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-medium hover:bg-yellow-300 transition-colors"
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

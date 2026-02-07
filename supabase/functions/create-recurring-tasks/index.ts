@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
             team_id: recurring.team_id,
             created_by: recurring.user_id,
             assigned_to: recurring.assigned_to,
+            priority: recurring.priority,
             start_date: now.toISOString(),
             due_date: null, // Las rutinas no tienen fecha límite por defecto
             notify_email: null

@@ -17,8 +17,10 @@ export type ActivityAction =
   | 'invitation_rejected'
   | 'invitation_cancelled'
   | 'profile_updated'
+  | 'activated'
+  | 'deactivated'
 
-export type ActivityEntity = 'task' | 'team' | 'team_member' | 'status' | 'invitation' | 'profile'
+export type ActivityEntity = 'task' | 'team' | 'team_member' | 'status' | 'invitation' | 'profile' | 'recurring_task'
 
 interface LogActivityParams {
   action: ActivityAction
@@ -243,4 +245,87 @@ export const logAttachmentRemoved = (
   userId,
   userEmail,
   details: { attachment_removed: fileName }
+})
+
+// Recurring Tasks (Rutinas)
+export const logRecurringTaskCreated = (
+  recurringTaskId: string,
+  title: string,
+  frequency: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'created',
+  entityType: 'recurring_task',
+  entityId: recurringTaskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { title, frequency }
+})
+
+export const logRecurringTaskUpdated = (
+  recurringTaskId: string,
+  title: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string,
+  changes?: Record<string, unknown>
+) => logActivity({
+  action: 'updated',
+  entityType: 'recurring_task',
+  entityId: recurringTaskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { title, ...changes }
+})
+
+export const logRecurringTaskDeleted = (
+  recurringTaskId: string,
+  title: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'deleted',
+  entityType: 'recurring_task',
+  entityId: recurringTaskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { title }
+})
+
+export const logRecurringTaskActivated = (
+  recurringTaskId: string,
+  title: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'activated',
+  entityType: 'recurring_task',
+  entityId: recurringTaskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { title }
+})
+
+export const logRecurringTaskDeactivated = (
+  recurringTaskId: string,
+  title: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'deactivated',
+  entityType: 'recurring_task',
+  entityId: recurringTaskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { title }
 })

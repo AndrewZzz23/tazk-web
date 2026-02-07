@@ -4,10 +4,17 @@ import { format, parse, startOfWeek, getDay, isToday, isTomorrow, addWeeks, addM
 import { es } from 'date-fns/locale'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { supabase } from './supabaseClient'
-import { Task, UserRole } from './types/database.types'
+import { Task, UserRole, TaskPriority } from './types/database.types'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, List, Clock, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, List, Clock, User, Flag } from 'lucide-react'
 import { useIsMobile } from './hooks/useIsMobile'
+
+// Configuración de colores de prioridad
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; flagColor: string }> = {
+  high: { label: 'Alta', flagColor: '#ef4444' },
+  medium: { label: 'Media', flagColor: '#eab308' },
+  low: { label: 'Baja', flagColor: '#22c55e' },
+}
 
 const locales = { es }
 
@@ -451,6 +458,14 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm, onOpenTask 
                         >
                           {event.task.task_statuses.name}
                         </span>
+                      )}
+                      {/* Indicador de prioridad - Bandera */}
+                      {event.task.priority && (
+                        <Flag
+                          className="w-3 h-3"
+                          style={{ color: PRIORITY_CONFIG[event.task.priority].flagColor }}
+                          fill={PRIORITY_CONFIG[event.task.priority].flagColor}
+                        />
                       )}
                     </div>
                   </div>
@@ -961,6 +976,15 @@ function CalendarView({ currentUserId, teamId, userRole, searchTerm, onOpenTask 
                                <User className="w-3.5 h-3.5" />}
                             </div>
                           </div>
+                        )}
+
+                        {/* Indicador de prioridad - Bandera */}
+                        {event.task.priority && (
+                          <Flag
+                            className="w-4 h-4 flex-shrink-0"
+                            style={{ color: PRIORITY_CONFIG[event.task.priority].flagColor }}
+                            fill={PRIORITY_CONFIG[event.task.priority].flagColor}
+                          />
                         )}
 
                         {/* Status badge */}

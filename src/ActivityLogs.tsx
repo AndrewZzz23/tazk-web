@@ -26,7 +26,7 @@ interface ActivityLogsProps {
 }
 
 type FilterAction = 'all' | 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned' | 'invited' | 'attachment'
-type FilterEntity = 'all' | 'task' | 'team_member' | 'status' | 'attachment'
+type FilterEntity = 'all' | 'task' | 'team_member' | 'status' | 'attachment' | 'recurring_task'
 type FilterTime = 'all' | 'today' | 'week' | 'month'
 
 // Componente Combobox simple
@@ -288,6 +288,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       team_member: logs.filter(l => l.entity_type === 'team_member').length,
       status: logs.filter(l => l.entity_type === 'status').length,
       attachment: logs.filter(l => l.entity_type === 'attachment').length,
+      recurring_task: logs.filter(l => l.entity_type === 'recurring_task').length,
     }
   }), [logs, filteredLogs])
 
@@ -428,7 +429,8 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       team_member: 'Miembro',
       status: 'Estado',
       team: 'Equipo',
-      attachment: 'Adjunto'
+      attachment: 'Adjunto',
+      recurring_task: 'Rutina'
     }
     return labels[type] || type
   }
@@ -486,6 +488,10 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
         return `Agrego archivo: "${d?.file_name || 'archivo'}"`
       case 'attachment_removed':
         return `Elimino archivo: "${d?.file_name || 'archivo'}"`
+      case 'activated':
+        return `Activo rutina: "${title}"`
+      case 'deactivated':
+        return `Pauso rutina: "${title}"`
       default:
         return `${log.action || 'Accion'} en ${getEntityLabel(log.entity_type || 'unknown')}`
     }
@@ -553,6 +559,7 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
         options={[
           { id: 'all', label: 'Todos' },
           { id: 'task', label: 'Tareas', count: counts.byEntity.task },
+          { id: 'recurring_task', label: 'Rutinas', count: counts.byEntity.recurring_task },
           { id: 'team_member', label: 'Miembros', count: counts.byEntity.team_member },
           { id: 'status', label: 'Estados', count: counts.byEntity.status },
           { id: 'attachment', label: 'Adjuntos', count: counts.byEntity.attachment },

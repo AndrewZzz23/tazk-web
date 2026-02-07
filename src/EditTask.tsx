@@ -5,14 +5,15 @@ import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { Task, TaskStatus, Profile, UserRole } from './types/database.types'
+import { Task, TaskStatus, Profile, UserRole, TaskPriority } from './types/database.types'
 import { EditIcon, XIcon, TrashIcon, SaveIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import TaskAttachments from './TaskAttachments'
+import TaskActivityLog from './TaskActivityLog'
 import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
 import { sendTaskAssignedEmail, sendTaskCompletedEmail } from './lib/emailNotifications'
-import { Calendar, Clock, User, Tag, FileText, Type } from 'lucide-react'
+import { Calendar, Clock, User, Tag, FileText, Type, AlertCircle, History, Maximize2, X } from 'lucide-react'
 
 interface EditTaskProps {
   task: Task
@@ -36,11 +37,14 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
   const [dueDate, setDueDate] = useState<Date | null>(
     task.due_date ? new Date(task.due_date) : null
   )
+  const [priority, setPriority] = useState<TaskPriority | ''>(task.priority || '')
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showActivityLog, setShowActivityLog] = useState(false)
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false)
 
   // ESC para cerrar
   useEffect(() => {
@@ -112,6 +116,12 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
       return
     }
 
+    // Validar que fecha límite sea posterior a fecha de inicio
+    if (startDate && dueDate && dueDate < startDate) {
+      showToast?.('La fecha límite debe ser posterior a la fecha de inicio', 'error')
+      return
+    }
+
     setLoading(true)
 
     const { error } = await supabase
@@ -121,6 +131,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
         description: description.trim() || null,
         status_id: statusId,
         assigned_to: assignedTo || null,
+        priority: priority || null,
         start_date: startDate?.toISOString() || null,
         due_date: dueDate?.toISOString() || null,
       })
@@ -136,10 +147,52 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
       const oldStatus = statuses.find(s => s.id === task.status_id)
       const newStatus = statuses.find(s => s.id === statusId)
 
+      // Track all field changes
+      const changes: Record<string, unknown> = {}
+
+      // Title change
+      if (task.title !== title.trim()) {
+        changes.title_changed = { from: task.title, to: title.trim() }
+      }
+
+      // Description change
+      if ((task.description || '') !== description.trim()) {
+        changes.description_changed = true
+      }
+
+      // Priority change
+      if ((task.priority || '') !== priority) {
+        changes.priority_changed = { from: task.priority || 'sin prioridad', to: priority || 'sin prioridad' }
+      }
+
+      // Start date change
+      const oldStartDate = task.start_date ? new Date(task.start_date).toDateString() : null
+      const newStartDate = startDate ? startDate.toDateString() : null
+      if (oldStartDate !== newStartDate) {
+        changes.start_date_changed = {
+          from: oldStartDate || 'sin fecha',
+          to: newStartDate || 'sin fecha'
+        }
+      }
+
+      // Due date change
+      const oldDueDate = task.due_date ? new Date(task.due_date).toDateString() : null
+      const newDueDate = dueDate ? dueDate.toDateString() : null
+      if (oldDueDate !== newDueDate) {
+        changes.due_date_changed = {
+          from: oldDueDate || 'sin fecha',
+          to: newDueDate || 'sin fecha'
+        }
+      }
+
+      // Status change (log separately for specific tracking)
       if (task.status_id !== statusId && oldStatus && newStatus) {
         logTaskStatusChanged(task.id, title.trim(), task.team_id, currentUserId, oldStatus.name, newStatus.name, userEmail)
-      } else {
-        logTaskUpdated(task.id, title.trim(), task.team_id, currentUserId, userEmail)
+      }
+
+      // Log general update with all changes if any (besides status which is logged separately)
+      if (Object.keys(changes).length > 0) {
+        logTaskUpdated(task.id, title.trim(), task.team_id, currentUserId, userEmail, changes)
       }
 
       // Log assignment changes and send notifications
@@ -332,14 +385,20 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
     <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pt-4 pb-8' : 'p-6'}`}>
       {/* Título */}
       <div className="mb-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
-          <Type className="w-4 h-4" />
-          Título *
+        <label className="flex items-center justify-between text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <span className="flex items-center gap-2">
+            <Type className="w-4 h-4" />
+            Título *
+          </span>
+          <span className={`text-xs ${title.length > 90 ? 'text-yellow-500' : 'text-neutral-400'}`}>
+            {title.length}/100
+          </span>
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          maxLength={100}
           placeholder="Título de la tarea"
           className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
           required
@@ -348,9 +407,20 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
 
       {/* Descripción */}
       <div className="mb-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
-          <FileText className="w-4 h-4" />
-          Descripción
+        <label className="flex items-center justify-between text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <span className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Descripción
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowDescriptionModal(true)}
+            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-yellow-500 transition-colors"
+            title="Expandir"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Expandir</span>
+          </button>
         </label>
         <textarea
           value={description}
@@ -405,6 +475,34 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
         )}
       </div>
 
+      {/* Prioridad */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <AlertCircle className="w-4 h-4" />
+          Prioridad
+        </label>
+        <div className="flex gap-2">
+          {[
+            { value: 'low', label: 'Baja', color: 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30' },
+            { value: 'medium', label: 'Media', color: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/30' },
+            { value: 'high', label: 'Alta', color: 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30' }
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPriority(priority === opt.value ? '' : opt.value as TaskPriority)}
+              className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                priority === opt.value
+                  ? opt.color
+                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Fechas */}
       <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
         <div>
@@ -454,6 +552,8 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
         <TaskAttachments
           taskId={task.id}
           currentUserId={currentUserId}
+          teamId={task.team_id}
+          userEmail={userEmail}
           canEdit={true}
         />
       </div>
@@ -543,12 +643,21 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
                 Editar Tarea
               </h2>
             </div>
-            <button
-              onClick={handleClose}
-              className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              <XIcon size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowActivityLog(true)}
+                className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-yellow-500 transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                title="Ver historial"
+              >
+                <History size={20} />
+              </button>
+              <button
+                onClick={handleClose}
+                className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -565,6 +674,15 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
             type="danger"
             onConfirm={handleDeleteConfirm}
             onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
+
+        {/* Activity Log */}
+        {showActivityLog && (
+          <TaskActivityLog
+            taskId={task.id}
+            taskTitle={task.title}
+            onClose={() => setShowActivityLog(false)}
           />
         )}
       </>
@@ -595,12 +713,21 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
                 Editar Tarea
               </h2>
             </div>
-            <button
-              onClick={handleClose}
-              className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
-            >
-              <XIcon size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowActivityLog(true)}
+                className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-yellow-500 transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+                title="Ver historial"
+              >
+                <History size={20} />
+              </button>
+              <button
+                onClick={handleClose}
+                className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -619,6 +746,65 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
           onConfirm={handleDeleteConfirm}
           onCancel={() => setShowDeleteConfirm(false)}
         />
+      )}
+
+      {/* Activity Log */}
+      {showActivityLog && (
+        <TaskActivityLog
+          taskId={task.id}
+          taskTitle={task.title}
+          onClose={() => setShowActivityLog(false)}
+        />
+      )}
+
+      {/* Description Modal */}
+      {showDescriptionModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowDescriptionModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-yellow-500" />
+                <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                  Descripción
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowDescriptionModal(false)}
+                className="p-2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-4 overflow-hidden">
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Agrega más detalles sobre la tarea..."
+                className="w-full h-full min-h-[300px] px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none text-base"
+                autoFocus
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-4 border-t border-neutral-200 dark:border-neutral-700">
+              <button
+                onClick={() => setShowDescriptionModal(false)}
+                className="px-6 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl font-semibold hover:bg-yellow-300 transition-all"
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

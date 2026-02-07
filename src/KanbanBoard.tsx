@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-import { Task, TaskStatus, UserRole } from './types/database.types'
+import { Task, TaskStatus, UserRole, TaskPriority } from './types/database.types'
 import {
   DndContext,
   DragEndEvent,
@@ -12,9 +12,16 @@ import {
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { Calendar, Columns3, LayoutGrid } from 'lucide-react'
+import { Calendar, Columns3, LayoutGrid, Flag } from 'lucide-react'
 import { logTaskStatusChanged } from './lib/activityLogger'
 import { sendTaskCompletedEmail } from './lib/emailNotifications'
+
+// Configuración de colores de prioridad
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; flagColor: string }> = {
+  high: { label: 'Alta', flagColor: '#ef4444' },
+  medium: { label: 'Media', flagColor: '#eab308' },
+  low: { label: 'Baja', flagColor: '#22c55e' },
+}
 
 interface KanbanBoardProps {
   currentUserId: string
@@ -68,14 +75,22 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
       </h4>
 
       <div className="flex items-center justify-between gap-2 mt-2">
-        {/* Asignado */}
-        {task.assigned_user && (
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {/* Asignado */}
+          {task.assigned_user && (
             <span className="w-5 h-5 bg-yellow-400 text-neutral-900 rounded-full flex items-center justify-center text-xs font-bold">
               {task.assigned_user.full_name?.[0] || task.assigned_user.email?.[0] || '?'}
             </span>
-          </div>
-        )}
+          )}
+          {/* Prioridad */}
+          {task.priority && (
+            <Flag
+              className="w-3 h-3"
+              style={{ color: PRIORITY_CONFIG[task.priority].flagColor }}
+              fill={PRIORITY_CONFIG[task.priority].flagColor}
+            />
+          )}
+        </div>
 
         {/* Fecha */}
         {task.due_date && (

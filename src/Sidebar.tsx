@@ -319,7 +319,7 @@ function Sidebar({
               </span>
             </button>
 
-            {/* Views selector */}
+            {/* Views selector - siempre muestra el icono de la vista de tareas activa (list/kanban/calendar) */}
             <button
               data-tour-mobile="views"
               onClick={() => setShowViewsMenu(true)}
@@ -329,10 +329,10 @@ function Sidebar({
                   : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
-              {currentView === 'list' && <ListIcon size={22} />}
+              {/* Mostrar icono según la vista de tareas, por defecto lista */}
+              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics') && <ListIcon size={22} />}
               {currentView === 'kanban' && <KanbanIcon size={22} />}
               {currentView === 'calendar' && <CalendarIcon size={22} />}
-              {currentView === 'routines' && <ListIcon size={22} />}
             </button>
 
             {/* More options */}

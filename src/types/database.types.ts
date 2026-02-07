@@ -3,8 +3,8 @@
 
 export type UserRole = 'owner' | 'admin' | 'member'
 export type ProfileRole = 'admin' | 'basic'
-export type EntityType = 'task' | 'team' | 'team_member'
-export type ActionType = 'created' | 'updated' | 'deleted' | 'assigned' | 'unassigned' | 'reassigned' | 'status_changed' | 'role_changed' | 'member_added' | 'member_removed'
+export type EntityType = 'task' | 'team' | 'team_member' | 'recurring_task'
+export type ActionType = 'created' | 'updated' | 'deleted' | 'assigned' | 'unassigned' | 'reassigned' | 'status_changed' | 'role_changed' | 'member_added' | 'member_removed' | 'activated' | 'deactivated'
 export type StatusCategory = 'not_started' | 'in_progress' | 'completed'
 export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
 export interface Profile {
@@ -49,6 +49,8 @@ export interface TaskStatus {
   created_by: string | null
 }
 
+export type TaskPriority = 'low' | 'medium' | 'high'
+
 export interface Task {
   id: string
   title: string
@@ -57,6 +59,7 @@ export interface Task {
   team_id: string | null
   created_by: string
   assigned_to: string | null
+  priority: TaskPriority | null
   start_date: string | null
   due_date: string | null
   notify_email: string | null

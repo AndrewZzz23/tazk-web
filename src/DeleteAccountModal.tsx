@@ -168,6 +168,15 @@ function DeleteAccountModal({ user, onClose, onDeleted }: DeleteAccountModalProp
         .is('team_id', null)
       if (deletePersonalTasksError) console.error('Error eliminando tareas personales:', deletePersonalTasksError)
 
+      // 3.5 Eliminar rutinas personales (recurring_tasks sin team_id)
+      console.log('🔄 Eliminando rutinas personales...')
+      const { error: deletePersonalRecurringError } = await supabase
+        .from('recurring_tasks')
+        .delete()
+        .eq('user_id', user.id)
+        .is('team_id', null)
+      if (deletePersonalRecurringError) console.error('Error eliminando rutinas personales:', deletePersonalRecurringError)
+
       // 4. Eliminar estados personales (sin team_id)
       console.log('🏷️ Eliminando estados personales...')
       const { data: deletedStatuses, error: deletePersonalStatusesError } = await supabase
@@ -221,6 +230,7 @@ function DeleteAccountModal({ user, onClose, onDeleted }: DeleteAccountModalProp
 
             // Eliminar en orden
             await supabase.from('email_logs').delete().eq('team_id', team.id)
+            await supabase.from('recurring_tasks').delete().eq('team_id', team.id)
             await supabase.from('tasks').delete().eq('team_id', team.id)
             await supabase.from('teams').delete().eq('id', team.id)
           } else {
