@@ -522,6 +522,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
             isClearable
             popperPlacement="top-start"
             portalId="root"
+            onFocus={(e) => isMobile && e.target.blur()}
           />
         </div>
 
@@ -543,6 +544,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
             isClearable
             popperPlacement="top-start"
             portalId="root"
+            onFocus={(e) => isMobile && e.target.blur()}
           />
         </div>
       </div>

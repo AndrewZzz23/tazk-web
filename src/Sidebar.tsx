@@ -222,7 +222,6 @@ function Sidebar({
   // Herramientas que son vistas (no modales)
   const toolViewItems = [
     { id: 'routines', icon: <RepeatIcon size={20} />, label: 'Rutinas' },
-    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas' },
     // Correos solo para owner (o si no hay equipo seleccionado = tareas personales)
     ...(selectedRole === 'owner' || !selectedTeamId ? [
       { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos' },
@@ -330,7 +329,7 @@ function Sidebar({
               }`}
             >
               {/* Mostrar icono según la vista de tareas, por defecto lista */}
-              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics') && <ListIcon size={22} />}
+              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics' || currentView === 'emails') && <ListIcon size={22} />}
               {currentView === 'kanban' && <KanbanIcon size={22} />}
               {currentView === 'calendar' && <CalendarIcon size={22} />}
             </button>
@@ -559,8 +558,36 @@ function Sidebar({
               </div>
 
               <div className="py-2 pb-6">
-                {/* Sección de Herramientas */}
+                {/* Sección de Métricas */}
                 <div className="px-4 py-2 border-b border-neutral-800 mb-2">
+                  <span className="text-neutral-500 text-xs font-medium uppercase tracking-wider">Métricas</span>
+                </div>
+                <button
+                  onClick={() => {
+                    onViewChange('metrics')
+                    setShowMoreMenu(false)
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 ${
+                    currentView === 'metrics' ? 'bg-yellow-400/10' : ''
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    currentView === 'metrics'
+                      ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-neutral-900'
+                      : 'bg-neutral-700 text-neutral-400'
+                  }`}>
+                    <ChartIcon size={20} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className={`font-medium ${currentView === 'metrics' ? 'text-yellow-400' : 'text-white'}`}>Métricas</div>
+                  </div>
+                  {currentView === 'metrics' && (
+                    <Check className="w-5 h-5 text-yellow-400" />
+                  )}
+                </button>
+
+                {/* Sección de Herramientas */}
+                <div className="px-4 py-2 border-b border-neutral-800 mt-2 mb-2">
                   <span className="text-neutral-500 text-xs font-medium uppercase tracking-wider">Herramientas</span>
                 </div>
 
@@ -970,6 +997,29 @@ function Sidebar({
               </button>
             ))}
           </nav>
+
+          {/* Métricas */}
+          <div className="mt-4 pt-4 border-t border-neutral-800">
+            {!isCollapsed && (
+              <div className="text-[11px] text-neutral-600 uppercase tracking-wider px-3 mb-2">
+                Métricas
+              </div>
+            )}
+            <button
+              onClick={() => onViewChange('metrics')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${
+                isCollapsed ? 'justify-center' : ''
+              } ${
+                currentView === 'metrics'
+                  ? 'bg-yellow-400/10 text-yellow-400'
+                  : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              }`}
+              title={isCollapsed ? 'Métricas' : undefined}
+            >
+              <span><ChartIcon size={20} /></span>
+              {!isCollapsed && <span className="text-sm">Métricas</span>}
+            </button>
+          </div>
 
           {/* Herramientas */}
           <div className="mt-4 pt-4 border-t border-neutral-800" data-tour="tools">

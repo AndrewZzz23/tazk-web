@@ -36,6 +36,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
   const [loadingData, setLoadingData] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
   const [emailModuleEnabled, setEmailModuleEnabled] = useState(false)
+  const [hasConnectedEmail, setHasConnectedEmail] = useState(false)
   const [showDescriptionModal, setShowDescriptionModal] = useState(false)
 
   // ESC para cerrar
@@ -107,6 +108,17 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
 
       const { data: emailSettings } = await emailSettingsQuery.maybeSingle()
       setEmailModuleEnabled(emailSettings?.is_enabled || false)
+
+      // Verificar si tiene correo OAuth conectado
+      if (emailSettings?.is_enabled) {
+        const { data: oauthToken } = await supabase
+          .from('email_oauth_tokens')
+          .select('id')
+          .eq('user_id', currentUserId)
+          .limit(1)
+          .maybeSingle()
+        setHasConnectedEmail(!!oauthToken)
+      }
 
       setLoadingData(false)
     }
@@ -547,6 +559,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             isClearable
             popperPlacement="top-start"
             portalId="root"
+            onFocus={(e) => isMobile && e.target.blur()}
           />
         </div>
 
@@ -565,6 +578,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             placeholderText="Seleccionar fecha"
             className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base"
             minDate={startDate || undefined}
+            onFocus={(e) => isMobile && e.target.blur()}
             isClearable
             popperPlacement="top-start"
             portalId="root"
@@ -582,6 +596,14 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
               ({notifyEmails.length}/3)
             </span>
           </label>
+
+          {/* Advertencia si no tiene correo conectado */}
+          {!hasConnectedEmail && (
+            <div className="flex items-start gap-2 p-3 mb-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-600/40 rounded-xl text-sm text-amber-700 dark:text-amber-400">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>No tienes un correo conectado. Las notificaciones no se enviarán hasta que conectes tu cuenta de correo en <strong>Configuración de correos</strong>.</span>
+            </div>
+          )}
 
           {/* Lista de emails agregados */}
           {notifyEmails.length > 0 && (

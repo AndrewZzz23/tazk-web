@@ -244,7 +244,7 @@ function CreateRecurringTask({
   }
 
   const renderForm = () => (
-    <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pt-4 pb-8' : 'p-6'}`}>
+    <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto overflow-x-hidden ${isMobile ? 'px-4 pt-4 pb-8' : 'p-6'}`}>
       {/* Título */}
       <div className="mb-4">
         <label className="flex items-center justify-between text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
@@ -414,7 +414,7 @@ function CreateRecurringTask({
           type="time"
           value={timeOfDay}
           onChange={(e) => setTimeOfDay(e.target.value)}
-          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+          className="w-full max-w-full box-border px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
         />
       </div>
 

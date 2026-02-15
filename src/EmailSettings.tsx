@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-import { EmailSettings as EmailSettingsType, EmailTemplate, EmailLog } from './types/database.types'
+import { EmailTemplate, EmailLog } from './types/database.types'
 import { XIcon, LoadingZapIcon, MailIcon } from './components/iu/AnimatedIcons'
 import { Settings, FileText, History, Send, CheckCircle, Clock, AlertCircle, Zap, Bell, UserCheck, RefreshCw, Eye, Edit3, Copy, Check, Mail, Link, Unlink } from 'lucide-react'
 import Toast from './Toast'
@@ -58,7 +58,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
   const [saving, setSaving] = useState(false)
 
   // Settings state
-  const [settings, setSettings] = useState<EmailSettingsType | null>(null)
+  const [settingsId, setSettingsId] = useState<string | null>(null)
   const [isEnabled, setIsEnabled] = useState(false)
   const [fromName, setFromName] = useState('Tazk')
   const [notifyOnCreate, setNotifyOnCreate] = useState(true)
@@ -146,7 +146,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
 
     if (data) {
       console.log('Setting isEnabled to:', data.is_enabled)
-      setSettings(data)
+      setSettingsId(data.id)
       setIsEnabled(data.is_enabled)
       setFromName(data.from_name || 'Tazk')
       setNotifyOnCreate(data.notify_on_create)
@@ -282,8 +282,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     setSaving(true)
 
     const settingsData = {
-      user_id: currentUserId,
-      team_id: teamId,
       is_enabled: isEnabled,
       from_name: fromName,
       notify_on_create: notifyOnCreate,
@@ -293,15 +291,14 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
       updated_at: new Date().toISOString()
     }
 
-    if (settings) {
+    if (settingsId) {
       const { error } = await supabase
         .from('email_settings')
         .update(settingsData)
-        .eq('id', settings.id)
-
-      console.log('EmailSettings update:', { error, settingsData })
+        .eq('id', settingsId)
 
       if (error) {
+        console.error('EmailSettings save error:', error)
         showToast('Error al guardar', 'error')
       } else {
         showToast('Configuración guardada', 'success')
@@ -309,17 +306,16 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     } else {
       const { data, error } = await supabase
         .from('email_settings')
-        .insert(settingsData)
+        .insert({ ...settingsData, user_id: currentUserId, team_id: teamId })
         .select()
         .single()
 
-      console.log('EmailSettings insert:', { data, error, settingsData })
-
       if (error) {
-        showToast('Error al crear configuración', 'error')
+        console.error('EmailSettings insert error:', error)
+        showToast('Error al guardar', 'error')
       } else {
-        setSettings(data)
-        showToast('Configuración creada', 'success')
+        if (data) setSettingsId(data.id)
+        showToast('Configuración guardada', 'success')
       }
     }
 
@@ -585,7 +581,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     <div className="space-y-6 max-w-2xl mx-auto">
       {/* Master Toggle */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-yellow-400/10 via-orange-400/10 to-orange-500/10 dark:from-yellow-400/5 dark:via-orange-400/5 dark:to-orange-500/5 p-6 border border-yellow-400/20">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
@@ -596,12 +592,47 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
             <div>
               <h3 className="font-semibold text-gray-900 dark:text-white">Notificaciones por correo</h3>
               <p className="text-sm text-gray-500 dark:text-neutral-400">
-                {isEnabled ? 'Recibir alertas de tus tareas' : 'Activar para recibir correos'}
+                {isEnabled ? 'Envío de correos automáticos activo' : 'Activar envío de notificaciones por correo'}
               </p>
             </div>
           </div>
           <button
-            onClick={() => setIsEnabled(!isEnabled)}
+            onClick={async () => {
+              const newValue = !isEnabled
+              setIsEnabled(newValue)
+
+              try {
+                if (settingsId) {
+                  const { error } = await supabase
+                    .from('email_settings')
+                    .update({ is_enabled: newValue, updated_at: new Date().toISOString() })
+                    .eq('id', settingsId)
+                  if (error) throw error
+                } else {
+                  const { data, error } = await supabase
+                    .from('email_settings')
+                    .insert({
+                      user_id: currentUserId,
+                      team_id: teamId,
+                      is_enabled: newValue,
+                      from_name: fromName,
+                      notify_on_create: notifyOnCreate,
+                      notify_on_assign: notifyOnAssign,
+                      notify_on_due: notifyOnDue,
+                      notify_on_complete: notifyOnComplete,
+                    })
+                    .select()
+                    .single()
+                  if (error) throw error
+                  if (data) setSettingsId(data.id)
+                }
+                showToast(newValue ? 'Notificaciones activadas' : 'Notificaciones desactivadas', 'success')
+              } catch (err: any) {
+                console.error('Error toggling email:', err)
+                setIsEnabled(!newValue)
+                showToast('Error al cambiar notificaciones', 'error')
+              }
+            }}
             className={`relative w-14 h-8 rounded-full transition-all duration-300 ${
               isEnabled ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 'bg-gray-300 dark:bg-neutral-600'
             }`}
@@ -1289,7 +1320,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                   <div className="space-y-6 max-w-2xl mx-auto">
                     {/* Master Toggle */}
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-yellow-400/10 via-orange-400/10 to-orange-500/10 dark:from-yellow-400/5 dark:via-orange-400/5 dark:to-orange-500/5 p-6 border border-yellow-400/20">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-yellow-400/20 to-orange-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                       <div className="relative flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
@@ -1311,31 +1342,35 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                             const newValue = !isEnabled
                             setIsEnabled(newValue)
 
-                            // Guardar automáticamente
-                            const settingsData = {
-                              user_id: currentUserId,
-                              team_id: teamId,
-                              is_enabled: newValue,
-                              from_name: fromName,
-                              notify_on_create: notifyOnCreate,
-                              notify_on_assign: notifyOnAssign,
-                              notify_on_due: notifyOnDue,
-                              notify_on_complete: notifyOnComplete,
-                              updated_at: new Date().toISOString()
-                            }
-
-                            if (settings) {
-                              await supabase
-                                .from('email_settings')
-                                .update({ is_enabled: newValue, updated_at: new Date().toISOString() })
-                                .eq('id', settings.id)
-                            } else {
-                              const { data } = await supabase
-                                .from('email_settings')
-                                .insert(settingsData)
-                                .select()
-                                .single()
-                              if (data) setSettings(data)
+                            try {
+                              if (settingsId) {
+                                const { error } = await supabase
+                                  .from('email_settings')
+                                  .update({ is_enabled: newValue, updated_at: new Date().toISOString() })
+                                  .eq('id', settingsId)
+                                if (error) throw error
+                              } else {
+                                const { data, error } = await supabase
+                                  .from('email_settings')
+                                  .insert({
+                                    user_id: currentUserId,
+                                    team_id: teamId,
+                                    is_enabled: newValue,
+                                    from_name: fromName,
+                                    notify_on_create: notifyOnCreate,
+                                    notify_on_assign: notifyOnAssign,
+                                    notify_on_due: notifyOnDue,
+                                    notify_on_complete: notifyOnComplete,
+                                  })
+                                  .select()
+                                  .single()
+                                if (error) throw error
+                                if (data) setSettingsId(data.id)
+                              }
+                            } catch (err: any) {
+                              console.error('Error toggling email:', err)
+                              setIsEnabled(!newValue)
+                              showToast('Error al cambiar notificaciones', 'error')
                             }
                           }}
                           className={`relative w-16 h-9 rounded-full transition-all duration-300 ${

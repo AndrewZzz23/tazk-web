@@ -23,6 +23,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -137,23 +139,22 @@ function SortableWidget({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
 
   return (
     <motion.div
       ref={setNodeRef}
       style={style}
-      className={`relative group ${className}`}
+      className={`relative group ${className} ${isDragging ? 'opacity-40 scale-[0.98] rotate-1' : ''}`}
       initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: isDragging ? 0.4 : 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
       {/* Drag handle */}
       <div
         {...attributes}
         {...listeners}
-        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-neutral-100 dark:bg-neutral-700 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 z-10"
+        className="absolute top-3 right-3 p-1.5 rounded-lg cursor-grab active:cursor-grabbing bg-neutral-100 dark:bg-neutral-700 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 z-10"
       >
         <GripVertical className="w-4 h-4" />
       </div>
@@ -462,6 +463,8 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     return ['productivity', 'completion', 'status', 'trend', 'heatmap', 'streak', 'alerts', 'team']
   })
 
+  const [activeWidgetId, setActiveWidgetId] = useState<WidgetId | null>(null)
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -733,7 +736,12 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     }
   }, [filteredTasks, statuses, tasks, getTaskCategory])
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveWidgetId(event.active.id as WidgetId)
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveWidgetId(null)
     const { active, over } = event
     if (over && active.id !== over.id) {
       setWidgetOrder(items => {
@@ -744,6 +752,22 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         return newOrder
       })
     }
+  }
+
+  const handleDragCancel = () => {
+    setActiveWidgetId(null)
+  }
+
+  // Widget title map for drag overlay
+  const widgetTitles: Record<WidgetId, { title: string; icon: React.ReactNode }> = {
+    productivity: { title: 'Productividad', icon: <Sparkles className="w-5 h-5 text-yellow-500" /> },
+    completion: { title: 'Progreso', icon: <Target className="w-5 h-5 text-emerald-500" /> },
+    status: { title: 'Por estado', icon: <PieChartIcon className="w-5 h-5 text-purple-500" /> },
+    trend: { title: 'Tendencia semanal', icon: <Activity className="w-5 h-5 text-blue-500" /> },
+    heatmap: { title: 'Mapa de actividad', icon: <CalendarDays className="w-5 h-5 text-orange-500" /> },
+    streak: { title: 'Racha', icon: <Flame className="w-5 h-5 text-orange-500" /> },
+    alerts: { title: 'Alertas', icon: <AlertTriangle className="w-5 h-5 text-red-500" /> },
+    team: { title: 'Equipo', icon: <Users className="w-5 h-5 text-cyan-500" /> },
   }
 
   // Render widget by ID
@@ -1131,13 +1155,28 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <SortableContext items={widgetOrder} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-2 gap-4">
               {widgetOrder.map(widgetId => renderWidget(widgetId))}
             </div>
           </SortableContext>
+
+          <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
+            {activeWidgetId && (
+              <div className="bg-white dark:bg-neutral-800 rounded-2xl p-6 border-2 border-yellow-400 shadow-2xl shadow-yellow-400/20 rotate-2 min-w-[200px]">
+                <div className="flex items-center gap-3">
+                  {widgetTitles[activeWidgetId].icon}
+                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
+                    {widgetTitles[activeWidgetId].title}
+                  </h3>
+                </div>
+              </div>
+            )}
+          </DragOverlay>
         </DndContext>
       </>
     )
@@ -1148,20 +1187,19 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     return (
       <div className={`${isMobile ? 'pb-24' : ''}`}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="text-yellow-400">
-              <ChartIcon size={28} />
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-yellow-400">
+                <ChartIcon size={28} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Métricas</h2>
+                <p className="text-sm text-gray-500 dark:text-neutral-400">
+                  {metrics.totalTasks} tareas · {metrics.completionRate}% completado
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Métricas</h2>
-              <p className="text-sm text-gray-500 dark:text-neutral-400">
-                {metrics.totalTasks} tareas · {metrics.completionRate}% completado
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <DateRangeSelector value={dateRange} onChange={setDateRange} />
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -1169,6 +1207,9 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             >
               <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
+          </div>
+          <div className="mt-3">
+            <DateRangeSelector value={dateRange} onChange={setDateRange} />
           </div>
         </div>
 
