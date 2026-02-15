@@ -414,7 +414,7 @@ function CreateRecurringTask({
           type="time"
           value={timeOfDay}
           onChange={(e) => setTimeOfDay(e.target.value)}
-          className="w-full max-w-full box-border px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base [&::-webkit-date-and-time-value]:text-left"
         />
       </div>
 

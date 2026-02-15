@@ -17,7 +17,6 @@ export interface Profile {
   theme: 'light' | 'dark'
   notifications_enabled: boolean
   notify_on_assign: boolean
-  notify_on_due: boolean
   role: ProfileRole
   created_at: string
   updated_at: string | null
@@ -150,7 +149,6 @@ export interface EmailSettings {
   from_name: string
   notify_on_create: boolean
   notify_on_assign: boolean
-  notify_on_due: boolean
   notify_on_complete: boolean
   created_at: string
   updated_at: string
@@ -160,7 +158,7 @@ export interface EmailTemplate {
   id: string
   user_id: string | null
   team_id: string | null
-  type: 'task_created' | 'task_assigned' | 'task_due' | 'task_completed'
+  type: 'task_created' | 'task_assigned' | 'task_completed'
   name: string
   subject: string
   body_html: string
@@ -183,6 +181,47 @@ export interface EmailLog {
   external_id: string | null
   sent_at: string | null
   created_at: string
+}
+
+export type NotificationType = 'task_assigned' | 'task_completed' | 'task_unassigned' | 'task_status_changed'
+
+export interface AppNotification {
+  id: string
+  user_id: string
+  type: NotificationType
+  title: string
+  body: string | null
+  data: Record<string, unknown>
+  is_read: boolean
+  created_at: string
+}
+
+export interface ContactLabel {
+  id: string
+  user_id: string
+  team_id: string | null
+  name: string
+  color: string
+  created_at: string
+}
+
+export interface Contact {
+  id: string
+  user_id: string
+  team_id: string | null
+  name: string
+  email: string | null
+  phone: string | null
+  company: string | null
+  location_address: string | null
+  location_lat: number | null
+  location_lng: number | null
+  label_id: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Relaciones (opcionales, vienen del JOIN)
+  contact_labels?: ContactLabel | null
 }
 
 export type RecurringFrequency = 'daily' | 'weekly' | 'monthly'

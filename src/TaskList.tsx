@@ -5,6 +5,7 @@ import ConfirmDialog from './ConfirmDialog'
 import TaskActivityLog from './TaskActivityLog'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { ChevronRight, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Flag, History, Filter, X, User, Clock } from 'lucide-react'
+import { sendTaskCompletedEmail } from './lib/emailNotifications'
 
 // Tipos de filtros
 interface TaskFilters {
@@ -26,13 +27,14 @@ interface TaskListProps {
   currentUserId: string
   teamId: string | null
   userRole: UserRole | null
+  userEmail?: string
   onTaskUpdated: () => void
   searchTerm: string
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
   onOpenTask?: (task: Task) => void
 }
 
-function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm, showToast, onOpenTask }: TaskListProps) {
+function TaskList({ currentUserId, teamId, userRole, userEmail, onTaskUpdated, searchTerm, showToast, onOpenTask }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [teamMembers, setTeamMembers] = useState<Profile[]>([])
@@ -267,6 +269,7 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm, 
 
   const handleStatusChange = async (taskId: string, newStatusId: string) => {
     const oldTask = tasks.find(t => t.id === taskId)
+    const oldStatus = oldTask?.task_statuses
     const newStatus = statuses.find(s => s.id === newStatusId)
 
     setTasks(prev => prev.map(t =>
@@ -283,6 +286,57 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm, 
         setTasks(prev => prev.map(t => t.id === taskId ? oldTask : t))
       }
       showToast?.('Error al actualizar estado', 'error')
+      return
+    }
+
+    // Disparar email y notificación si la tarea se completó
+    if (oldTask && newStatus?.category === 'completed' && oldStatus?.category !== 'completed') {
+      const emailsToNotify: string[] = []
+
+      // Notificar al creador si es diferente al usuario actual
+      if (oldTask.created_by_user?.email && oldTask.created_by !== currentUserId) {
+        emailsToNotify.push(oldTask.created_by_user.email)
+      }
+
+      // Notificar al asignado si es diferente al usuario actual y al creador
+      if (oldTask.assigned_to && oldTask.assigned_to !== currentUserId) {
+        const assignedEmail = oldTask.assigned_user?.email
+        if (assignedEmail && !emailsToNotify.includes(assignedEmail)) {
+          emailsToNotify.push(assignedEmail)
+        }
+      }
+
+      if (emailsToNotify.length > 0) {
+        sendTaskCompletedEmail(currentUserId, teamId, emailsToNotify, {
+          taskId: oldTask.id,
+          taskTitle: oldTask.title,
+          taskDescription: oldTask.description || undefined,
+          statusName: newStatus.name,
+          createdByName: userEmail,
+          completedDate: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        })
+      }
+
+      // Notificación en BD al creador
+      if (oldTask.created_by && oldTask.created_by !== currentUserId) {
+        supabase.from('notifications').insert({
+          user_id: oldTask.created_by,
+          type: 'task_completed',
+          title: `${userEmail || 'Alguien'} completó una tarea`,
+          body: oldTask.title,
+          data: { task_id: oldTask.id, team_id: teamId }
+        }).then(() => {})
+      }
+      // Notificación al asignado si es diferente
+      if (oldTask.assigned_to && oldTask.assigned_to !== currentUserId && oldTask.assigned_to !== oldTask.created_by) {
+        supabase.from('notifications').insert({
+          user_id: oldTask.assigned_to,
+          type: 'task_completed',
+          title: `${userEmail || 'Alguien'} completó una tarea`,
+          body: oldTask.title,
+          data: { task_id: oldTask.id, team_id: teamId }
+        }).then(() => {})
+      }
     }
   }
 
@@ -552,7 +606,9 @@ function TaskList({ currentUserId, teamId, userRole, onTaskUpdated, searchTerm, 
           <p className="text-gray-500 dark:text-neutral-400 text-sm text-center max-w-xs">
             {hasActiveFilters
               ? 'No encontramos tareas con los filtros aplicados'
-              : 'Comienza creando tu primera tarea con el botón +'}
+              : teamId && userRole === 'member'
+                ? 'Aún no hay tareas asignadas para ti'
+                : 'Comienza creando tu primera tarea con el botón +'}
           </p>
           {hasActiveFilters && (
             <button

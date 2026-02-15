@@ -4,10 +4,10 @@ import { useRealtimeSubscription } from './hooks/useRealtimeSubscription'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { TeamInvitation } from './types/database.types'
+import { TeamInvitation, AppNotification } from './types/database.types'
 import Toast from './Toast'
 import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
-import { BellOff, Clock, Shield, User } from 'lucide-react'
+import { BellOff, Clock, Shield, User, UserPlus, CheckCircle2, UserMinus, ArrowRightLeft, Trash2 } from 'lucide-react'
 
 interface NotificationsProps {
   onClose: () => void
@@ -17,6 +17,7 @@ interface NotificationsProps {
 function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
   const isMobile = useIsMobile()
   const [invitations, setInvitations] = useState<TeamInvitation[]>([])
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
 
@@ -37,46 +38,63 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
-    loadInvitations()
+    loadData()
   }, [])
 
-  // Suscripción realtime para invitaciones
+  // Suscripción realtime
   useRealtimeSubscription({
     subscriptions: [
-      { table: 'team_invitations' }
+      { table: 'team_invitations' },
+      { table: 'notifications' }
     ],
     onchange: useCallback(() => {
-      loadInvitations()
+      loadData()
     }, []),
     enabled: true
   })
 
-  const loadInvitations = async () => {
+  const loadData = async () => {
     setLoading(true)
 
     const { data: userData } = await supabase.auth.getUser()
     const userEmail = userData.user?.email
+    const userId = userData.user?.id
 
-    if (!userEmail) {
+    if (!userEmail || !userId) {
       setLoading(false)
       return
     }
 
-    const { data, error } = await supabase
-      .from('team_invitations')
-      .select(`
-        *,
-        teams (*),
-        inviter:profiles!team_invitations_invited_by_fkey (*)
-      `)
-      .eq('email', userEmail)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
+    // Cargar invitaciones y notificaciones en paralelo
+    const [invitationsRes, notificationsRes] = await Promise.all([
+      supabase
+        .from('team_invitations')
+        .select(`
+          *,
+          teams (*),
+          inviter:profiles!team_invitations_invited_by_fkey (*)
+        `)
+        .eq('email', userEmail)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ])
 
-    if (error) {
-      console.error('Error cargando invitaciones:', error)
-    } else {
-      setInvitations(data || [])
+    if (!invitationsRes.error) setInvitations(invitationsRes.data || [])
+    if (!notificationsRes.error) setNotifications(notificationsRes.data || [])
+
+    // Marcar notificaciones como leídas
+    if (notificationsRes.data?.some(n => !n.is_read)) {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false)
     }
 
     setLoading(false)
@@ -131,6 +149,19 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
     }
   }
 
+  const handleDeleteNotification = async (notifId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notifId))
+    await supabase.from('notifications').delete().eq('id', notifId)
+  }
+
+  const handleClearAll = async () => {
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user?.id) return
+    setNotifications([])
+    await supabase.from('notifications').delete().eq('user_id', userData.user.id)
+    showToast('Notificaciones limpiadas', 'info')
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -148,6 +179,39 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
     return date.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })
   }
 
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'task_assigned':
+        return <UserPlus className="w-5 h-5 text-blue-400" />
+      case 'task_completed':
+        return <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+      case 'task_unassigned':
+        return <UserMinus className="w-5 h-5 text-orange-400" />
+      case 'task_status_changed':
+        return <ArrowRightLeft className="w-5 h-5 text-purple-400" />
+      default:
+        return <BellIcon size={20} />
+    }
+  }
+
+  const getNotificationColor = (type: string) => {
+    switch (type) {
+      case 'task_assigned':
+        return 'from-blue-500/20 to-blue-500/5 border-blue-500/30'
+      case 'task_completed':
+        return 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30'
+      case 'task_unassigned':
+        return 'from-orange-500/20 to-orange-500/5 border-orange-500/30'
+      case 'task_status_changed':
+        return 'from-purple-500/20 to-purple-500/5 border-purple-500/30'
+      default:
+        return 'from-neutral-500/20 to-neutral-500/5 border-neutral-500/30'
+    }
+  }
+
+  const totalCount = invitations.length + notifications.filter(n => !n.is_read).length
+  const hasItems = invitations.length > 0 || notifications.length > 0
+
   // Contenido compartido
   const renderContent = () => (
     <>
@@ -155,7 +219,7 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
         <div className="flex items-center justify-center py-16">
           <LoadingZapIcon size={48} />
         </div>
-      ) : invitations.length === 0 ? (
+      ) : !hasItems ? (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <div className="w-20 h-20 bg-neutral-100 dark:bg-neutral-700/50 rounded-full flex items-center justify-center mb-4">
             <BellOff className="w-10 h-10 text-neutral-400 dark:text-neutral-500" />
@@ -169,9 +233,10 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
         </div>
       ) : (
         <div className={`space-y-3 ${isMobile ? 'px-4 py-3 pb-8' : 'p-4'}`}>
+          {/* Invitaciones pendientes */}
           {invitations.map(invitation => (
             <div
-              key={invitation.id}
+              key={`inv-${invitation.id}`}
               className="bg-gradient-to-br from-neutral-50 to-neutral-100 dark:from-neutral-700/60 dark:to-neutral-700/30 rounded-2xl p-4 border border-neutral-200 dark:border-neutral-600/50 shadow-sm"
             >
               {/* Header con avatar y tiempo */}
@@ -234,6 +299,60 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
               </div>
             </div>
           ))}
+
+          {/* Separador si hay ambos */}
+          {invitations.length > 0 && notifications.length > 0 && (
+            <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
+          )}
+
+          {/* Botón limpiar todo */}
+          {notifications.length > 0 && (
+            <div className="flex justify-end">
+              <button
+                onClick={handleClearAll}
+                className="text-xs text-neutral-400 dark:text-neutral-500 hover:text-red-400 dark:hover:text-red-400 transition-colors flex items-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" />
+                Limpiar todo
+              </button>
+            </div>
+          )}
+
+          {/* Notificaciones generales */}
+          {notifications.map(notif => (
+            <div
+              key={`notif-${notif.id}`}
+              className={`bg-gradient-to-br ${getNotificationColor(notif.type)} rounded-2xl p-4 border shadow-sm group relative`}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-neutral-900/50 flex items-center justify-center flex-shrink-0">
+                  {getNotificationIcon(notif.type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-neutral-900 dark:text-white font-medium text-sm leading-snug">
+                    {notif.title}
+                  </p>
+                  {notif.body && (
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-1 line-clamp-2">
+                      {notif.body}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-1 text-neutral-400 dark:text-neutral-500 text-xs">
+                    <Clock className="w-3 h-3" />
+                    <span>{formatDate(notif.created_at)}</span>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteNotification(notif.id)}
+                    className="p-1 text-neutral-400 hover:text-red-400 transition-colors rounded-lg opacity-0 group-hover:opacity-100"
+                  >
+                    <XIcon size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </>
@@ -272,9 +391,9 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
               <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
                 Notificaciones
               </h2>
-              {invitations.length > 0 && (
+              {totalCount > 0 && (
                 <span className="bg-yellow-400 text-neutral-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                  {invitations.length}
+                  {totalCount}
                 </span>
               )}
             </div>
@@ -326,9 +445,9 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
               <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
                 Notificaciones
               </h2>
-              {invitations.length > 0 && (
+              {totalCount > 0 && (
                 <span className="bg-yellow-400 text-neutral-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                  {invitations.length}
+                  {totalCount}
                 </span>
               )}
             </div>

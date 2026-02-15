@@ -3075,3 +3075,55 @@ const RepeatIcon = forwardRef<RepeatIconHandle, RepeatIconProps>(
 RepeatIcon.displayName = 'RepeatIcon';
 
 export { RepeatIcon };
+
+/* -------------------------------------------------------------------------- */
+/*                              CONTACTS ICON                                  */
+/* -------------------------------------------------------------------------- */
+
+interface ContactsIconProps extends HTMLAttributes<HTMLDivElement> {
+  size?: number;
+}
+
+const ContactsIcon = forwardRef<HTMLDivElement, ContactsIconProps>(
+  ({ onMouseEnter, onMouseLeave, className, size = 20, ...props }, ref) => {
+    const controls = useAnimation();
+
+    return (
+      <div
+        ref={ref}
+        className={cn(className)}
+        onMouseEnter={(e) => {
+          controls.start({ scale: 1.1, rotate: 5 });
+          onMouseEnter?.(e);
+        }}
+        onMouseLeave={(e) => {
+          controls.start({ scale: 1, rotate: 0 });
+          onMouseLeave?.(e);
+        }}
+        {...props}
+      >
+        <motion.svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          animate={controls}
+          transition={{ type: "spring", stiffness: 200, damping: 12 }}
+        >
+          <path d="M15 13a3 3 0 1 0-6 0" />
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
+          <circle cx="12" cy="8" r="2" />
+        </motion.svg>
+      </div>
+    );
+  }
+);
+
+ContactsIcon.displayName = 'ContactsIcon';
+
+export { ContactsIcon };

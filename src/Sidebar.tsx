@@ -19,7 +19,8 @@ import {
   PanelLeftCloseIcon,
   MailIcon,
   SettingsIcon,
-  RepeatIcon
+  RepeatIcon,
+  ContactsIcon
 } from './components/iu/AnimatedIcons';
 import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
@@ -222,6 +223,7 @@ function Sidebar({
   // Herramientas que son vistas (no modales)
   const toolViewItems = [
     { id: 'routines', icon: <RepeatIcon size={20} />, label: 'Rutinas' },
+    { id: 'contacts', icon: <ContactsIcon size={20} />, label: 'Contactos' },
     // Correos solo para owner (o si no hay equipo seleccionado = tareas personales)
     ...(selectedRole === 'owner' || !selectedTeamId ? [
       { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos' },
@@ -329,7 +331,7 @@ function Sidebar({
               }`}
             >
               {/* Mostrar icono según la vista de tareas, por defecto lista */}
-              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics' || currentView === 'emails') && <ListIcon size={22} />}
+              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics' || currentView === 'emails' || currentView === 'contacts') && <ListIcon size={22} />}
               {currentView === 'kanban' && <KanbanIcon size={22} />}
               {currentView === 'calendar' && <CalendarIcon size={22} />}
             </button>

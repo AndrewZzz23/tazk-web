@@ -127,7 +127,7 @@ export default function TermsOfService({ onClose }: TermsOfServiceProps) {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">10. Contacto</h3>
             <p className="text-sm leading-relaxed">
               Si tienes preguntas sobre estos Terminos y Condiciones, puedes contactarnos en:
-              <span className="text-yellow-500 font-medium ml-1">soporte@tazk.app</span>
+              <span className="text-yellow-500 font-medium ml-1">jairozb23@gmail.com</span>
             </p>
           </section>
         </div>

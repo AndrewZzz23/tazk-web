@@ -320,6 +320,27 @@ function KanbanBoard({ currentUserId, teamId, userEmail, searchTerm, onOpenTask 
               completedDate: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
             })
           }
+
+          // Notificación en BD al creador
+          if (task.created_by && task.created_by !== currentUserId) {
+            supabase.from('notifications').insert({
+              user_id: task.created_by,
+              type: 'task_completed',
+              title: `${userEmail || 'Alguien'} completó una tarea`,
+              body: task.title,
+              data: { task_id: task.id, team_id: teamId }
+            }).then(() => {})
+          }
+          // Notificación al asignado si es diferente
+          if (task.assigned_to && task.assigned_to !== currentUserId && task.assigned_to !== task.created_by) {
+            supabase.from('notifications').insert({
+              user_id: task.assigned_to,
+              type: 'task_completed',
+              title: `${userEmail || 'Alguien'} completó una tarea`,
+              body: task.title,
+              data: { task_id: task.id, team_id: teamId }
+            }).then(() => {})
+          }
         }
       }
     }

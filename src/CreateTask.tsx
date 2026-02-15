@@ -9,6 +9,7 @@ import { TaskStatus, Profile, TaskPriority } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
 import { Calendar, Clock, User, Tag, Mail, FileText, Type, AlertCircle, Maximize2, X } from 'lucide-react'
+import ContactPicker from './ContactPicker'
 
 interface CreateTaskProps {
   currentUserId: string
@@ -191,6 +192,14 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
         // Send push notification to assigned user (don't notify yourself)
         if (assignedTo !== currentUserId) {
           notifyTaskAssigned(assignedTo, title.trim(), userEmail || 'Alguien', data.id)
+          // Insertar notificación en BD
+          supabase.from('notifications').insert({
+            user_id: assignedTo,
+            type: 'task_assigned',
+            title: `${userEmail || 'Alguien'} te asignó una tarea`,
+            body: title.trim(),
+            data: { task_id: data.id, team_id: teamId }
+          }).then(() => {})
         }
       }
 
@@ -604,6 +613,21 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
               <span>No tienes un correo conectado. Las notificaciones no se enviarán hasta que conectes tu cuenta de correo en <strong>Configuración de correos</strong>.</span>
             </div>
           )}
+
+          {/* Selector de contacto */}
+          <ContactPicker
+            currentUserId={currentUserId}
+            teamId={teamId}
+            selectedEmails={notifyEmails}
+            maxEmails={3}
+            onEmailsChange={setNotifyEmails}
+          />
+
+          <div className="flex items-center gap-2 my-3">
+            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+            <span className="text-xs text-neutral-400 dark:text-neutral-500">o escribir manualmente</span>
+            <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+          </div>
 
           {/* Lista de emails agregados */}
           {notifyEmails.length > 0 && (

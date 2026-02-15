@@ -4,7 +4,6 @@ interface EmailSettings {
   is_enabled: boolean
   notify_on_create: boolean
   notify_on_assign: boolean
-  notify_on_due: boolean
   notify_on_complete: boolean
   from_name: string
 }

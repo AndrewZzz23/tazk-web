@@ -183,7 +183,7 @@ export default function PrivacyPolicy({ onClose }: PrivacyPolicyProps) {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">9. Contacto</h3>
             <p className="text-sm leading-relaxed">
               Para consultas sobre privacidad, contactanos en:
-              <span className="text-yellow-500 font-medium ml-1">privacidad@tazk.app</span>
+              <span className="text-yellow-500 font-medium ml-1">jairozb23@gmail.com</span>
             </p>
           </section>
         </div>

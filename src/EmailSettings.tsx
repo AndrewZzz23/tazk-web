@@ -35,7 +35,6 @@ type Tab = 'settings' | 'templates' | 'logs'
 const TEMPLATE_TYPES = [
   { id: 'task_created', name: 'Tarea creada', icon: FileText, color: 'from-yellow-400 to-amber-500', bgColor: 'bg-yellow-400/10', textColor: 'text-yellow-400' },
   { id: 'task_assigned', name: 'Tarea asignada', icon: UserCheck, color: 'from-blue-400 to-cyan-500', bgColor: 'bg-blue-400/10', textColor: 'text-blue-400' },
-  { id: 'task_due', name: 'Tarea por vencer', icon: Clock, color: 'from-orange-400 to-red-500', bgColor: 'bg-orange-400/10', textColor: 'text-orange-400' },
   { id: 'task_completed', name: 'Tarea completada', icon: CheckCircle, color: 'from-emerald-400 to-green-500', bgColor: 'bg-emerald-400/10', textColor: 'text-emerald-400' },
 ]
 
@@ -63,7 +62,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
   const [fromName, setFromName] = useState('Tazk')
   const [notifyOnCreate, setNotifyOnCreate] = useState(true)
   const [notifyOnAssign, setNotifyOnAssign] = useState(true)
-  const [notifyOnDue, setNotifyOnDue] = useState(true)
   const [notifyOnComplete, setNotifyOnComplete] = useState(false)
 
   // Templates state
@@ -151,7 +149,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
       setFromName(data.from_name || 'Tazk')
       setNotifyOnCreate(data.notify_on_create)
       setNotifyOnAssign(data.notify_on_assign)
-      setNotifyOnDue(data.notify_on_due)
       setNotifyOnComplete(data.notify_on_complete)
     }
 
@@ -278,6 +275,18 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
     setTimeout(onClose, 200)
   }
 
+  const updateSetting = async (field: string, value: boolean) => {
+    if (!settingsId) return
+    const { error } = await supabase
+      .from('email_settings')
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq('id', settingsId)
+    if (error) {
+      console.error('Error updating setting:', error)
+      showToast('Error al guardar', 'error')
+    }
+  }
+
   const saveSettings = async () => {
     setSaving(true)
 
@@ -286,7 +295,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
       from_name: fromName,
       notify_on_create: notifyOnCreate,
       notify_on_assign: notifyOnAssign,
-      notify_on_due: notifyOnDue,
       notify_on_complete: notifyOnComplete,
       updated_at: new Date().toISOString()
     }
@@ -478,32 +486,8 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
       const { error } = await supabase.functions.invoke('send-email', {
         body: {
           to: email,
-          subject: 'Correo de prueba - Tazk',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #facc15 0%, #f97316 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
-                <div style="margin-bottom: 10px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
-                  </svg>
-                </div>
-                <h1 style="color: #1a1a1a; margin: 0; font-size: 28px;">Tazk</h1>
-                <p style="color: #1a1a1a; margin: 10px 0 0; opacity: 0.8;">Gestión de tareas</p>
-              </div>
-              <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 16px 16px;">
-                <h2 style="color: #1a1a1a; margin: 0 0 15px;">¡Correo de prueba exitoso!</h2>
-                <p style="color: #666; line-height: 1.6; margin: 0;">
-                  Este es un correo de prueba desde tu configuración de Tazk.
-                  Si estás viendo este mensaje, las notificaciones por email están funcionando correctamente.
-                </p>
-                <div style="margin-top: 25px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-                  <p style="color: #888; font-size: 14px; margin: 0;">
-                    Enviado desde Tazk · ${new Date().toLocaleDateString('es-CO')}
-                  </p>
-                </div>
-              </div>
-            </div>
-          `,
+          subject: '⚡ Correo de prueba - Tazk',
+          html: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin:0;padding:0;background-color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5;padding:40px 20px;"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;"><tr><td align="center" style="padding-bottom:32px;"><table cellpadding="0" cellspacing="0"><tr><td style="background-color:#171717;width:44px;height:44px;border-radius:12px;text-align:center;vertical-align:middle;font-size:24px;">⚡</td><td style="padding-left:12px;font-size:24px;font-weight:700;color:#171717;letter-spacing:-0.5px;">Tazk</td></tr></table></td></tr><tr><td style="background-color:#171717;border-radius:16px;overflow:hidden;"><div style="height:4px;background:linear-gradient(90deg,#facc15,#f59e0b,#facc15);"></div><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:32px 32px 0 32px;"><table cellpadding="0" cellspacing="0"><tr><td style="background-color:#facc1520;border:1px solid #facc1540;border-radius:20px;padding:6px 14px;"><span style="color:#facc15;font-size:12px;font-weight:600;letter-spacing:0.5px;">CORREO DE PRUEBA</span></td></tr></table></td></tr></table><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:20px 32px 0 32px;"><h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;line-height:1.3;">Conexion exitosa</h1></td></tr><tr><td style="padding:12px 32px 0 32px;"><p style="margin:0;font-size:15px;color:#a3a3a3;line-height:1.6;">Si estas viendo este mensaje, las notificaciones por email estan funcionando correctamente.</p></td></tr></table><table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;"><tr><td style="padding:0 32px;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0a0a0a;border-radius:12px;overflow:hidden;"><tr><td style="padding:14px 16px;border-bottom:1px solid #262626;"><span style="color:#737373;font-size:13px;">Cuenta</span></td><td style="padding:14px 16px;border-bottom:1px solid #262626;text-align:right;"><span style="color:#facc15;font-size:13px;font-weight:600;">${email}</span></td></tr><tr><td style="padding:14px 16px;"><span style="color:#737373;font-size:13px;">Fecha</span></td><td style="padding:14px 16px;text-align:right;"><span style="color:#ffffff;font-size:13px;font-weight:600;">${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></td></tr></table></td></tr></table><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 32px 32px 32px;"></td></tr></table></td></tr><tr><td align="center" style="padding-top:32px;"><p style="margin:0;color:#a3a3a3;font-size:12px;">Enviado desde <span style="color:#f59e0b;font-weight:600;">Tazk</span> · Gestion inteligente de tareas</p></td></tr></table></td></tr></table></body></html>`,
           from_name: fromName,
           template_type: 'test',
           user_id: currentUserId,
@@ -618,7 +602,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                       from_name: fromName,
                       notify_on_create: notifyOnCreate,
                       notify_on_assign: notifyOnAssign,
-                      notify_on_due: notifyOnDue,
                       notify_on_complete: notifyOnComplete,
                     })
                     .select()
@@ -733,7 +716,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
             <div className="space-y-3">
               {/* Tarea creada */}
               <div
-                onClick={() => setNotifyOnCreate(!notifyOnCreate)}
+                onClick={() => { setNotifyOnCreate(!notifyOnCreate); updateSetting('notify_on_create', !notifyOnCreate) }}
                 className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
                   notifyOnCreate
                     ? 'bg-yellow-50 dark:bg-yellow-500/10 border-yellow-200 dark:border-yellow-500/30'
@@ -762,7 +745,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
 
               {/* Tarea asignada */}
               <div
-                onClick={() => setNotifyOnAssign(!notifyOnAssign)}
+                onClick={() => { setNotifyOnAssign(!notifyOnAssign); updateSetting('notify_on_assign', !notifyOnAssign) }}
                 className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
                   notifyOnAssign
                     ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30'
@@ -791,7 +774,7 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
 
               {/* Tarea completada */}
               <div
-                onClick={() => setNotifyOnComplete(!notifyOnComplete)}
+                onClick={() => { setNotifyOnComplete(!notifyOnComplete); updateSetting('notify_on_complete', !notifyOnComplete) }}
                 className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
                   notifyOnComplete
                     ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30'
@@ -1359,7 +1342,6 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                                     from_name: fromName,
                                     notify_on_create: notifyOnCreate,
                                     notify_on_assign: notifyOnAssign,
-                                    notify_on_due: notifyOnDue,
                                     notify_on_complete: notifyOnComplete,
                                   })
                                   .select()
@@ -1474,15 +1456,15 @@ function EmailSettings({ currentUserId, teamId, onClose }: EmailSettingsProps) {
                       </div>
                       <div className="space-y-3">
                         {[
-                          { id: 'create', label: 'Tarea creada', desc: 'Al crear una nueva tarea', icon: FileText, value: notifyOnCreate, setter: setNotifyOnCreate, color: 'yellow' },
-                          { id: 'assign', label: 'Tarea asignada', desc: 'Al asignar a un usuario', icon: UserCheck, value: notifyOnAssign, setter: setNotifyOnAssign, color: 'blue' },
-                          { id: 'complete', label: 'Completada', desc: 'Al marcar como completada', icon: CheckCircle, value: notifyOnComplete, setter: setNotifyOnComplete, color: 'emerald' },
+                          { id: 'create', field: 'notify_on_create', label: 'Tarea creada', desc: 'Al crear una nueva tarea', icon: FileText, value: notifyOnCreate, setter: setNotifyOnCreate, color: 'yellow' },
+                          { id: 'assign', field: 'notify_on_assign', label: 'Tarea asignada', desc: 'Al asignar a un usuario', icon: UserCheck, value: notifyOnAssign, setter: setNotifyOnAssign, color: 'blue' },
+                          { id: 'complete', field: 'notify_on_complete', label: 'Completada', desc: 'Al marcar como completada', icon: CheckCircle, value: notifyOnComplete, setter: setNotifyOnComplete, color: 'emerald' },
                         ].map(trigger => {
                           const Icon = trigger.icon
                           return (
                             <div
                               key={trigger.id}
-                              onClick={() => trigger.setter(!trigger.value)}
+                              onClick={() => { trigger.setter(!trigger.value); updateSetting(trigger.field, !trigger.value) }}
                               className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all duration-200 border ${
                                 trigger.value
                                   ? 'bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 shadow-sm'

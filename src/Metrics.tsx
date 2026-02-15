@@ -736,11 +736,11 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     }
   }, [filteredTasks, statuses, tasks, getTaskCategory])
 
-  const handleDragStart = (event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveWidgetId(event.active.id as WidgetId)
-  }
+  }, [])
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     setActiveWidgetId(null)
     const { active, over } = event
     if (over && active.id !== over.id) {
@@ -752,11 +752,11 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
         return newOrder
       })
     }
-  }
+  }, [teamId])
 
-  const handleDragCancel = () => {
+  const handleDragCancel = useCallback(() => {
     setActiveWidgetId(null)
-  }
+  }, [])
 
   // Widget title map for drag overlay
   const widgetTitles: Record<WidgetId, { title: string; icon: React.ReactNode }> = {
@@ -834,7 +834,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
               {metrics.statusData.length > 0 ? (
                 <div className="flex items-center gap-4">
                   <div className="w-32 h-32">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                       <PieChart>
                         <Pie
                           data={metrics.statusData}
@@ -878,7 +878,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
                 Tendencia semanal
               </h3>
               {metrics.weeksData.some(w => w.creadas > 0 || w.completadas > 0) ? (
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={200} minWidth={0}>
                   <AreaChart data={metrics.weeksData}>
                     <defs>
                       <linearGradient id="colorCreadas" x1="0" y1="0" x2="0" y2="1">
@@ -1142,7 +1142,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
           </div>
           <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-2">Sin tareas aún</h3>
           <p className="text-neutral-500 dark:text-neutral-400 text-center max-w-sm">
-            Crea tu primera tarea para empezar a ver métricas y estadísticas de tu productividad.
+            Las métricas y estadísticas aparecerán cuando haya tareas registradas.
           </p>
         </motion.div>
       )

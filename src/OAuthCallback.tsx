@@ -4,6 +4,16 @@ import { supabase } from './supabaseClient'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { CheckCircle, XCircle } from 'lucide-react'
 
+// Esperar a que la sesión de Supabase se rehidrate
+const waitForSession = async (maxRetries = 10, delay = 500) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) return session
+    await new Promise(resolve => setTimeout(resolve, delay))
+  }
+  return null
+}
+
 function OAuthCallback() {
   const navigate = useNavigate()
   const { provider } = useParams<{ provider: string }>()
@@ -15,10 +25,13 @@ function OAuthCallback() {
       const urlParams = new URLSearchParams(window.location.search)
       const code = urlParams.get('code')
       const error = urlParams.get('error')
+      const errorDescription = urlParams.get('error_description')
+
+      console.log('OAuthCallback:', { provider, code: code ? 'present' : 'missing', error, errorDescription })
 
       if (error) {
         setStatus('error')
-        setMessage('Autorización cancelada')
+        setMessage(errorDescription || 'Autorización cancelada')
         setTimeout(() => navigate('/'), 2000)
         return
       }
@@ -31,14 +44,21 @@ function OAuthCallback() {
       }
 
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) throw new Error('No hay sesión activa')
+        // Esperar a que la sesión se rehidrate después del redirect
+        const session = await waitForSession()
+        console.log('Session:', session ? 'found' : 'not found')
+
+        if (!session) throw new Error('No hay sesión activa. Inicia sesión e intenta de nuevo.')
 
         const redirectUri = `${window.location.origin}/auth/${provider}/callback`
+        console.log('Calling edge function with redirect_uri:', redirectUri)
+
         const { data, error: fnError } = await supabase.functions.invoke(`email-oauth-${provider}`, {
           body: { action: 'exchange_code', code, redirect_uri: redirectUri },
           headers: { Authorization: `Bearer ${session.access_token}` }
         })
+
+        console.log('Edge function response:', data, fnError)
 
         if (fnError) throw fnError
         if (data.error) throw new Error(data.error)
@@ -56,6 +76,7 @@ function OAuthCallback() {
         // Redirigir y abrir modal de email
         setTimeout(() => navigate('/?openEmailSettings=true'), 1500)
       } catch (err: any) {
+        console.error('OAuthCallback error:', err)
         setStatus('error')
         setMessage(err.message || 'Error al conectar')
         setTimeout(() => navigate('/'), 3000)

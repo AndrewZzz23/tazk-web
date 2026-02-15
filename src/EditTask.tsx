@@ -203,6 +203,14 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
           // Send push notification to assigned user (don't notify yourself)
           if (assignedTo !== currentUserId) {
             notifyTaskAssigned(assignedTo, title.trim(), userEmail || 'Alguien', task.id)
+            // Insertar notificación en BD
+            supabase.from('notifications').insert({
+              user_id: assignedTo,
+              type: 'task_assigned',
+              title: `${userEmail || 'Alguien'} te asignó una tarea`,
+              body: title.trim(),
+              data: { task_id: task.id, team_id: task.team_id }
+            }).then(() => {})
             // Send email notification
             if (assignedUser?.email) {
               const dueDateStr = dueDate
@@ -251,6 +259,27 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
             createdByName: userEmail,
             completedDate: new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
           })
+        }
+
+        // Notificación en BD al creador de la tarea
+        if (task.created_by && task.created_by !== currentUserId) {
+          supabase.from('notifications').insert({
+            user_id: task.created_by,
+            type: 'task_completed',
+            title: `${userEmail || 'Alguien'} completó una tarea`,
+            body: title.trim(),
+            data: { task_id: task.id, team_id: task.team_id }
+          }).then(() => {})
+        }
+        // Notificación al asignado si es diferente al creador y al usuario actual
+        if (task.assigned_to && task.assigned_to !== currentUserId && task.assigned_to !== task.created_by) {
+          supabase.from('notifications').insert({
+            user_id: task.assigned_to,
+            type: 'task_completed',
+            title: `${userEmail || 'Alguien'} completó una tarea`,
+            body: title.trim(),
+            data: { task_id: task.id, team_id: task.team_id }
+          }).then(() => {})
         }
       }
 

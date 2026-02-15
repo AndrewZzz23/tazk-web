@@ -20,6 +20,7 @@ import Notifications from './Notifications'
 import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
 import RecurringTasks from './RecurringTasks'
+import Contacts from './Contacts'
 import EditTask from './EditTask'
 import ProfileOnboarding from './components/ProfileOnboarding'
 import AppTour from './components/AppTour'
@@ -70,9 +71,9 @@ function Dashboard() {
 
   // UI
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails'>(() => {
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails' | 'contacts'>(() => {
     const saved = localStorage.getItem('tazk_view_mode')
-    return (saved === 'list' || saved === 'kanban' || saved === 'calendar' || saved === 'routines' || saved === 'metrics' || saved === 'emails') ? saved : 'list'
+    return (saved === 'list' || saved === 'kanban' || saved === 'calendar' || saved === 'routines' || saved === 'metrics' || saved === 'emails' || saved === 'contacts') ? saved : 'list'
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -331,19 +332,28 @@ function Dashboard() {
   const loadNotificationCount = async () => {
     const { data: userData } = await supabase.auth.getUser()
     const userEmail = userData.user?.email
+    const userId = userData.user?.id
 
-    if (!userEmail) return
+    if (!userEmail || !userId) return
 
     // Guardar email para la suscripción realtime
     userEmailRef.current = userEmail
 
-    const { count } = await supabase
-      .from('team_invitations')
-      .select('*', { count: 'exact', head: true })
-      .eq('email', userEmail)
-      .eq('status', 'pending')
+    // Contar invitaciones pendientes + notificaciones no leídas en paralelo
+    const [invitationsRes, notificationsRes] = await Promise.all([
+      supabase
+        .from('team_invitations')
+        .select('*', { count: 'exact', head: true })
+        .eq('email', userEmail)
+        .eq('status', 'pending'),
+      supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_read', false)
+    ])
 
-    setNotificationCount(count || 0)
+    setNotificationCount((invitationsRes.count || 0) + (notificationsRes.count || 0))
   }
 
   const handleTeamChange = (teamId: string | null, role: UserRole | null, teamName?: string) => {
@@ -351,6 +361,12 @@ function Dashboard() {
     setCurrentRole(role)
     setCurrentTeamName(teamName || null)
     setRefreshKey(prev => prev + 1)
+
+    // Si el usuario está en una vista restringida y no tiene permisos en el nuevo equipo, volver a lista
+    const isOwnerOrPersonal = role === 'owner' || !teamId
+    if (!isOwnerOrPersonal && (viewMode === 'emails')) {
+      setViewMode('list')
+    }
 
     // Mostrar mensaje de bienvenida solo para miembros la primera vez
     if (teamId && role === 'member') {
@@ -387,10 +403,11 @@ function Dashboard() {
     loadNotificationCount()
   }, [])
 
-  // Suscripción realtime para notificaciones de invitaciones
+  // Suscripción realtime para notificaciones de invitaciones y notificaciones generales
   useRealtimeSubscription({
     subscriptions: [
-      { table: 'team_invitations' }
+      { table: 'team_invitations' },
+      { table: 'notifications' }
     ],
     onchange: useCallback(() => {
       console.log('[Dashboard] Cambio en invitaciones, actualizando contador...')
@@ -495,7 +512,7 @@ function Dashboard() {
       <Sidebar
         currentUserId={user!.id}
         currentView={viewMode}
-        onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails')}
+        onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails' | 'contacts')}
         onTeamChange={handleTeamChange}
         notificationCount={notificationCount}
         onShowNotifications={() => setShowNotifications(true)}
@@ -679,6 +696,7 @@ function Dashboard() {
               currentUserId={user!.id}
               teamId={currentTeamId}
               userRole={currentRole}
+              userEmail={userName}
               onTaskUpdated={() => setRefreshKey(prev => prev + 1)}
               searchTerm={searchTerm}
               showToast={showToast}
@@ -692,6 +710,7 @@ function Dashboard() {
               currentUserId={user!.id}
               teamId={currentTeamId}
               userRole={currentRole}
+              userEmail={userName}
               searchTerm={searchTerm}
               showToast={showToast}
               onOpenTask={openTask}
@@ -727,11 +746,21 @@ function Dashboard() {
             />
           )}
 
-          {viewMode === 'emails' && (
+          {viewMode === 'emails' && canAccessOwnerFeatures && (
             <EmailSettings
               key={refreshKey}
               currentUserId={user!.id}
               teamId={currentTeamId}
+            />
+          )}
+
+          {viewMode === 'contacts' && (
+            <Contacts
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              userRole={currentRole}
+              showToast={showToast}
             />
           )}
         </div>
@@ -762,6 +791,7 @@ function Dashboard() {
         <CreateTask
           currentUserId={user!.id}
           teamId={currentTeamId}
+          userEmail={userName}
           onTaskCreated={() => setRefreshKey(prev => prev + 1)}
           onClose={() => setShowCreateTask(false)}
           showToast={showToast}
@@ -809,6 +839,7 @@ function Dashboard() {
         <EditTask
           task={openedTask}
           currentUserId={user!.id}
+          userEmail={userName}
           userRole={currentRole}
           onTaskUpdated={() => {
             setRefreshKey(prev => prev + 1)

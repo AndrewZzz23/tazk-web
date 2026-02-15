@@ -142,7 +142,6 @@ function ProfileOnboarding({ user, onComplete }: ProfileOnboardingProps) {
   const [theme, setTheme] = useState<ThemeOption>('dark')
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [notifyOnAssign, setNotifyOnAssign] = useState(true)
-  const [notifyOnDue, setNotifyOnDue] = useState(true)
 
   // Dropdown states
   const [showCountryDropdown, setShowCountryDropdown] = useState(false)
@@ -187,7 +186,6 @@ function ProfileOnboarding({ user, onComplete }: ProfileOnboardingProps) {
         theme: theme,
         notifications_enabled: notificationsEnabled,
         notify_on_assign: notifyOnAssign,
-        notify_on_due: notifyOnDue,
         has_completed_profile_onboarding: true,
         updated_at: new Date().toISOString()
       })
@@ -573,26 +571,6 @@ function ProfileOnboarding({ user, onComplete }: ProfileOnboardingProps) {
                 </div>
               </div>
 
-              <div
-                className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                  notifyOnDue
-                    ? 'bg-orange-400/10 border-orange-400/30'
-                    : 'bg-neutral-800/50 border-neutral-700'
-                }`}
-                onClick={() => setNotifyOnDue(!notifyOnDue)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-white font-medium text-sm">Fechas límite</h4>
-                    <p className="text-neutral-500 text-xs">Recordatorio antes del vencimiento</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                    notifyOnDue ? 'bg-orange-400 border-orange-400' : 'border-neutral-600'
-                  }`}>
-                    {notifyOnDue && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>

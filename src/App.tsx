@@ -37,7 +37,7 @@ function App() {
     <ThemeProvider>
       <Routes>
         <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
-        <Route path="/auth/:provider/callback" element={session ? <OAuthCallback /> : <Navigate to="/login" replace />} />
+        <Route path="/auth/:provider/callback" element={<OAuthCallback />} />
         <Route path="/task/:taskId" element={session ? <Dashboard /> : <Navigate to="/login" replace />} />
         <Route path="/*" element={session ? <Dashboard /> : <Navigate to="/login" replace />} />
       </Routes>
