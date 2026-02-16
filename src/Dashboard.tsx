@@ -58,6 +58,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
   const [profileName, setProfileName] = useState<string | null>(null)
+  const [taskPrefs, setTaskPrefs] = useState({ showStartDate: true, showDueDate: true, showPriority: true, showContactInEdit: true })
 
   // Tarea abierta via URL
   const [openedTask, setOpenedTask] = useState<Task | null>(null)
@@ -259,13 +260,19 @@ function Dashboard() {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, has_completed_profile_onboarding, has_seen_tour_desktop, has_seen_tour_mobile')
+        .select('full_name, has_completed_profile_onboarding, has_seen_tour_desktop, has_seen_tour_mobile, show_start_date, show_due_date, show_priority, show_contact_in_edit')
         .eq('id', user.id)
         .single()
 
       if (profile?.full_name) {
         setProfileName(profile.full_name)
       }
+      setTaskPrefs({
+        showStartDate: profile?.show_start_date ?? true,
+        showDueDate: profile?.show_due_date ?? true,
+        showPriority: profile?.show_priority ?? true,
+        showContactInEdit: profile?.show_contact_in_edit ?? true,
+      })
 
       // Mostrar profile onboarding solo si NO ha completado el onboarding (campo específico)
       const hasCompletedProfile = profile?.has_completed_profile_onboarding === true
@@ -521,6 +528,7 @@ function Dashboard() {
         onLogout={handleLogout}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        userName={userName}
         isMobile={isMobile}
         onBottomSheetChange={setBottomSheetOpen}
         showFab={canCreateTasks}
@@ -760,6 +768,7 @@ function Dashboard() {
               currentUserId={user!.id}
               teamId={currentTeamId}
               userRole={currentRole}
+              userEmail={userName}
               showToast={showToast}
             />
           )}
@@ -792,6 +801,9 @@ function Dashboard() {
           currentUserId={user!.id}
           teamId={currentTeamId}
           userEmail={userName}
+          showStartDate={taskPrefs.showStartDate}
+          showDueDate={taskPrefs.showDueDate}
+          showPriority={taskPrefs.showPriority}
           onTaskCreated={() => setRefreshKey(prev => prev + 1)}
           onClose={() => setShowCreateTask(false)}
           showToast={showToast}
@@ -841,6 +853,10 @@ function Dashboard() {
           currentUserId={user!.id}
           userEmail={userName}
           userRole={currentRole}
+          showStartDate={taskPrefs.showStartDate}
+          showDueDate={taskPrefs.showDueDate}
+          showPriority={taskPrefs.showPriority}
+          showContactInEdit={taskPrefs.showContactInEdit}
           onTaskUpdated={() => {
             setRefreshKey(prev => prev + 1)
           }}

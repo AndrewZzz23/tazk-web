@@ -15,12 +15,15 @@ interface CreateTaskProps {
   currentUserId: string
   teamId: string | null
   userEmail?: string
+  showStartDate?: boolean
+  showDueDate?: boolean
+  showPriority?: boolean
   onTaskCreated: () => void
   onClose: () => void
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, showToast }: CreateTaskProps) {
+function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, showDueDate = true, showPriority = true, onTaskCreated, onClose, showToast }: CreateTaskProps) {
   const isMobile = useIsMobile()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -522,6 +525,7 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
       </div>
 
       {/* Prioridad */}
+      {showPriority && (
       <div className="mb-4">
         <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
           <AlertCircle className="w-4 h-4" />
@@ -548,9 +552,12 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
           ))}
         </div>
       </div>
+      )}
 
       {/* Fechas */}
-      <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+      {(showStartDate || showDueDate) && (
+      <div className={`grid gap-4 mb-4 ${isMobile || (!showStartDate || !showDueDate) ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {showStartDate && (
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
             <Calendar className="w-4 h-4" />
@@ -571,7 +578,9 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             onFocus={(e) => isMobile && e.target.blur()}
           />
         </div>
+        )}
 
+        {showDueDate && (
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
             <Clock className="w-4 h-4" />
@@ -593,7 +602,9 @@ function CreateTask({ currentUserId, teamId, userEmail, onTaskCreated, onClose, 
             portalId="root"
           />
         </div>
+        )}
       </div>
+      )}
 
       {/* Emails de notificación - solo si el módulo está habilitado */}
       {emailModuleEnabled && (

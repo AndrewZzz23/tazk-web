@@ -43,6 +43,7 @@ interface SidebarProps {
   onLogout: () => void
   isCollapsed: boolean
   onToggleCollapse: () => void
+  userName?: string
   isMobile?: boolean
   onBottomSheetChange?: (isOpen: boolean) => void
   showFab?: boolean
@@ -59,6 +60,7 @@ function Sidebar({
   onShowStatuses,
   isCollapsed,
   onToggleCollapse,
+  userName = '',
   isMobile = false,
   onBottomSheetChange,
   showFab = true
@@ -685,6 +687,8 @@ function Sidebar({
         {showInviteMember && selectedTeamId && (
           <InviteMember
             teamId={selectedTeamId}
+            teamName={teams.find(t => t.id === selectedTeamId)?.name || ''}
+            inviterName={userName}
             onMemberInvited={() => {}}
             onClose={() => setShowInviteMember(false)}
           />
@@ -1109,6 +1113,8 @@ function Sidebar({
       {showInviteMember && selectedTeamId && (
         <InviteMember
           teamId={selectedTeamId}
+          teamName={teams.find(t => t.id === selectedTeamId)?.name || ''}
+          inviterName={userName}
           onMemberInvited={() => {}}
           onClose={() => setShowInviteMember(false)}
         />

@@ -8,9 +8,13 @@ import { LoadingZapIcon, MailIcon, XIcon, UserIcon, TrashIcon, ShieldIcon } from
 import { Clock, XCircle, Mail } from 'lucide-react'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
+import { notifyTeamInvite } from './lib/sendPushNotification'
+import { sendTeamInvitationEmail } from './lib/emailNotifications'
 
 interface InviteMemberProps {
   teamId: string
+  teamName: string
+  inviterName: string
   onMemberInvited: () => void
   onClose: () => void
 }
@@ -19,7 +23,7 @@ interface PendingInvitation extends TeamInvitation {
   inviter?: Profile
 }
 
-function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
+function InviteMember({ teamId, teamName, inviterName, onMemberInvited, onClose }: InviteMemberProps) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'admin' | 'member'>('member')
   const [loading, setLoading] = useState(false)
@@ -198,6 +202,23 @@ function InviteMember({ teamId, onMemberInvited, onClose }: InviteMemberProps) {
       if (newInvitation) {
         setPendingInvitations(prev => [newInvitation, ...prev])
       }
+
+      // Verificar si el email ya tiene cuenta en Tazk
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', trimmedEmail)
+        .maybeSingle()
+
+      if (existingUser) {
+        // Usuario existente: push + email
+        notifyTeamInvite(existingUser.id, teamName, inviterName)
+        sendTeamInvitationEmail(trimmedEmail, teamName, inviterName, role, true, user!.id, teamId)
+      } else {
+        // Usuario nuevo: solo email
+        sendTeamInvitationEmail(trimmedEmail, teamName, inviterName, role, false, user!.id, teamId)
+      }
+
       setEmail('')
       setRole('member')
       showToast('✅ Invitación enviada correctamente', 'success')

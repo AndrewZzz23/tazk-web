@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from './supabaseClient'
 import { Contact } from './types/database.types'
 import { useIsMobile } from './hooks/useIsMobile'
@@ -24,7 +25,10 @@ export default function ContactPicker({
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 320 })
   const isMobile = useIsMobile()
 
   // Load contacts from Supabase
@@ -52,11 +56,20 @@ export default function ContactPicker({
     }
   }, [currentUserId, teamId])
 
-  // Load contacts when dropdown opens
+  // Load contacts when dropdown opens + calculate position
   useEffect(() => {
     if (open) {
       loadContacts()
       setTimeout(() => searchRef.current?.focus(), 100)
+      // Calculate dropdown position from button
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect()
+        setDropdownPos({
+          top: rect.bottom + 8,
+          left: rect.left,
+          width: Math.max(320, rect.width),
+        })
+      }
     } else {
       setSearch('')
     }
@@ -67,7 +80,11 @@ export default function ContactPicker({
     if (!open) return
 
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(target))
+      ) {
         setOpen(false)
       }
     }
@@ -192,6 +209,7 @@ export default function ContactPicker({
     <div ref={containerRef} className="relative">
       {/* Trigger button */}
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:border-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors"
@@ -230,10 +248,20 @@ export default function ContactPicker({
               </div>
             </>
           ) : (
-            /* Desktop dropdown */
-            <div className="absolute left-0 top-full mt-2 w-80 z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-neutral-200 dark:border-neutral-700">
-              {contactList}
-            </div>
+            /* Desktop dropdown via portal (evita overflow clip del modal padre) */
+            createPortal(
+              <>
+                <div className="fixed inset-0 z-[60]" onMouseDown={() => setOpen(false)} />
+                <div
+                  ref={dropdownRef}
+                  className="fixed z-[61] bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-neutral-200 dark:border-neutral-700"
+                  style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+                >
+                  {contactList}
+                </div>
+              </>,
+              document.body
+            )
           )}
         </>
       )}

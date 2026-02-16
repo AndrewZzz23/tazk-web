@@ -20,7 +20,7 @@ export type ActivityAction =
   | 'activated'
   | 'deactivated'
 
-export type ActivityEntity = 'task' | 'team' | 'team_member' | 'status' | 'invitation' | 'profile' | 'recurring_task'
+export type ActivityEntity = 'task' | 'team' | 'team_member' | 'status' | 'invitation' | 'profile' | 'recurring_task' | 'contact' | 'contact_label'
 
 interface LogActivityParams {
   action: ActivityAction
@@ -328,4 +328,86 @@ export const logRecurringTaskDeactivated = (
   userId,
   userEmail,
   details: { title }
+})
+
+// Contacts
+export const logContactCreated = (
+  contactId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'created',
+  entityType: 'contact',
+  entityId: contactId,
+  teamId,
+  userId,
+  userEmail,
+  details: { name }
+})
+
+export const logContactUpdated = (
+  contactId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'updated',
+  entityType: 'contact',
+  entityId: contactId,
+  teamId,
+  userId,
+  userEmail,
+  details: { name }
+})
+
+export const logContactDeleted = (
+  contactId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'deleted',
+  entityType: 'contact',
+  entityId: contactId,
+  teamId,
+  userId,
+  userEmail,
+  details: { name }
+})
+
+// Contact Labels
+export const logContactLabelCreated = (
+  labelId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'created',
+  entityType: 'contact_label',
+  entityId: labelId,
+  teamId,
+  userId,
+  userEmail,
+  details: { name }
+})
+
+export const logContactLabelDeleted = (
+  labelId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'deleted',
+  entityType: 'contact_label',
+  entityId: labelId,
+  teamId,
+  userId,
+  userEmail,
+  details: { name }
 })

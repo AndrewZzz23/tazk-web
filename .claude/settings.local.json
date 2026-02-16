@@ -11,7 +11,8 @@
       "Bash(if exist android rd /s /q android)",
       "Bash(if exist capacitor.config.ts del capacitor.config.ts)",
       "Bash(if exist capacitor.config.json del capacitor.config.json)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx --yes sharp-cli:*)"
     ]
   }
 }

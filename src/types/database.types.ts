@@ -18,6 +18,10 @@ export interface Profile {
   notifications_enabled: boolean
   notify_on_assign: boolean
   role: ProfileRole
+  show_start_date: boolean
+  show_due_date: boolean
+  show_priority: boolean
+  show_contact_in_edit: boolean
   created_at: string
   updated_at: string | null
 }

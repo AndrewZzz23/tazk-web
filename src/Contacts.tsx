@@ -6,6 +6,7 @@ import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import CreateContact from './CreateContact'
 import ConfirmDialog from './ConfirmDialog'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
+import { logContactDeleted, logContactLabelCreated, logContactLabelDeleted } from './lib/activityLogger'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import {
@@ -57,10 +58,11 @@ interface ContactsProps {
   currentUserId: string
   teamId: string | null
   userRole: UserRole | null
+  userEmail?: string
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps) {
+function Contacts({ currentUserId, teamId, userRole, userEmail, showToast }: ContactsProps) {
   const isMobile = useIsMobile()
   const canManage = !teamId || userRole === 'owner' || userRole === 'admin'
 
@@ -77,6 +79,7 @@ function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps)
   const [showLabelManager, setShowLabelManager] = useState(false)
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState(PRESET_COLORS[0])
+  const [confirmDeleteLabelId, setConfirmDeleteLabelId] = useState<string | null>(null)
 
   // Lock body scroll when detail view is open
   useBodyScrollLock(!!viewingContact)
@@ -181,10 +184,12 @@ function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps)
       setNewLabelName('')
       setNewLabelColor(PRESET_COLORS[0])
       showToast?.('Etiqueta creada', 'success')
+      logContactLabelCreated(data.id, data.name, teamId, currentUserId, userEmail)
     }
   }
 
   const handleDeleteLabel = async (labelId: string) => {
+    const labelName = labels.find(l => l.id === labelId)?.name || ''
     const { error } = await supabase
       .from('contact_labels')
       .delete()
@@ -195,11 +200,11 @@ function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps)
       showToast?.('Error al eliminar etiqueta', 'error')
     } else {
       setLabels((prev) => prev.filter((l) => l.id !== labelId))
-      // Clear filter if the deleted label was selected
       if (selectedLabelFilter === labelId) {
         setSelectedLabelFilter('all')
       }
       showToast?.('Etiqueta eliminada', 'success')
+      logContactLabelDeleted(labelId, labelName, teamId, currentUserId, userEmail)
     }
   }
 
@@ -218,6 +223,7 @@ function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps)
     } else {
       setContacts((prev) => prev.filter((c) => c.id !== deletingContact.id))
       showToast?.('Contacto eliminado', 'success')
+      logContactDeleted(deletingContact.id, deletingContact.name, teamId, currentUserId, userEmail)
     }
 
     setDeletingContact(null)
@@ -300,75 +306,132 @@ function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps)
         </div>
       </div>
 
-      {/* Label Manager */}
+      {/* Label Manager Modal */}
       {showLabelManager && canManage && (
-        <div className="mb-6 bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4">
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-3 flex items-center gap-2">
-            <Tag className="w-4 h-4 text-yellow-400" />
-            Gestionar Etiquetas
-          </h3>
-
-          {/* Existing labels */}
-          {labels.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {labels.map((label) => (
-                <div
-                  key={label.id}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-50 dark:bg-neutral-700/50 rounded-full text-sm"
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLabelManager(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div
+              className="bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md pointer-events-auto overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-neutral-200 dark:border-neutral-700">
+                <h3 className="text-lg font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-yellow-400" />
+                  Gestionar Etiquetas
+                </h3>
+                <button
+                  onClick={() => setShowLabelManager(false)}
+                  className="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-xl transition-colors"
                 >
-                  <span
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: label.color }}
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Add new label */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nombre de etiqueta"
+                    value={newLabelName}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleAddLabel()
+                    }}
+                    autoFocus
+                    className="flex-1 px-3 py-2.5 bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
                   />
-                  <span className="text-neutral-700 dark:text-neutral-300">
-                    {label.name}
-                  </span>
                   <button
-                    onClick={() => handleDeleteLabel(label.id)}
-                    className="text-neutral-400 hover:text-red-500 transition-colors"
+                    onClick={handleAddLabel}
+                    disabled={!newLabelName.trim()}
+                    className="px-4 py-2.5 bg-yellow-400 text-neutral-900 rounded-xl text-sm font-semibold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    Agregar
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {/* Add new label */}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Nombre de etiqueta"
-              value={newLabelName}
-              onChange={(e) => setNewLabelName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddLabel()
-              }}
-              className="flex-1 px-3 py-2 bg-neutral-50 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 rounded-lg text-sm text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-            />
-            <div className="flex items-center gap-1">
-              {PRESET_COLORS.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setNewLabelColor(color)}
-                  className={`w-6 h-6 rounded-full transition-all ${
-                    newLabelColor === color
-                      ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-800 ring-neutral-900 dark:ring-white scale-110'
-                      : 'hover:scale-110'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+                {/* Color picker */}
+                <div className="flex items-center gap-1.5">
+                  {PRESET_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setNewLabelColor(color)}
+                      className={`w-7 h-7 rounded-full transition-all ${
+                        newLabelColor === color
+                          ? 'ring-2 ring-offset-2 ring-offset-white dark:ring-offset-neutral-800 ring-neutral-900 dark:ring-white scale-110'
+                          : 'hover:scale-110'
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+
+                {/* Existing labels */}
+                {labels.length > 0 ? (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {labels.map((label) => (
+                      <div
+                        key={label.id}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
+                          confirmDeleteLabelId === label.id
+                            ? 'bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30'
+                            : 'bg-neutral-50 dark:bg-neutral-700/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: label.color }}
+                          />
+                          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                            {label.name}
+                          </span>
+                        </div>
+
+                        {confirmDeleteLabelId === label.id ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-red-500 dark:text-red-400 mr-1">Eliminar?</span>
+                            <button
+                              onClick={() => {
+                                handleDeleteLabel(label.id)
+                                setConfirmDeleteLabelId(null)
+                              }}
+                              className="px-2.5 py-1 text-xs font-medium text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                            >
+                              Sí
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteLabelId(null)}
+                              className="px-2.5 py-1 text-xs font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-200 dark:bg-neutral-600 hover:bg-neutral-300 dark:hover:bg-neutral-500 rounded-lg transition-colors"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteLabelId(label.id)}
+                            className="p-1.5 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-400 dark:text-neutral-500 text-center py-4">
+                    No hay etiquetas creadas
+                  </p>
+                )}
+              </div>
             </div>
-            <button
-              onClick={handleAddLabel}
-              disabled={!newLabelName.trim()}
-              className="px-3 py-2 bg-yellow-400 text-neutral-900 rounded-lg text-sm font-semibold hover:bg-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Agregar
-            </button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Contact Grid or Empty State */}
@@ -520,6 +583,7 @@ function Contacts({ currentUserId, teamId, userRole, showToast }: ContactsProps)
             loadContacts()
             showToast?.(editingContact ? 'Contacto actualizado' : 'Contacto creado', 'success')
           }}
+          userEmail={userEmail}
           showToast={showToast}
         />
       )}
@@ -728,7 +792,7 @@ function ContactDetailContent({ contact, label, hasMap, onClose }: ContactDetail
       {hasMap && contact.location_lat != null && contact.location_lng != null && (
         <div className="mt-6">
           <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-2">Ubicacion</p>
-          <div className="h-[250px] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
+          <div className="h-[250px] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700" data-no-swipe>
             <MapContainer
               center={[contact.location_lat, contact.location_lng]}
               zoom={15}

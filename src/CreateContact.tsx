@@ -6,6 +6,7 @@ import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { X, MapPin, Trash2 } from 'lucide-react'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
+import { logContactCreated, logContactUpdated } from './lib/activityLogger'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 
@@ -50,6 +51,7 @@ interface CreateContactProps {
   teamId: string | null
   editingContact: Contact | null
   labels: ContactLabel[]
+  userEmail?: string
   onClose: () => void
   onSaved: () => void
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
@@ -61,6 +63,7 @@ function CreateContact({
   teamId,
   editingContact,
   labels,
+  userEmail,
   onClose,
   onSaved,
   showToast
@@ -164,34 +167,43 @@ function CreateContact({
       updated_at: new Date().toISOString()
     }
 
-    let error
-
     if (editingContact) {
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('contacts')
         .update(contactData)
         .eq('id', editingContact.id)
-      error = updateError
+
+      setLoading(false)
+      if (error) {
+        showToast?.('Error al guardar el contacto', 'error')
+        console.error('Error saving contact:', error)
+      } else {
+        showToast?.('Contacto actualizado', 'success')
+        logContactUpdated(editingContact.id, name.trim(), teamId, currentUserId, userEmail)
+        onSaved()
+        handleClose()
+      }
     } else {
-      const { error: insertError } = await supabase
+      const { data, error } = await supabase
         .from('contacts')
         .insert({
           user_id: currentUserId,
           team_id: teamId,
           ...contactData
         })
-      error = insertError
-    }
+        .select('id')
+        .single()
 
-    setLoading(false)
-
-    if (error) {
-      showToast?.('Error al guardar el contacto', 'error')
-      console.error('Error saving contact:', error)
-    } else {
-      showToast?.(editingContact ? 'Contacto actualizado' : 'Contacto creado', 'success')
-      onSaved()
-      handleClose()
+      setLoading(false)
+      if (error) {
+        showToast?.('Error al guardar el contacto', 'error')
+        console.error('Error saving contact:', error)
+      } else {
+        showToast?.('Contacto creado', 'success')
+        logContactCreated(data.id, name.trim(), teamId, currentUserId, userEmail)
+        onSaved()
+        handleClose()
+      }
     }
   }
 
@@ -327,7 +339,7 @@ function CreateContact({
             </p>
 
             {/* Mapa interactivo */}
-            <div className="h-[250px] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
+            <div className="h-[250px] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700" data-no-swipe>
               <MapContainer
                 center={locationLat !== null && locationLng !== null
                   ? [locationLat, locationLng]

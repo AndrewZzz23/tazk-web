@@ -226,3 +226,62 @@ export async function sendTaskCompletedEmail(
     await sendEmail(email, subject, html, fromName, data.taskId, 'task_completed', userId, teamId)
   }
 }
+
+// Enviar email de invitación a equipo
+export async function sendTeamInvitationEmail(
+  to: string,
+  teamName: string,
+  inviterName: string,
+  role: string,
+  isExistingUser: boolean,
+  userId: string,
+  teamId: string
+): Promise<void> {
+  const roleLabel = role === 'admin' ? 'Administrador' : 'Miembro'
+  const appUrl = window.location.origin
+
+  const actionText = isExistingUser
+    ? `<p style="color: #666; line-height: 1.6; margin: 0 0 20px;">Abre Tazk para ver y aceptar la invitación desde tus notificaciones.</p>
+       <div style="text-align: center; margin: 25px 0;">
+         <a href="${appUrl}" style="display: inline-block; background: #facc15; color: #171717; padding: 12px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">Abrir Tazk</a>
+       </div>`
+    : `<p style="color: #666; line-height: 1.6; margin: 0 0 20px;">Crea tu cuenta en Tazk para unirte al equipo y comenzar a colaborar.</p>
+       <div style="text-align: center; margin: 25px 0;">
+         <a href="${appUrl}" style="display: inline-block; background: #facc15; color: #171717; padding: 12px 32px; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 16px;">Crear cuenta en Tazk</a>
+       </div>`
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: linear-gradient(135deg, #facc15 0%, #f59e0b 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+        <div style="margin-bottom: 10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="19" y1="8" x2="19" y2="14"/>
+            <line x1="22" y1="11" x2="16" y2="11"/>
+          </svg>
+        </div>
+        <h1 style="color: #171717; margin: 0; font-size: 28px;">Tazk</h1>
+      </div>
+      <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 16px 16px;">
+        <h2 style="color: #1a1a1a; margin: 0 0 15px;">Invitación a equipo</h2>
+        <p style="color: #666; line-height: 1.6; margin: 0 0 20px;">
+          <strong>${inviterName}</strong> te ha invitado a unirte al equipo <strong>"${teamName}"</strong>.
+        </p>
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+          <p style="color: #666; margin: 5px 0;"><strong>Equipo:</strong> ${teamName}</p>
+          <p style="color: #666; margin: 5px 0;"><strong>Rol asignado:</strong> ${roleLabel}</p>
+          <p style="color: #666; margin: 5px 0;"><strong>Invitado por:</strong> ${inviterName}</p>
+        </div>
+        ${actionText}
+        <p style="color: #999; font-size: 12px; margin-top: 20px; text-align: center;">
+          Si no esperabas esta invitación, puedes ignorar este correo.
+        </p>
+      </div>
+    </div>
+  `
+
+  const subject = `${inviterName} te invitó al equipo "${teamName}" en Tazk`
+
+  await sendEmail(to, subject, html, 'Tazk', teamId, 'invitation', userId, teamId)
+}

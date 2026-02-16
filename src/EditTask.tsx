@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { Task, TaskStatus, Profile, UserRole, TaskPriority } from './types/database.types'
+import { Task, TaskStatus, Profile, UserRole, TaskPriority, Contact } from './types/database.types'
 import { EditIcon, XIcon, TrashIcon, SaveIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import TaskAttachments from './TaskAttachments'
 import TaskActivityLog from './TaskActivityLog'
@@ -13,19 +13,41 @@ import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
 import { sendTaskAssignedEmail, sendTaskCompletedEmail } from './lib/emailNotifications'
-import { Calendar, Clock, User, Tag, FileText, Type, AlertCircle, History, Maximize2, X } from 'lucide-react'
+import { Calendar, Clock, User, Tag, FileText, Type, AlertCircle, History, Maximize2, X, Phone, Building2, MapPin, BookUser, Mail, Navigation, StickyNote } from 'lucide-react'
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import L from 'leaflet'
+
+// Fix Leaflet marker icons for Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+})
+
+function InvalidateSizeOnMount() {
+  const map = useMap()
+  useEffect(() => {
+    setTimeout(() => map.invalidateSize(), 300)
+  }, [map])
+  return null
+}
 
 interface EditTaskProps {
   task: Task
   currentUserId: string
   userEmail?: string
   userRole?: UserRole | null
+  showStartDate?: boolean
+  showDueDate?: boolean
+  showPriority?: boolean
+  showContactInEdit?: boolean
   onTaskUpdated: () => void
   onClose: () => void
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onClose, showToast }: EditTaskProps) {
+function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = true, showDueDate = true, showPriority = true, showContactInEdit = true, onTaskUpdated, onClose, showToast }: EditTaskProps) {
   const isMobile = useIsMobile()
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description || '')
@@ -45,6 +67,8 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showDescriptionModal, setShowDescriptionModal] = useState(false)
+  const [notifyContacts, setNotifyContacts] = useState<Contact[]>([])
+  const [viewingContact, setViewingContact] = useState<Contact | null>(null)
 
   // ESC para cerrar
   useEffect(() => {
@@ -94,6 +118,30 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
 
     loadData()
   }, [task.team_id])
+
+  // Load contacts matching notify emails
+  useEffect(() => {
+    if (!showContactInEdit || !task.notify_email) return
+    const emails = task.notify_email.split(',').map(e => e.trim()).filter(Boolean)
+    if (emails.length === 0) return
+
+    const loadContacts = async () => {
+      let query = supabase
+        .from('contacts')
+        .select('*, contact_labels(*)')
+        .in('email', emails)
+
+      if (task.team_id) {
+        query = query.eq('team_id', task.team_id)
+      } else {
+        query = query.eq('user_id', currentUserId).is('team_id', null)
+      }
+
+      const { data } = await query
+      if (data) setNotifyContacts(data)
+    }
+    loadContacts()
+  }, [showContactInEdit, task.notify_email, task.team_id, currentUserId])
 
   const handleClose = () => {
     setIsVisible(false)
@@ -505,6 +553,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
       </div>
 
       {/* Prioridad */}
+      {showPriority && (
       <div className="mb-4">
         <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
           <AlertCircle className="w-4 h-4" />
@@ -531,9 +580,12 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
           ))}
         </div>
       </div>
+      )}
 
       {/* Fechas */}
-      <div className={`grid gap-4 mb-4 ${isMobile ? 'grid-cols-1' : 'grid-cols-2'}`}>
+      {(showStartDate || showDueDate) && (
+      <div className={`grid gap-4 mb-4 ${isMobile || (!showStartDate || !showDueDate) ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        {showStartDate && (
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
             <Calendar className="w-4 h-4" />
@@ -554,7 +606,9 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
             onFocus={(e) => isMobile && e.target.blur()}
           />
         </div>
+        )}
 
+        {showDueDate && (
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
             <Clock className="w-4 h-4" />
@@ -576,7 +630,41 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
             onFocus={(e) => isMobile && e.target.blur()}
           />
         </div>
+        )}
       </div>
+      )}
+
+      {/* Contacto asociado */}
+      {showContactInEdit && task.notify_email && (
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <User className="w-4 h-4" />
+            Contacto notificado
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {task.notify_email.split(',').map((rawEmail, i) => {
+              const email = rawEmail.trim()
+              const contact = notifyContacts.find(c => c.email === email)
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => contact && setViewingContact(contact)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    contact
+                      ? 'bg-yellow-50 dark:bg-yellow-400/10 border border-yellow-300 dark:border-yellow-400/30 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-400/20 cursor-pointer'
+                      : 'bg-neutral-100 dark:bg-neutral-700 border border-neutral-200 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 cursor-default'
+                  }`}
+                >
+                  {contact && <BookUser className="w-3.5 h-3.5" />}
+                  {contact ? contact.name : email}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Adjuntos */}
       <div className="mb-6">
@@ -837,7 +925,201 @@ function EditTask({ task, currentUserId, userEmail, userRole, onTaskUpdated, onC
           </div>
         </div>
       )}
+
+      {/* Contact Detail Panel */}
+      {viewingContact && (
+        <ContactDetailPanel
+          contact={viewingContact}
+          isMobile={isMobile}
+          onClose={() => setViewingContact(null)}
+        />
+      )}
     </>
+  )
+}
+
+// ============================================================
+// Contact Detail Panel (side panel / bottom sheet)
+// ============================================================
+function ContactDetailPanel({ contact, isMobile, onClose }: { contact: Contact; isMobile: boolean; onClose: () => void }) {
+  const [isVisible, setIsVisible] = useState(false)
+  const label = contact.contact_labels
+  const hasMap = contact.location_lat != null && contact.location_lng != null
+
+  useEffect(() => {
+    requestAnimationFrame(() => setIsVisible(true))
+  }, [])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 300)
+  }
+
+  const openInMaps = () => {
+    if (contact.location_lat != null && contact.location_lng != null) {
+      window.open(
+        `https://www.google.com/maps?q=${contact.location_lat},${contact.location_lng}`,
+        '_blank'
+      )
+    }
+  }
+
+  const content = (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex-1 min-w-0">
+          {label && (
+            <span
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-2"
+              style={{ backgroundColor: `${label.color}20`, color: label.color }}
+            >
+              {label.name}
+            </span>
+          )}
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">{contact.name}</h2>
+        </div>
+        <button
+          onClick={handleClose}
+          className="p-2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-xl transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Info */}
+      <div className="space-y-4">
+        {contact.email && (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center">
+              <Mail className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">Email</p>
+              <a href={`mailto:${contact.email}`} className="text-sm text-neutral-900 dark:text-white hover:text-yellow-500 transition-colors truncate block">
+                {contact.email}
+              </a>
+            </div>
+          </div>
+        )}
+
+        {contact.phone && (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-50 dark:bg-green-500/10 rounded-xl flex items-center justify-center">
+              <Phone className="w-5 h-5 text-green-500" />
+            </div>
+            <div>
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">Teléfono</p>
+              <a href={`tel:${contact.phone}`} className="text-sm text-neutral-900 dark:text-white hover:text-yellow-500 transition-colors">
+                {contact.phone}
+              </a>
+            </div>
+          </div>
+        )}
+
+        {contact.company && (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/10 rounded-xl flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-purple-500" />
+            </div>
+            <div>
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">Empresa</p>
+              <p className="text-sm text-neutral-900 dark:text-white">{contact.company}</p>
+            </div>
+          </div>
+        )}
+
+        {contact.location_address && (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-xl flex items-center justify-center">
+              <MapPin className="w-5 h-5 text-orange-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">Dirección</p>
+              <p className="text-sm text-neutral-900 dark:text-white truncate">{contact.location_address}</p>
+            </div>
+          </div>
+        )}
+
+        {contact.notes && (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-neutral-100 dark:bg-neutral-700 rounded-xl flex items-center justify-center">
+              <StickyNote className="w-5 h-5 text-neutral-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-400 dark:text-neutral-500">Notas</p>
+              <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{contact.notes}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Map */}
+      {hasMap && contact.location_lat != null && contact.location_lng != null && (
+        <div className="mt-6">
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-2">Ubicación</p>
+          <div className="h-[200px] rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700" data-no-swipe>
+            <MapContainer
+              center={[contact.location_lat, contact.location_lng]}
+              zoom={15}
+              scrollWheelZoom={false}
+              dragging={false}
+              zoomControl={false}
+              doubleClickZoom={false}
+              touchZoom={false}
+              style={{ height: '100%', width: '100%' }}
+            >
+              <InvalidateSizeOnMount />
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={[contact.location_lat, contact.location_lng]} />
+            </MapContainer>
+          </div>
+          <button
+            type="button"
+            onClick={openInMaps}
+            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors"
+          >
+            <Navigation className="w-4 h-4" />
+            Abrir en Maps
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div
+      className={`fixed inset-0 z-[70] transition-all duration-300 ${
+        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+      }`}
+      onClick={handleClose}
+    >
+      {isMobile ? (
+        <div
+          className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-800 rounded-t-3xl max-h-[85vh] overflow-y-auto transform transition-transform duration-300 ${
+            isVisible ? 'translate-y-0' : 'translate-y-full'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-center pt-3 pb-2">
+            <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full" />
+          </div>
+          {content}
+        </div>
+      ) : (
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white dark:bg-neutral-800 shadow-2xl overflow-y-auto transform transition-transform duration-300 ${
+            isVisible ? 'translate-x-0' : 'translate-x-full'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {content}
+        </div>
+      )}
+    </div>
   )
 }
 

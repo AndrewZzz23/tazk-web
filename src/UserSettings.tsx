@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'
 import { User } from '@supabase/supabase-js'
 import Toast from './Toast'
 import { useTheme } from './ThemeContext'
-import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon, TrashIcon } from './components/iu/AnimatedIcons';
+import { SunMoonIcon, UserIcon, RabbitIcon, SettingsIcon, XIcon, BellIcon, TrashIcon, ListIcon } from './components/iu/AnimatedIcons';
 import { NotificationToggle } from './components/NotificationSettings'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
@@ -43,10 +43,10 @@ interface UserSettingsProps {
   user: User
   onClose: () => void
   onProfileUpdated: () => void
-  initialTab?: 'profile' | 'appearance' | 'notifications' | 'shortcuts' | 'account'
+  initialTab?: 'profile' | 'appearance' | 'notifications' | 'tasks' | 'shortcuts' | 'account'
 }
 
-type Tab = 'profile' | 'appearance' | 'notifications' | 'shortcuts' | 'account'
+type Tab = 'profile' | 'appearance' | 'notifications' | 'tasks' | 'shortcuts' | 'account'
 
 function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' }: UserSettingsProps) {
   const { theme, setTheme } = useTheme()
@@ -61,6 +61,12 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({ show: false, message: '', type: 'info' })
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+  // Task preferences
+  const [showStartDate, setShowStartDate] = useState(true)
+  const [showDueDate, setShowDueDate] = useState(true)
+  const [showPriority, setShowPriority] = useState(true)
+  const [showContactInEdit, setShowContactInEdit] = useState(true)
 
   // Dropdown states
   const [showCountryDropdown, setShowCountryDropdown] = useState(false)
@@ -101,7 +107,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
   const loadProfile = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('full_name, phone, country, city, theme')
+      .select('full_name, phone, country, city, theme, show_start_date, show_due_date, show_priority, show_contact_in_edit')
       .eq('id', user.id)
       .single()
     if (data) {
@@ -120,6 +126,11 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
       if (data.theme && data.theme !== theme) {
         setTheme(data.theme as 'light' | 'dark')
       }
+      // Task preferences
+      if (data.show_start_date !== undefined) setShowStartDate(data.show_start_date)
+      if (data.show_due_date !== undefined) setShowDueDate(data.show_due_date)
+      if (data.show_priority !== undefined) setShowPriority(data.show_priority)
+      if (data.show_contact_in_edit !== undefined) setShowContactInEdit(data.show_contact_in_edit)
     }
   }
 
@@ -182,10 +193,18 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
       .eq('id', user.id)
   }
 
+  const handleTaskPrefChange = async (field: string, value: boolean) => {
+    await supabase
+      .from('profiles')
+      .update({ [field]: value, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+  }
+
   const tabs = [
     { id: 'profile', icon: <UserIcon />, label: 'Perfil' },
     { id: 'appearance', icon: <SunMoonIcon />, label: 'Apariencia' },
     { id: 'notifications', icon: <BellIcon />, label: 'Notificaciones' },
+    { id: 'tasks', icon: <ListIcon />, label: 'Tareas' },
     { id: 'shortcuts', icon: <RabbitIcon />, label: 'Atajos' },
     { id: 'account', icon: <Shield className="w-5 h-5" />, label: 'Cuenta' },
   ]
@@ -516,6 +535,53 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                     <p className={`text-blue-800 dark:text-blue-200 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       💡 {isMobile ? 'Instala Tazk como app para mejores notificaciones.' : <><strong>Nota:</strong> Las notificaciones push funcionan mejor cuando instalas Tazk como aplicación desde tu navegador.</>}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'tasks' && (
+                <div>
+                  {!isMobile && <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Campos de tarea</h3>}
+                  <p className={`text-gray-600 dark:text-neutral-400 ${isMobile ? 'text-xs mb-4' : 'text-sm mb-6'}`}>
+                    Personaliza qué campos se muestran al crear y editar tareas.
+                  </p>
+                  <div className={isMobile ? 'space-y-3' : 'space-y-4'}>
+                    {[
+                      { key: 'show_start_date', label: 'Fecha de inicio', desc: 'Mostrar campo de fecha de inicio', value: showStartDate, setter: setShowStartDate },
+                      { key: 'show_due_date', label: 'Fecha límite', desc: 'Mostrar campo de fecha límite', value: showDueDate, setter: setShowDueDate },
+                      { key: 'show_priority', label: 'Prioridad', desc: 'Mostrar selector de prioridad', value: showPriority, setter: setShowPriority },
+                      { key: 'show_contact_in_edit', label: 'Contacto en edición', desc: 'Mostrar contacto asociado al editar tarea', value: showContactInEdit, setter: setShowContactInEdit },
+                    ].map((pref) => (
+                      <div
+                        key={pref.key}
+                        className={`flex items-center justify-between rounded-xl border transition-all ${isMobile ? 'p-3' : 'p-4'} ${
+                          pref.value
+                            ? 'bg-yellow-50 dark:bg-yellow-400/5 border-yellow-300 dark:border-yellow-400/30'
+                            : 'bg-gray-100 dark:bg-neutral-700/30 border-transparent'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <div className="text-gray-900 dark:text-white font-medium">{pref.label}</div>
+                          {!isMobile && <div className="text-gray-500 dark:text-neutral-400 text-sm">{pref.desc}</div>}
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newVal = !pref.value
+                            pref.setter(newVal)
+                            handleTaskPrefChange(pref.key, newVal)
+                          }}
+                          className={`relative w-12 h-7 rounded-full transition-colors ${
+                            pref.value ? 'bg-yellow-400' : 'bg-gray-300 dark:bg-neutral-600'
+                          }`}
+                        >
+                          <div
+                            className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${
+                              pref.value ? 'translate-x-5' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

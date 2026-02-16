@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['tazk.svg'],
+      includeAssets: ['tazk.svg', 'tazk-192.png', 'tazk-512.png'],
       manifest: {
         name: 'Tazk - Gestión de Tareas',
         short_name: 'Tazk',
@@ -21,15 +21,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'tazk.svg',
+            src: 'tazk-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'tazk.svg',
+            src: 'tazk-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'maskable'
           }
         ]

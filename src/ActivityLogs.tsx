@@ -26,7 +26,7 @@ interface ActivityLogsProps {
 }
 
 type FilterAction = 'all' | 'created' | 'updated' | 'deleted' | 'status_changed' | 'assigned' | 'invited' | 'attachment'
-type FilterEntity = 'all' | 'task' | 'team_member' | 'status' | 'attachment' | 'recurring_task'
+type FilterEntity = 'all' | 'task' | 'team_member' | 'status' | 'attachment' | 'recurring_task' | 'contact' | 'contact_label'
 type FilterTime = 'all' | 'today' | 'week' | 'month'
 
 // Componente Combobox simple
@@ -289,6 +289,8 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       status: logs.filter(l => l.entity_type === 'status').length,
       attachment: logs.filter(l => l.entity_type === 'attachment').length,
       recurring_task: logs.filter(l => l.entity_type === 'recurring_task').length,
+      contact: logs.filter(l => l.entity_type === 'contact').length,
+      contact_label: logs.filter(l => l.entity_type === 'contact_label').length,
     }
   }), [logs, filteredLogs])
 
@@ -430,7 +432,9 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
       status: 'Estado',
       team: 'Equipo',
       attachment: 'Adjunto',
-      recurring_task: 'Rutina'
+      recurring_task: 'Rutina',
+      contact: 'Contacto',
+      contact_label: 'Etiqueta'
     }
     return labels[type] || type
   }
@@ -563,6 +567,8 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
           { id: 'team_member', label: 'Miembros', count: counts.byEntity.team_member },
           { id: 'status', label: 'Estados', count: counts.byEntity.status },
           { id: 'attachment', label: 'Adjuntos', count: counts.byEntity.attachment },
+          { id: 'contact', label: 'Contactos', count: counts.byEntity.contact },
+          { id: 'contact_label', label: 'Etiquetas', count: counts.byEntity.contact_label },
         ]}
       />
 
