@@ -91,7 +91,7 @@ function TaskActivityLog({ taskId, taskTitle, onClose }: TaskActivityLogProps) {
       case 'unassigned':
         return <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center"><User className="w-4 h-4 text-orange-500" /></div>
       default:
-        if (action.includes('attachment')) {
+        if (action.includes('attachment') || action.includes('comment')) {
           return <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center"><Paperclip className="w-4 h-4 text-cyan-500" /></div>
         }
         return <div className="w-8 h-8 rounded-full bg-neutral-500/20 flex items-center justify-center"><Clock className="w-4 h-4 text-neutral-500" /></div>
@@ -209,6 +209,8 @@ function TaskActivityLog({ taskId, taskTitle, onClose }: TaskActivityLogProps) {
       case 'updated':
         if (changes.attachment_added) return `Adjunto agregado: ${changes.attachment_added}`
         if (changes.attachment_removed) return `Adjunto eliminado: ${changes.attachment_removed}`
+        if (changes.comment_added) return `Comentario agregado${changes.has_attachment ? ' con adjunto' : ''}`
+        if (changes.comment_removed) return `Comentario eliminado`
         // Check for specific changes
         const hasSpecificChanges = changes.title_changed || changes.priority_changed ||
           changes.start_date_changed || changes.due_date_changed || changes.description_changed

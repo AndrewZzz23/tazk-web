@@ -247,6 +247,40 @@ export const logAttachmentRemoved = (
   details: { attachment_removed: fileName }
 })
 
+// Comments
+export const logCommentAdded = (
+  _commentId: string,
+  taskId: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string,
+  hasFile?: boolean
+) => logActivity({
+  action: 'updated',
+  entityType: 'task',
+  entityId: taskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { comment_added: true, has_attachment: hasFile || false }
+})
+
+export const logCommentRemoved = (
+  _commentId: string,
+  taskId: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({
+  action: 'updated',
+  entityType: 'task',
+  entityId: taskId,
+  teamId,
+  userId,
+  userEmail,
+  details: { comment_removed: true }
+})
+
 // Recurring Tasks (Rutinas)
 export const logRecurringTaskCreated = (
   recurringTaskId: string,

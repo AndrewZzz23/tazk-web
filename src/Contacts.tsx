@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from './supabaseClient'
 import { Contact, ContactLabel, UserRole } from './types/database.types'
 import { useIsMobile } from './hooks/useIsMobile'
@@ -22,6 +22,7 @@ import {
   X,
   ChevronDown,
   BookUser,
+  Navigation,
 } from 'lucide-react'
 
 // Leaflet icon fix
@@ -616,6 +617,10 @@ interface ContactDetailViewProps {
 
 function ContactDetailView({ contact, label, isMobile, onClose }: ContactDetailViewProps) {
   const [isVisible, setIsVisible] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const touchStartY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true))
@@ -628,6 +633,33 @@ function ContactDetailView({ contact, label, isMobile, onClose }: ContactDetailV
 
   const hasMap = contact.location_lat != null && contact.location_lng != null
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const el = sheetRef.current
+    if (!el) return
+    if (el.scrollTop <= 0) {
+      touchStartY.current = e.touches[0].clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - touchStartY.current
+    if (diff > 0) {
+      setDragY(diff)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 100) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
   return (
     <div
       className={`fixed inset-0 z-50 transition-all duration-300 ${
@@ -638,10 +670,17 @@ function ContactDetailView({ contact, label, isMobile, onClose }: ContactDetailV
       {isMobile ? (
         // Bottom sheet on mobile
         <div
-          className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-800 rounded-t-3xl max-h-[85vh] overflow-y-auto transform transition-transform duration-300 ${
-            isVisible ? 'translate-y-0' : 'translate-y-full'
+          ref={sheetRef}
+          className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-800 rounded-t-3xl max-h-[85vh] overflow-y-auto ${
+            isVisible && !isDragging ? 'transition-transform duration-300' : ''
+          } ${
+            isVisible ? '' : 'translate-y-full'
           }`}
+          style={{ transform: isVisible ? `translateY(${dragY}px)` : undefined }}
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-2">
@@ -811,6 +850,19 @@ function ContactDetailContent({ contact, label, hasMap, onClose }: ContactDetail
               <Marker position={[contact.location_lat, contact.location_lng]} />
             </MapContainer>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              window.open(
+                `https://www.google.com/maps?q=${contact.location_lat},${contact.location_lng}`,
+                '_blank'
+              )
+            }}
+            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-colors"
+          >
+            <Navigation className="w-4 h-4" />
+            Abrir en Maps
+          </button>
         </div>
       )}
     </div>

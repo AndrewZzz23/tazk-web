@@ -145,6 +145,19 @@ export interface TaskAttachment {
   created_at: string
 }
 
+export interface TaskComment {
+  id: string
+  task_id: string
+  user_id: string
+  content: string | null
+  file_name: string | null
+  file_path: string | null
+  file_type: string | null
+  file_size: number | null
+  created_at: string
+  profiles?: { full_name: string | null; email: string }
+}
+
 export interface EmailSettings {
   id: string
   user_id: string | null

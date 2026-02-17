@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import { supabase } from './supabaseClient'
@@ -804,6 +804,15 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             onClose={() => setShowActivityLog(false)}
           />
         )}
+
+        {/* Contact Detail Panel */}
+        {viewingContact && (
+          <ContactDetailPanel
+            contact={viewingContact}
+            isMobile={isMobile}
+            onClose={() => setViewingContact(null)}
+          />
+        )}
       </>
     )
   }
@@ -943,6 +952,10 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
 // ============================================================
 function ContactDetailPanel({ contact, isMobile, onClose }: { contact: Contact; isMobile: boolean; onClose: () => void }) {
   const [isVisible, setIsVisible] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const touchStartY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
   const label = contact.contact_labels
   const hasMap = contact.location_lat != null && contact.location_lng != null
 
@@ -953,6 +966,35 @@ function ContactDetailPanel({ contact, isMobile, onClose }: { contact: Contact; 
   const handleClose = () => {
     setIsVisible(false)
     setTimeout(onClose, 300)
+  }
+
+  // Swipe down to close on mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const el = sheetRef.current
+    if (!el) return
+    // Only start drag if scrolled to top
+    if (el.scrollTop <= 0) {
+      touchStartY.current = e.touches[0].clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - touchStartY.current
+    if (diff > 0) {
+      setDragY(diff)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 100) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
   }
 
   const openInMaps = () => {
@@ -1099,10 +1141,17 @@ function ContactDetailPanel({ contact, isMobile, onClose }: { contact: Contact; 
     >
       {isMobile ? (
         <div
-          className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-800 rounded-t-3xl max-h-[85vh] overflow-y-auto transform transition-transform duration-300 ${
-            isVisible ? 'translate-y-0' : 'translate-y-full'
+          ref={sheetRef}
+          className={`absolute bottom-0 left-0 right-0 bg-white dark:bg-neutral-800 rounded-t-3xl max-h-[85vh] overflow-y-auto ${
+            isVisible && !isDragging ? 'transition-transform duration-300' : ''
+          } ${
+            isVisible ? '' : 'translate-y-full'
           }`}
+          style={{ transform: isVisible ? `translateY(${dragY}px)` : undefined }}
           onClick={(e) => e.stopPropagation()}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <div className="flex justify-center pt-3 pb-2">
             <div className="w-10 h-1 bg-neutral-300 dark:bg-neutral-600 rounded-full" />
