@@ -1,11 +1,20 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, Contact } from './types/database.types'
 import { Search, X, FileText, BookUser, RotateCcw } from 'lucide-react'
 
+export interface QuickAction {
+  id: string
+  icon: ReactNode
+  label: string
+  keywords?: string[]
+  action: () => void
+}
+
 interface GlobalSearchProps {
   currentUserId: string
   teamId: string | null
+  actions: QuickAction[]
   onClose: () => void
   onOpenTask: (task: Task) => void
   onNavigate: (view: string) => void
@@ -17,7 +26,13 @@ interface RecurringTask {
   frequency: string
 }
 
-function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }: GlobalSearchProps) {
+type ResultItem =
+  | { type: 'action'; item: QuickAction }
+  | { type: 'task'; item: Task }
+  | { type: 'contact'; item: Contact }
+  | { type: 'recurring'; item: RecurringTask }
+
+function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onNavigate }: GlobalSearchProps) {
   const [query, setQuery] = useState('')
   const [isVisible, setIsVisible] = useState(false)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -46,13 +61,22 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleClose])
 
-  // Debounced search
+  // Filter actions by query
+  const filteredActions = useMemo(() => {
+    if (!query.trim()) return actions
+    const term = query.toLowerCase()
+    return actions.filter(a =>
+      a.label.toLowerCase().includes(term) ||
+      a.keywords?.some(k => k.toLowerCase().includes(term))
+    )
+  }, [query, actions])
+
+  // Debounced DB search
   useEffect(() => {
     if (!query.trim()) {
       setTasks([])
       setContacts([])
       setRecurringTasks([])
-      setSelectedIndex(0)
       return
     }
 
@@ -67,7 +91,6 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
     setLoading(true)
     const pattern = `%${searchTerm}%`
 
-    // Build queries based on team context
     let taskQuery = supabase
       .from('tasks')
       .select('*')
@@ -107,27 +130,37 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
     setTasks(tasksRes.data || [])
     setContacts(contactsRes.data || [])
     setRecurringTasks(recurringRes.data || [])
-    setSelectedIndex(0)
     setLoading(false)
   }
 
   // All results flattened for keyboard navigation
-  const allResults = [
+  const allResults: ResultItem[] = useMemo(() => [
+    ...filteredActions.map(a => ({ type: 'action' as const, item: a })),
     ...tasks.map(t => ({ type: 'task' as const, item: t })),
     ...contacts.map(c => ({ type: 'contact' as const, item: c })),
     ...recurringTasks.map(r => ({ type: 'recurring' as const, item: r })),
-  ]
+  ], [filteredActions, tasks, contacts, recurringTasks])
 
-  const handleSelect = useCallback((result: typeof allResults[number]) => {
-    if (result.type === 'task') {
+  // Reset selected index when results change
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [allResults.length])
+
+  const handleSelect = useCallback((result: ResultItem) => {
+    if (result.type === 'action') {
+      result.item.action()
+      handleClose()
+    } else if (result.type === 'task') {
       onOpenTask(result.item as Task)
+      handleClose()
     } else if (result.type === 'contact') {
       onNavigate('contacts')
+      handleClose()
     } else if (result.type === 'recurring') {
       onNavigate('routines')
+      handleClose()
     }
-    handleClose()
-  }, [onOpenTask, onNavigate])
+  }, [onOpenTask, onNavigate, handleClose])
 
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -152,7 +185,6 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
     }
   }, [selectedIndex])
 
-  const hasResults = allResults.length > 0
   const hasQuery = query.trim().length > 0
 
   const frequencyLabel = (freq: string) => {
@@ -165,7 +197,105 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
     }
   }
 
-  let resultIndex = 0
+  const renderResultItem = (result: ResultItem, idx: number) => {
+    const isSelected = idx === selectedIndex
+
+    if (result.type === 'action') {
+      const action = result.item
+      return (
+        <button
+          key={`action-${action.id}`}
+          data-selected={isSelected}
+          onClick={() => handleSelect(result)}
+          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+            isSelected
+              ? 'bg-yellow-50 dark:bg-yellow-400/10'
+              : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
+          }`}
+        >
+          <span className="w-5 h-5 flex items-center justify-center text-neutral-500 dark:text-neutral-400 flex-shrink-0">
+            {action.icon}
+          </span>
+          <span className="text-sm text-neutral-900 dark:text-white">{action.label}</span>
+        </button>
+      )
+    }
+
+    if (result.type === 'task') {
+      const task = result.item as Task
+      return (
+        <button
+          key={`task-${task.id}`}
+          data-selected={isSelected}
+          onClick={() => handleSelect(result)}
+          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+            isSelected
+              ? 'bg-yellow-50 dark:bg-yellow-400/10'
+              : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
+          }`}
+        >
+          <FileText className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-neutral-900 dark:text-white truncate">{task.title}</p>
+            {task.description && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{task.description}</p>
+            )}
+          </div>
+        </button>
+      )
+    }
+
+    if (result.type === 'contact') {
+      const contact = result.item as Contact
+      return (
+        <button
+          key={`contact-${contact.id}`}
+          data-selected={isSelected}
+          onClick={() => handleSelect(result)}
+          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+            isSelected
+              ? 'bg-yellow-50 dark:bg-yellow-400/10'
+              : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
+          }`}
+        >
+          <BookUser className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-neutral-900 dark:text-white truncate">{contact.name}</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+              {[contact.email, contact.company].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+        </button>
+      )
+    }
+
+    if (result.type === 'recurring') {
+      const rt = result.item as RecurringTask
+      return (
+        <button
+          key={`recurring-${rt.id}`}
+          data-selected={isSelected}
+          onClick={() => handleSelect(result)}
+          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+            isSelected
+              ? 'bg-yellow-50 dark:bg-yellow-400/10'
+              : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
+          }`}
+        >
+          <RotateCcw className="w-4 h-4 text-purple-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-neutral-900 dark:text-white truncate">{rt.title}</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">{frequencyLabel(rt.frequency)}</p>
+          </div>
+        </button>
+      )
+    }
+
+    return null
+  }
+
+  // Group results by type for section headers
+  let currentIdx = 0
 
   return (
     <>
@@ -191,7 +321,7 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleInputKeyDown}
-              placeholder="Buscar tareas, contactos, rutinas..."
+              placeholder="Buscar tareas, contactos, acciones..."
               className="flex-1 bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 outline-none text-base"
             />
             {query && (
@@ -208,135 +338,89 @@ function GlobalSearch({ currentUserId, teamId, onClose, onOpenTask, onNavigate }
           </div>
 
           {/* Results */}
-          {hasQuery && (
-            <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto">
-              {loading ? (
-                <div className="p-6 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : !hasResults ? (
-                <div className="p-8 text-center">
-                  <p className="text-neutral-500 dark:text-neutral-400 text-sm">
-                    No se encontraron resultados para "<span className="font-medium">{query}</span>"
-                  </p>
-                </div>
-              ) : (
-                <div className="py-2">
-                  {/* Tasks */}
-                  {tasks.length > 0 && (
-                    <div>
-                      <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-                        Tareas
-                      </p>
-                      {tasks.map((task) => {
-                        const idx = resultIndex++
-                        return (
-                          <button
-                            key={`task-${task.id}`}
-                            data-selected={idx === selectedIndex}
-                            onClick={() => handleSelect({ type: 'task', item: task })}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                              idx === selectedIndex
-                                ? 'bg-yellow-50 dark:bg-yellow-400/10'
-                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
-                            }`}
-                          >
-                            <FileText className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-neutral-900 dark:text-white truncate">{task.title}</p>
-                              {task.description && (
-                                <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{task.description}</p>
-                              )}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
+          <div ref={resultsRef} className="max-h-[50vh] overflow-y-auto">
+            {loading && hasQuery ? (
+              <div className="p-6 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : allResults.length === 0 && hasQuery ? (
+              <div className="p-8 text-center">
+                <p className="text-neutral-500 dark:text-neutral-400 text-sm">
+                  No se encontraron resultados para "<span className="font-medium">{query}</span>"
+                </p>
+              </div>
+            ) : (
+              <div className="py-2">
+                {/* Actions section */}
+                {filteredActions.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      {hasQuery ? 'Acciones' : 'Acciones rápidas'}
+                    </p>
+                    {filteredActions.map(action => {
+                      const idx = currentIdx++
+                      return renderResultItem({ type: 'action', item: action }, idx)
+                    })}
+                  </div>
+                )}
 
-                  {/* Contacts */}
-                  {contacts.length > 0 && (
-                    <div>
-                      <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-                        Contactos
-                      </p>
-                      {contacts.map((contact) => {
-                        const idx = resultIndex++
-                        return (
-                          <button
-                            key={`contact-${contact.id}`}
-                            data-selected={idx === selectedIndex}
-                            onClick={() => handleSelect({ type: 'contact', item: contact })}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                              idx === selectedIndex
-                                ? 'bg-yellow-50 dark:bg-yellow-400/10'
-                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
-                            }`}
-                          >
-                            <BookUser className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-neutral-900 dark:text-white truncate">{contact.name}</p>
-                              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                                {[contact.email, contact.company].filter(Boolean).join(' · ')}
-                              </p>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
+                {/* Tasks section */}
+                {tasks.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      Tareas
+                    </p>
+                    {tasks.map(task => {
+                      const idx = currentIdx++
+                      return renderResultItem({ type: 'task', item: task }, idx)
+                    })}
+                  </div>
+                )}
 
-                  {/* Recurring Tasks */}
-                  {recurringTasks.length > 0 && (
-                    <div>
-                      <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-                        Rutinas
-                      </p>
-                      {recurringTasks.map((rt) => {
-                        const idx = resultIndex++
-                        return (
-                          <button
-                            key={`recurring-${rt.id}`}
-                            data-selected={idx === selectedIndex}
-                            onClick={() => handleSelect({ type: 'recurring', item: rt as any })}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                              idx === selectedIndex
-                                ? 'bg-yellow-50 dark:bg-yellow-400/10'
-                                : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
-                            }`}
-                          >
-                            <RotateCcw className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-neutral-900 dark:text-white truncate">{rt.title}</p>
-                              <p className="text-xs text-neutral-500 dark:text-neutral-400">{frequencyLabel(rt.frequency)}</p>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                {/* Contacts section */}
+                {contacts.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      Contactos
+                    </p>
+                    {contacts.map(contact => {
+                      const idx = currentIdx++
+                      return renderResultItem({ type: 'contact', item: contact }, idx)
+                    })}
+                  </div>
+                )}
+
+                {/* Recurring Tasks section */}
+                {recurringTasks.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      Rutinas
+                    </p>
+                    {recurringTasks.map(rt => {
+                      const idx = currentIdx++
+                      return renderResultItem({ type: 'recurring', item: rt }, idx)
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Footer hint */}
-          {!hasQuery && (
-            <div className="p-4 flex items-center justify-center gap-4 text-xs text-neutral-400 dark:text-neutral-500">
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded font-mono text-[10px]">↑↓</kbd>
-                navegar
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded font-mono text-[10px]">↵</kbd>
-                abrir
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded font-mono text-[10px]">ESC</kbd>
-                cerrar
-              </span>
-            </div>
-          )}
+          <div className="p-3 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-center gap-4 text-xs text-neutral-400 dark:text-neutral-500">
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded font-mono text-[10px]">↑↓</kbd>
+              navegar
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded font-mono text-[10px]">↵</kbd>
+              abrir
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded font-mono text-[10px]">ESC</kbd>
+              cerrar
+            </span>
+          </div>
         </div>
       </div>
     </>

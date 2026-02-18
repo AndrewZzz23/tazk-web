@@ -243,21 +243,24 @@ function Dashboard() {
   const canAccessOwnerFeatures = currentRole === 'owner' || !currentTeamId
 
   const features = [
-    { id: 'new-task', icon: <PlusIcon size={20} />, label: 'Nueva tarea', action: () => setShowCreateTask(true) },
-    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', action: () => setViewMode('metrics') },
-    { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', action: () => setShowActivityLogs(true) },
-    // Estados solo para owner o tareas personales
+    { id: 'new-task', icon: <PlusIcon size={20} />, label: 'Nueva tarea', keywords: ['crear', 'agregar', 'add', 'task'], action: () => setShowCreateTask(true) },
+    { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', keywords: ['tareas', 'lista', 'list'], action: () => setViewMode('list') },
+    { id: 'view-kanban', icon: <KanbanIcon size={20} />, label: 'Vista Kanban', keywords: ['tablero', 'board', 'columnas'], action: () => setViewMode('kanban') },
+    { id: 'view-calendar', icon: <CalendarIcon size={20} />, label: 'Vista Calendario', keywords: ['calendar', 'fecha', 'mes'], action: () => setViewMode('calendar') },
+    { id: 'contacts', icon: <UserIcon size={20} />, label: 'Contactos', keywords: ['personas', 'clientes', 'contacts'], action: () => setViewMode('contacts') },
+    { id: 'routines', icon: <CalendarIcon size={20} />, label: 'Rutinas', keywords: ['recurrente', 'repetir', 'recurring'], action: () => setViewMode('routines') },
+    { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', keywords: ['estadísticas', 'dashboard', 'stats', 'gráficos'], action: () => setViewMode('metrics') },
+    { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', keywords: ['historial', 'logs', 'registro'], action: () => setShowActivityLogs(true) },
     ...(canAccessOwnerFeatures ? [
-      { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', action: () => setShowStatuses(true) },
-      { id: 'emails', icon: <BellIcon size={20} />, label: 'Correos', action: () => setViewMode('emails') },
+      { id: 'statuses', icon: <PaletteIcon size={20} />, label: 'Estados', keywords: ['status', 'columnas', 'gestionar'], action: () => setShowStatuses(true) },
+      { id: 'emails', icon: <BellIcon size={20} />, label: 'Correos', keywords: ['email', 'mail', 'enviar'], action: () => setViewMode('emails') },
     ] : []),
-    { id: 'notifications', icon: <BellIcon size={20} />, label: 'Notificaciones', action: () => setShowNotifications(true) },
-    { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', action: () => setViewMode('list') },
-    { id: 'view-kanban', icon: <KanbanIcon size={20} />, label: 'Vista Kanban', action: () => setViewMode('kanban') },
-    { id: 'view-calendar', icon: <CalendarIcon size={20} />, label: 'Vista Calendario', action: () => setViewMode('calendar') },
-    { id: 'settings', icon: <SettingsIcon size={20} />, label: 'Configuración', action: () => setUserSettingsTab('profile') },
-    { id: 'profile', icon: <UserIcon size={20} />, label: 'Mi perfil', action: () => setUserSettingsTab('profile') },
-    { id: 'theme', icon: <SunMoonIcon size={20} />, label: 'Cambiar tema', action: () => setUserSettingsTab('appearance') },
+    { id: 'notifications', icon: <BellIcon size={20} />, label: 'Notificaciones', keywords: ['alertas', 'invitaciones', 'avisos'], action: () => setShowNotifications(true) },
+    { id: 'settings', icon: <SettingsIcon size={20} />, label: 'Configuración', keywords: ['ajustes', 'settings', 'opciones', 'preferencias'], action: () => setUserSettingsTab('profile') },
+    { id: 'profile', icon: <UserIcon size={20} />, label: 'Mi perfil', keywords: ['nombre', 'cuenta', 'usuario'], action: () => setUserSettingsTab('profile') },
+    { id: 'theme', icon: <SunMoonIcon size={20} />, label: 'Cambiar tema', keywords: ['oscuro', 'claro', 'dark', 'light', 'apariencia'], action: () => setUserSettingsTab('appearance') },
+    { id: 'task-prefs', icon: <SettingsIcon size={20} />, label: 'Preferencias de tareas', keywords: ['campos', 'prioridad', 'fecha'], action: () => setUserSettingsTab('tasks' as any) },
+    { id: 'shortcuts', icon: <ListIcon size={20} />, label: 'Atajos de teclado', keywords: ['keyboard', 'teclas', 'shortcut'], action: () => setShowKeyboardShortcuts(true) },
   ]
 
   // Filtrar funcionalidades por búsqueda
@@ -884,6 +887,7 @@ function Dashboard() {
         <GlobalSearch
           currentUserId={user!.id}
           teamId={currentTeamId}
+          actions={features}
           onClose={() => setShowGlobalSearch(false)}
           onOpenTask={(task) => {
             setShowGlobalSearch(false)
