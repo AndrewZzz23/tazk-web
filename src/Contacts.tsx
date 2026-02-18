@@ -5,7 +5,6 @@ import { useIsMobile } from './hooks/useIsMobile'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import CreateContact from './CreateContact'
 import ConfirmDialog from './ConfirmDialog'
-import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { logContactDeleted, logContactLabelCreated, logContactLabelDeleted } from './lib/activityLogger'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -23,6 +22,7 @@ import {
   ChevronDown,
   BookUser,
   Navigation,
+  ArrowUpDown,
 } from 'lucide-react'
 
 // Leaflet icon fix
@@ -81,9 +81,23 @@ function Contacts({ currentUserId, teamId, userRole, userEmail, showToast }: Con
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState(PRESET_COLORS[0])
   const [confirmDeleteLabelId, setConfirmDeleteLabelId] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'name' | 'company' | 'recent'>('name')
 
   // Lock body scroll when detail view is open
   useBodyScrollLock(!!viewingContact)
+
+  // ESC para cerrar modales (label manager se cierra directo, los demás manejan su propio ESC)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showLabelManager) {
+          setShowLabelManager(false)
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showLabelManager])
 
   // Load data
   useEffect(() => {
@@ -159,8 +173,22 @@ function Contacts({ currentUserId, teamId, userRole, userEmail, showToast }: Con
       result = result.filter((c) => c.label_id === selectedLabelFilter)
     }
 
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name)
+        case 'company':
+          return (a.company || '').localeCompare(b.company || '') || a.name.localeCompare(b.name)
+        case 'recent':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        default:
+          return 0
+      }
+    })
+
     return result
-  }, [contacts, searchTerm, selectedLabelFilter])
+  }, [contacts, searchTerm, selectedLabelFilter, sortBy])
 
   // Label CRUD
   const handleAddLabel = async () => {
@@ -240,8 +268,22 @@ function Contacts({ currentUserId, teamId, userRole, userEmail, showToast }: Con
   // Loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <LoadingZapIcon size={48} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 animate-pulse">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-neutral-700" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-2/3 bg-gray-200 dark:bg-neutral-700 rounded" />
+                <div className="h-3 w-1/2 bg-gray-100 dark:bg-neutral-700/50 rounded" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-full bg-gray-100 dark:bg-neutral-700/50 rounded" />
+              <div className="h-3 w-3/4 bg-gray-100 dark:bg-neutral-700/50 rounded" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
@@ -302,6 +344,19 @@ function Contacts({ currentUserId, teamId, userRole, userEmail, showToast }: Con
                 </option>
               ))}
             </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'company' | 'recent')}
+              className="appearance-none pl-8 pr-8 py-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition-colors cursor-pointer"
+            >
+              <option value="name">Nombre</option>
+              <option value="company">Empresa</option>
+              <option value="recent">Recientes</option>
+            </select>
+            <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
           </div>
         </div>
@@ -467,14 +522,15 @@ function Contacts({ currentUserId, teamId, userRole, userEmail, showToast }: Con
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredContacts.map((contact) => {
+          {filteredContacts.map((contact, index) => {
             const label = getLabelForContact(contact)
 
             return (
               <div
                 key={contact.id}
                 onClick={() => setViewingContact(contact)}
-                className="group relative bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 shadow-sm hover:shadow-md hover:border-yellow-400/50 dark:hover:border-yellow-400/30 transition-all cursor-pointer"
+                className="group relative bg-white dark:bg-neutral-800 rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 shadow-sm hover:shadow-md hover:border-yellow-400/50 dark:hover:border-yellow-400/30 transition-all cursor-pointer animate-fade-in-up"
+                style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
               >
                 {/* Label pill */}
                 {label && (
@@ -630,6 +686,14 @@ function ContactDetailView({ contact, label, isMobile, onClose }: ContactDetailV
     setIsVisible(false)
     setTimeout(onClose, 300)
   }
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleClose])
 
   const hasMap = contact.location_lat != null && contact.location_lng != null
 

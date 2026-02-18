@@ -373,6 +373,11 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     })
   )
 
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 300)
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -380,12 +385,12 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
         else if (showCreateForm) { setShowCreateForm(false); setNewName('') }
         else if (editingStatus) setEditingStatus(null)
         else if (deletingStatus) setDeletingStatus(null)
-        else onClose()
+        else handleClose()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, showColorPicker, showCreateForm, editingStatus, deletingStatus])
+  }, [handleClose, showColorPicker, showCreateForm, editingStatus, deletingStatus])
 
   useEffect(() => {
     if (!showCreateForm || showColorPicker) return
@@ -414,11 +419,6 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
     const { data } = await query
     setStatuses(data || [])
     setLoading(false)
-  }
-
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(onClose, 200)
   }
 
   // Swipe to close gesture
@@ -942,9 +942,9 @@ function ManageStatuses({ currentUserId, teamId, userEmail, isOwnerOrAdmin, onCl
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Modal principal */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`} onClick={handleClose}>
-        <div className={`bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 flex flex-col ${isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`} onClick={(e) => e.stopPropagation()}>
+      {/* Side Panel */}
+      <div className={`fixed inset-0 z-50 transition-all duration-300 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`} onClick={handleClose}>
+        <div className={`absolute right-0 top-0 bottom-0 w-full max-w-xl bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden flex flex-col transform transition-transform duration-300 ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="p-5 border-b border-gray-100 dark:border-neutral-800 flex-shrink-0">
             <div className="flex items-center justify-between">

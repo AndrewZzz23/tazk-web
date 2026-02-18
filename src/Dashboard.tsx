@@ -4,6 +4,7 @@ import { useRealtimeSubscription, ExtendedPayload } from './hooks/useRealtimeSub
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
+import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { User } from '@supabase/supabase-js'
 import { Task, UserRole } from './types/database.types'
@@ -22,6 +23,8 @@ import EmailSettings from './EmailSettings'
 import RecurringTasks from './RecurringTasks'
 import Contacts from './Contacts'
 import EditTask from './EditTask'
+import KeyboardShortcuts from './KeyboardShortcuts'
+import GlobalSearch from './GlobalSearch'
 import ProfileOnboarding from './components/ProfileOnboarding'
 import AppTour from './components/AppTour'
 import {
@@ -57,6 +60,10 @@ function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+
+  const { pullDistance, isRefreshing, handlers: pullHandlers } = usePullToRefresh({
+    onRefresh: () => setRefreshKey(prev => prev + 1)
+  })
   const [profileName, setProfileName] = useState<string | null>(null)
   const [taskPrefs, setTaskPrefs] = useState({ showStartDate: true, showDueDate: true, showPriority: true, showContactInEdit: true })
 
@@ -94,6 +101,8 @@ function Dashboard() {
   const [bottomSheetOpen, setBottomSheetOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showUserOnboarding, setShowUserOnboarding] = useState(false)
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false)
   const [showProfileOnboarding, setShowProfileOnboarding] = useState(false)
 
   // Swipe gesture para el menú de usuario móvil
@@ -197,17 +206,23 @@ function Dashboard() {
       if (e.key === 'Escape') {
         // Cerrar en orden de prioridad (el más reciente primero)
         if (openedTask) {
-          closeTask()
+          // EditTask maneja su propio ESC con animación
+          return
         } else if (userSettingsTab) {
-          setUserSettingsTab(null)
+          // UserSettings maneja su propio ESC con animación
+          return
         } else if (showCreateTask) {
-          setShowCreateTask(false)
+          // CreateTask maneja su propio ESC con animación
+          return
         } else if (showActivityLogs) {
-          setShowActivityLogs(false)
+          // ActivityLogs maneja su propio ESC con animación
+          return
         } else if (showStatuses) {
-          setShowStatuses(false)
+          // ManageStatuses maneja su propio ESC con animación
+          return
         } else if (showNotifications) {
-          setShowNotifications(false)
+          // Notifications maneja su propio ESC con animación
+          return
         } else if (showUserMenu) {
           setShowUserMenu(false)
         } else if (searchTerm) {
@@ -465,10 +480,10 @@ function Dashboard() {
       const target = e.target as HTMLElement
       const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
-      // Ctrl/Cmd + K para buscar
+      // Ctrl/Cmd + K para búsqueda global
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
-        document.getElementById('global-search')?.focus()
+        setShowGlobalSearch(true)
       }
 
       // Alt + N para nueva tarea
@@ -490,6 +505,8 @@ function Dashboard() {
         if (e.key === '1') setViewMode('list')
         if (e.key === '2') setViewMode('kanban')
         if (e.key === '3') setViewMode('calendar')
+        // ? para atajos de teclado
+        if (e.key === '?') setShowKeyboardShortcuts(true)
       }
     }
 
@@ -535,7 +552,29 @@ function Dashboard() {
       />
 
       {/* Main */}
-      <main className={`transition-all duration-300 ${isMobile ? 'ml-0 pb-20' : sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+      <main
+        className={`transition-all duration-300 ${isMobile ? 'ml-0 pb-20' : sidebarCollapsed ? 'ml-16' : 'ml-64'}`}
+        {...(isMobile ? pullHandlers : {})}
+      >
+        {/* Pull to refresh indicator */}
+        {isMobile && pullDistance > 0 && (
+          <div
+            className="flex items-center justify-center overflow-hidden transition-all"
+            style={{ height: pullDistance }}
+          >
+            <div className={`${isRefreshing ? 'animate-spin' : ''}`}>
+              <svg
+                className="w-6 h-6 text-yellow-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                style={{ transform: `rotate(${Math.min(pullDistance * 4, 360)}deg)` }}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+          </div>
+        )}
         {/* Header */}
         <header className="sticky top-0 z-30 bg-gray-50 dark:bg-neutral-900/80 backdrop-blur-sm border-b border-gray-300 dark:border-neutral-800">
           <div className="px-6 py-3 flex items-center gap-4">
@@ -834,6 +873,26 @@ function Dashboard() {
           isOwnerOrAdmin={currentTeamId === null || currentRole === 'owner' || currentRole === 'admin'}
           onClose={() => setShowStatuses(false)}
           onStatusesChanged={() => setRefreshKey(prev => prev + 1)}
+        />
+      )}
+
+      {showKeyboardShortcuts && (
+        <KeyboardShortcuts onClose={() => setShowKeyboardShortcuts(false)} />
+      )}
+
+      {showGlobalSearch && (
+        <GlobalSearch
+          currentUserId={user!.id}
+          teamId={currentTeamId}
+          onClose={() => setShowGlobalSearch(false)}
+          onOpenTask={(task) => {
+            setShowGlobalSearch(false)
+            openTask(task)
+          }}
+          onNavigate={(view) => {
+            setShowGlobalSearch(false)
+            setViewMode(view as any)
+          }}
         />
       )}
 

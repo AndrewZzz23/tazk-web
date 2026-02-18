@@ -7,6 +7,7 @@ import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { X, MapPin, Trash2 } from 'lucide-react'
 import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { logContactCreated, logContactUpdated } from './lib/activityLogger'
+import ConfirmDialog from './ConfirmDialog'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 
@@ -86,23 +87,47 @@ function CreateContact({
   const [locationLng, setLocationLng] = useState<number | null>(editingContact?.location_lng ?? null)
   const [showMap, setShowMap] = useState(!!(editingContact?.location_lat))
   const [reversingGeocode, setReversingGeocode] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
   }, [])
 
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 300)
+  }
+
+  const isDirty = () => {
+    const initName = editingContact?.name || ''
+    const initEmail = editingContact?.email || ''
+    const initPhone = editingContact?.phone || ''
+    const initCompany = editingContact?.company || ''
+    const initNotes = editingContact?.notes || ''
+    return name !== initName || email !== initEmail || phone !== initPhone || company !== initCompany || notes !== initNotes
+  }
+
+  const tryClose = () => {
+    if (isDirty()) {
+      setShowDiscardConfirm(true)
+    } else {
+      handleClose()
+    }
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
+      if (e.key === 'Escape') {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false)
+        } else {
+          tryClose()
+        }
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(onClose, 200)
-  }
+  }, [showDiscardConfirm, name, email, phone, company, notes])
 
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
     onClose: handleClose
@@ -422,7 +447,7 @@ function CreateContact({
           className={`fixed inset-0 z-50 transition-all duration-200 ${
             isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
           }`}
-          onClick={handleClose}
+          onClick={tryClose}
         />
         <div
           className={`fixed inset-x-0 bottom-0 top-4 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col safe-area-bottom ${
@@ -448,7 +473,7 @@ function CreateContact({
               </h2>
             </div>
             <button
-              onClick={handleClose}
+              onClick={tryClose}
               className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
             >
               <X size={20} />
@@ -457,21 +482,34 @@ function CreateContact({
 
           {renderForm()}
         </div>
+
+        {showDiscardConfirm && (
+          <ConfirmDialog
+            title="Cambios sin guardar"
+            message="Tienes cambios sin guardar. ¿Deseas descartarlos?"
+            confirmText="Descartar"
+            cancelText="Seguir editando"
+            type="warning"
+            onConfirm={handleClose}
+            onCancel={() => setShowDiscardConfirm(false)}
+          />
+        )}
       </>
     )
   }
 
-  // Desktop: Modal
+  // Desktop: Side Panel
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto transition-all duration-200 ${
-        isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
-      }`}
-      onClick={handleClose}
-    >
+    <>
       <div
-        className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 ${
-          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
+          isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
+        }`}
+        onClick={tryClose}
+      />
+      <div
+        className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-xl bg-white dark:bg-neutral-800 shadow-2xl overflow-y-auto transform transition-transform duration-300 ${
+          isVisible ? 'translate-x-0' : 'translate-x-full'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -483,7 +521,7 @@ function CreateContact({
             </h2>
           </div>
           <button
-            onClick={handleClose}
+            onClick={tryClose}
             className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
           >
             <X size={20} />
@@ -492,7 +530,19 @@ function CreateContact({
 
         {renderForm()}
       </div>
-    </div>
+
+      {showDiscardConfirm && (
+        <ConfirmDialog
+          title="Cambios sin guardar"
+          message="Tienes cambios sin guardar. ¿Deseas descartarlos?"
+          confirmText="Descartar"
+          cancelText="Seguir editando"
+          type="warning"
+          onConfirm={handleClose}
+          onCancel={() => setShowDiscardConfirm(false)}
+        />
+      )}
+    </>
   )
 }
 

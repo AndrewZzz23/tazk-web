@@ -120,15 +120,6 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
   const [filterUser, setFilterUser] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
-  // ESC para cerrar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 10)
     loadLogs()
@@ -136,8 +127,17 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
 
   const handleClose = () => {
     setIsVisible(false)
-    setTimeout(onClose, 200)
+    setTimeout(onClose, 300)
   }
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleClose])
 
   // Swipe to close gesture para móvil
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
@@ -786,17 +786,17 @@ function ActivityLogs({ teamId, onClose }: ActivityLogsProps) {
     )
   }
 
-  // Vista desktop - Modal centrado
+  // Vista desktop - Side Panel
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+      className={`fixed inset-0 z-50 transition-all duration-300 ${
         isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
       }`}
       onClick={handleClose}
     >
       <div
-        className={`bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] overflow-hidden transform transition-all duration-200 flex flex-col ${
-          isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        className={`absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden flex flex-col transform transition-transform duration-300 ${
+          isVisible ? 'translate-x-0' : 'translate-x-full'
         }`}
         onClick={(e) => e.stopPropagation()}
       >

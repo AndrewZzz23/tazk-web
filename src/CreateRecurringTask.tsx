@@ -118,7 +118,7 @@ function CreateRecurringTask({
 
   const handleClose = () => {
     setIsVisible(false)
-    setTimeout(onClose, 200)
+    setTimeout(onClose, 300)
   }
 
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
@@ -542,18 +542,18 @@ function CreateRecurringTask({
     )
   }
 
-  // Desktop: Modal
+  // Desktop: Side Panel
   return (
     <>
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto transition-all duration-200 ${
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
           isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
         }`}
         onClick={handleClose}
       >
         <div
-          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 ${
-            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          className={`absolute right-0 top-0 bottom-0 w-full max-w-xl bg-white dark:bg-neutral-800 shadow-2xl overflow-y-auto transform transition-transform duration-300 ${
+            isVisible ? 'translate-x-0' : 'translate-x-full'
           }`}
           onClick={(e) => e.stopPropagation()}
         >

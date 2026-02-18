@@ -11,7 +11,6 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { Calendar, Columns3, LayoutGrid, Flag } from 'lucide-react'
 import { logTaskStatusChanged } from './lib/activityLogger'
 import { sendTaskCompletedEmail } from './lib/emailNotifications'
@@ -154,12 +153,13 @@ function DroppableColumn({
 
       {/* Tareas */}
       <div className="space-y-3">
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onClick={() => onTaskClick(task)}
-          />
+        {tasks.map((task, index) => (
+          <div key={task.id} className="animate-fade-in-up" style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}>
+            <TaskCard
+              task={task}
+              onClick={() => onTaskClick(task)}
+            />
+          </div>
         ))}
 
         {tasks.length === 0 && (
@@ -348,8 +348,22 @@ function KanbanBoard({ currentUserId, teamId, userEmail, searchTerm, onOpenTask 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <LoadingZapIcon size={48} />
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {[1, 2, 3, 4].map(col => (
+          <div key={col} className="flex-shrink-0 w-72 bg-gray-50 dark:bg-neutral-800 rounded-xl p-3 space-y-3 animate-pulse">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-neutral-700" />
+              <div className="h-4 w-20 bg-gray-200 dark:bg-neutral-700 rounded" />
+              <div className="h-5 w-6 bg-gray-100 dark:bg-neutral-700/50 rounded-full ml-auto" />
+            </div>
+            {Array.from({ length: col <= 2 ? 3 : 2 }).map((_, i) => (
+              <div key={i} className="bg-white dark:bg-neutral-700 border border-gray-200 dark:border-neutral-600 rounded-lg p-3 space-y-2">
+                <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-600 rounded" />
+                <div className="h-3 w-1/2 bg-gray-100 dark:bg-neutral-600/50 rounded" />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     )
   }

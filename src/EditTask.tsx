@@ -65,19 +65,11 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
   const [loading, setLoading] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
   const [showDescriptionModal, setShowDescriptionModal] = useState(false)
   const [notifyContacts, setNotifyContacts] = useState<Contact[]>([])
   const [viewingContact, setViewingContact] = useState<Contact | null>(null)
-
-  // ESC para cerrar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
 
   useEffect(() => {
     // Animación de entrada
@@ -145,8 +137,44 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
 
   const handleClose = () => {
     setIsVisible(false)
-    setTimeout(onClose, 200)
+    setTimeout(onClose, 300)
   }
+
+  const isDirty = () => {
+    if (title !== task.title) return true
+    if (description !== (task.description || '')) return true
+    if (statusId !== task.status_id) return true
+    if (assignedTo !== (task.assigned_to || '')) return true
+    if (priority !== (task.priority || '')) return true
+    const origStart = task.start_date ? new Date(task.start_date).toDateString() : null
+    const origDue = task.due_date ? new Date(task.due_date).toDateString() : null
+    if ((startDate?.toDateString() ?? null) !== origStart) return true
+    if ((dueDate?.toDateString() ?? null) !== origDue) return true
+    return false
+  }
+
+  const tryClose = () => {
+    if (isDirty()) {
+      setShowDiscardConfirm(true)
+    } else {
+      handleClose()
+    }
+  }
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false)
+        } else {
+          tryClose()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showDiscardConfirm, title, description, statusId, assignedTo, priority, startDate, dueDate])
 
   // Swipe to close gesture
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
@@ -736,7 +764,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           className={`fixed inset-0 z-50 transition-all duration-200 ${
             isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
           }`}
-          onClick={handleClose}
+          onClick={tryClose}
         />
         <div
           className={`fixed inset-x-0 bottom-0 top-4 z-50 bg-white dark:bg-neutral-900 rounded-t-3xl shadow-2xl overflow-hidden flex flex-col safe-area-bottom ${
@@ -771,7 +799,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
                 <History size={20} />
               </button>
               <button
-                onClick={handleClose}
+                onClick={tryClose}
                 className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
               >
                 <XIcon size={20} />
@@ -793,6 +821,17 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             type="danger"
             onConfirm={handleDeleteConfirm}
             onCancel={() => setShowDeleteConfirm(false)}
+          />
+        )}
+        {showDiscardConfirm && (
+          <ConfirmDialog
+            title="Cambios sin guardar"
+            message="Tienes cambios sin guardar. ¿Deseas descartarlos?"
+            confirmText="Descartar"
+            cancelText="Seguir editando"
+            type="warning"
+            onConfirm={handleClose}
+            onCancel={() => setShowDiscardConfirm(false)}
           />
         )}
 
@@ -817,19 +856,19 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
     )
   }
 
-  // Desktop: Modal centrado
+  // Desktop: Side Panel
   return (
     <>
       <style>{datePickerStyles}</style>
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto transition-all duration-200 ${
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
           isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
         }`}
-        onClick={handleClose}
+        onClick={tryClose}
       >
         <div
-          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 ${
-            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+          className={`absolute right-0 top-0 bottom-0 w-full max-w-xl bg-white dark:bg-neutral-800 shadow-2xl overflow-y-auto transform transition-transform duration-300 ${
+            isVisible ? 'translate-x-0' : 'translate-x-full'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
@@ -850,7 +889,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
                 <History size={20} />
               </button>
               <button
-                onClick={handleClose}
+                onClick={tryClose}
                 className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
               >
                 <XIcon size={20} />

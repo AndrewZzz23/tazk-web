@@ -95,15 +95,6 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
     loadProfile()
   }, [])
 
-  // ESC para cerrar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
   const loadProfile = async () => {
     const { data } = await supabase
       .from('profiles')
@@ -151,8 +142,17 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
 
   const handleClose = () => {
     setIsVisible(false)
-    setTimeout(onClose, 200)
+    setTimeout(onClose, 300)
   }
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleClose])
 
   // Swipe to close gesture
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
@@ -220,85 +220,9 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
 
   const userInitial = user?.email?.[0]?.toUpperCase() || '?'
 
-  return (
+  // Contenido de las tabs (compartido entre mobile y desktop)
+  const renderTabContent = () => (
     <>
-      <div
-        className={`fixed inset-0 z-50 flex items-end md:items-center justify-center transition-all duration-200 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
-        onClick={handleClose}
-      >
-        <div
-          className={`bg-white dark:bg-neutral-800 shadow-2xl w-full overflow-hidden ${
-            isMobile
-              ? 'rounded-t-3xl max-h-[90vh]'
-              : 'rounded-2xl max-w-2xl mx-4 max-h-[85vh] transform transition-all duration-200'
-          } ${isVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'}`}
-          style={isMobile ? {
-            ...dragStyle,
-            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-          } : undefined}
-          onClick={(e) => e.stopPropagation()}
-          {...(isMobile ? containerProps : {})}
-        >
-          {/* Handle (mobile only) */}
-          {isMobile && (
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-gray-300 dark:bg-neutral-600 rounded-full" />
-            </div>
-          )}
-
-          {/* Header */}
-          <div className={`flex items-center justify-between border-b border-gray-200 dark:border-neutral-700 ${isMobile ? 'px-4 pb-4' : 'p-6'}`}>
-            <h2 className={`font-bold text-gray-900 dark:text-white flex items-center gap-2 ${isMobile ? 'text-lg mt-2' : 'text-xl'}`}>
-              <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={isMobile ? 20 : 24} /></span>
-              {isMobile ? 'Ajustes' : 'Configuración'}
-            </h2>
-            <button onClick={handleClose} className={`text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors ${isMobile ? 'mt-2' : ''}`}>
-              <XIcon size={isMobile ? 20 : 24} />
-            </button>
-          </div>
-
-          {/* Mobile: Tabs horizontales con iconos (sin atajos) */}
-          {isMobile && (
-            <div className="flex justify-around items-end border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {tabs.filter(tab => tab.id !== 'shortcuts').map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as Tab)}
-                  className={`flex flex-col items-center justify-end gap-1 px-4 py-2 rounded-xl transition-all h-14 ${
-                    activeTab === tab.id
-                      ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400'
-                      : 'text-gray-500 dark:text-neutral-400'
-                  }`}
-                >
-                  <span className="h-6 flex items-center justify-center">{tab.icon}</span>
-                  <span className="text-[10px] font-medium">{tab.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className={`flex ${isMobile ? 'flex-col' : ''} ${isMobile ? 'h-[calc(90vh-140px)]' : 'h-[calc(85vh-80px)]'}`}>
-            {/* Desktop: Sidebar vertical */}
-            {!isMobile && (
-              <div className="w-48 border-r border-gray-200 dark:border-neutral-700 p-2">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as Tab)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400'
-                        : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
-                    <span className="text-sm font-medium">{tab.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className={`flex-1 overflow-y-auto ${isMobile ? 'p-4' : 'p-6'}`}>
               {activeTab === 'profile' && (
                 <div>
                   {!isMobile && <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Mi Perfil</h3>}
@@ -697,24 +621,140 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
+    </>
+  )
 
+  // Extras compartidos
+  const renderExtras = () => (
+    <>
       {toast.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
-
-      {/* Modal de eliminación de cuenta */}
       {showDeleteModal && (
         <DeleteAccountModal
           user={user}
           onClose={() => setShowDeleteModal(false)}
-          onDeleted={() => {
-            // Recargar la página para cerrar sesión
-            window.location.reload()
-          }}
+          onDeleted={() => { window.location.reload() }}
         />
       )}
+    </>
+  )
+
+  // Mobile: Bottom Sheet
+  if (isMobile) {
+    return (
+      <>
+        <div
+          className={`fixed inset-0 z-50 transition-all duration-300 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
+          onClick={handleClose}
+        />
+        <div
+          className={`fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-neutral-800 rounded-t-3xl shadow-2xl max-h-[90vh] overflow-hidden safe-area-bottom ${
+            isVisible ? 'translate-y-0' : 'translate-y-full'
+          }`}
+          style={{
+            ...dragStyle,
+            transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+          }}
+          onClick={(e) => e.stopPropagation()}
+          {...containerProps}
+        >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 bg-gray-300 dark:bg-neutral-600 rounded-full" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pb-4 border-b border-gray-200 dark:border-neutral-700">
+            <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 text-lg mt-2">
+              <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={20} /></span>
+              Ajustes
+            </h2>
+            <button onClick={handleClose} className="text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors mt-2">
+              <XIcon size={20} />
+            </button>
+          </div>
+
+          {/* Tabs horizontales (sin atajos) */}
+          <div className="flex justify-around items-end border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            {tabs.filter(tab => tab.id !== 'shortcuts').map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as Tab)}
+                className={`flex flex-col items-center justify-end gap-1 px-4 py-2 rounded-xl transition-all h-14 ${
+                  activeTab === tab.id
+                    ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400'
+                    : 'text-gray-500 dark:text-neutral-400'
+                }`}
+              >
+                <span className="h-6 flex items-center justify-center">{tab.icon}</span>
+                <span className="text-[10px] font-medium">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex flex-col h-[calc(90vh-140px)]">
+            <div className="flex-1 overflow-y-auto p-4">
+              {renderTabContent()}
+            </div>
+          </div>
+        </div>
+
+        {renderExtras()}
+      </>
+    )
+  }
+
+  // Desktop: Side Panel
+  return (
+    <>
+      <div
+        className={`fixed inset-0 z-50 transition-all duration-300 ${isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'}`}
+        onClick={handleClose}
+      />
+      <div
+        className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl bg-white dark:bg-neutral-800 shadow-2xl transition-transform duration-300 ${
+          isVisible ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-neutral-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <span className="text-yellow-500 dark:text-yellow-400"><SettingsIcon size={24} /></span>
+            Configuración
+          </h2>
+          <button onClick={handleClose} className="text-gray-400 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <XIcon size={24} />
+          </button>
+        </div>
+
+        <div className="flex h-[calc(100vh-80px)]">
+          {/* Sidebar vertical */}
+          <div className="w-48 border-r border-gray-200 dark:border-neutral-700 p-2">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as Tab)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-600 dark:text-yellow-400'
+                    : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'
+                }`}
+              >
+                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
+                <span className="text-sm font-medium">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {renderTabContent()}
+          </div>
+        </div>
+      </div>
+
+      {renderExtras()}
     </>
   )
 }

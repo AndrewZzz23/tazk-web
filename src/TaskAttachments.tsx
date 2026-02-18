@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from './supabaseClient'
 import { TaskComment } from './types/database.types'
 import Toast from './Toast'
@@ -339,13 +340,13 @@ function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = t
                   <div className="mt-1.5">
                     {isImage(comment.file_type) ? (
                       <div
-                        className="relative max-w-[200px] rounded-lg overflow-hidden cursor-pointer ring-1 ring-gray-200 dark:ring-neutral-600 hover:ring-yellow-400 transition-all"
+                        className="relative max-w-[140px] rounded-lg overflow-hidden cursor-pointer ring-1 ring-gray-200 dark:ring-neutral-600 hover:ring-yellow-400 transition-all"
                         onClick={(e) => { e.stopPropagation(); setPreviewImage(getFileUrl(comment.file_path!)) }}
                       >
                         <img
                           src={getFileUrl(comment.file_path)}
                           alt={comment.file_name}
-                          className="w-full h-auto max-h-[180px] object-cover"
+                          className="w-full h-auto max-h-[120px] object-cover"
                         />
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-2 py-1">
                           <p className="text-[10px] text-white truncate">{comment.file_name}</p>
@@ -450,28 +451,43 @@ function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = t
         </div>
       )}
 
-      {/* Image preview modal */}
-      {previewImage && (
+      {/* Image preview modal - portaled to body so it renders outside the side panel */}
+      {previewImage && createPortal(
         <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
-          onClick={(e) => { e.stopPropagation(); setPreviewImage(null) }}
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-8"
+          onClick={() => setPreviewImage(null)}
         >
-          <button
-            type="button"
-            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-            onClick={(e) => { e.stopPropagation(); setPreviewImage(null) }}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <a
+              href={previewImage}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              onClick={(e) => e.stopPropagation()}
+              title="Descargar"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </a>
+            <button
+              type="button"
+              className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+              onClick={() => setPreviewImage(null)}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <img
             src={previewImage}
             alt="Preview"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Delete confirmation */}

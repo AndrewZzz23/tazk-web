@@ -3,8 +3,7 @@ import { supabase } from './supabaseClient'
 import { Task, TaskStatus, UserRole, TaskPriority, Profile } from './types/database.types'
 import ConfirmDialog from './ConfirmDialog'
 import TaskActivityLog from './TaskActivityLog'
-import { LoadingZapIcon } from './components/iu/AnimatedIcons'
-import { ChevronRight, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Flag, History, Filter, X, User, Clock } from 'lucide-react'
+import { ChevronRight, Trash2, Calendar, AlertTriangle, Play, ClipboardList, Flag, History, Filter, X, User, Clock, ArrowUpDown } from 'lucide-react'
 import { sendTaskCompletedEmail } from './lib/emailNotifications'
 
 // Tipos de filtros
@@ -62,6 +61,7 @@ function TaskList({ currentUserId, teamId, userRole, userEmail, onTaskUpdated, s
   })
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null)
   const [taskForHistory, setTaskForHistory] = useState<Task | null>(null)
+  const [sortBy, setSortBy] = useState<'recent' | 'priority' | 'due_date' | 'title'>('recent')
 
   const loadTasks = async () => {
     setLoading(true)
@@ -253,8 +253,32 @@ function TaskList({ currentUserId, teamId, userRole, userEmail, onTaskUpdated, s
       }
     }
 
+    // Ordenar
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 }
+    result = [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'recent':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case 'priority': {
+          const pa = a.priority ? priorityOrder[a.priority] : 3
+          const pb = b.priority ? priorityOrder[b.priority] : 3
+          return pa - pb || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        }
+        case 'due_date': {
+          if (!a.due_date && !b.due_date) return 0
+          if (!a.due_date) return 1
+          if (!b.due_date) return -1
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
+        }
+        case 'title':
+          return a.title.localeCompare(b.title)
+        default:
+          return 0
+      }
+    })
+
     return result
-  }, [tasks, searchTerm, filters, teamId])
+  }, [tasks, searchTerm, filters, teamId, sortBy])
 
   // Agrupar tareas por estado
   const tasksByStatus = useMemo(() => {
@@ -424,6 +448,21 @@ function TaskList({ currentUserId, teamId, userRole, userEmail, onTaskUpdated, s
           )}
         </button>
 
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="appearance-none pl-8 pr-8 py-2 bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 rounded-xl text-sm font-medium hover:bg-gray-200 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 transition-all cursor-pointer"
+          >
+            <option value="recent">Recientes</option>
+            <option value="priority">Prioridad</option>
+            <option value="due_date">Fecha límite</option>
+            <option value="title">Nombre</option>
+          </select>
+          <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-neutral-500 pointer-events-none" />
+          <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-neutral-500 pointer-events-none rotate-90" />
+        </div>
+
         {/* Chips de filtros activos */}
         {filters.assignedTo !== 'all' && (
           <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs px-2 py-1 rounded-lg">
@@ -578,11 +617,31 @@ function TaskList({ currentUserId, teamId, userRole, userEmail, onTaskUpdated, s
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 gap-4">
-        <LoadingZapIcon size={48} />
-        <p className="text-gray-400 dark:text-neutral-500 text-sm animate-pulse">
-          Cargando tareas...
-        </p>
+      <div className="space-y-6 py-4">
+        {[1, 2, 3].map(section => (
+          <div key={section} className="space-y-3">
+            {/* Status header skeleton */}
+            <div className="flex items-center gap-2 px-3">
+              <div className="w-3 h-3 rounded-full bg-gray-200 dark:bg-neutral-700 animate-pulse" />
+              <div className="h-4 w-24 bg-gray-200 dark:bg-neutral-700 rounded animate-pulse" />
+              <div className="h-5 w-6 bg-gray-100 dark:bg-neutral-800 rounded-full animate-pulse" />
+            </div>
+            {/* Task card skeletons */}
+            <div className="px-3 space-y-2">
+              {[1, 2].map(card => (
+                <div key={card} className="bg-gray-50 dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl p-4 animate-pulse">
+                  <div className="flex items-start gap-3">
+                    <div className="w-1 h-10 rounded-full bg-gray-200 dark:bg-neutral-700" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-gray-200 dark:bg-neutral-700 rounded" />
+                      <div className="h-3 w-1/2 bg-gray-100 dark:bg-neutral-700/50 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     )
   }
@@ -659,10 +718,11 @@ function TaskList({ currentUserId, teamId, userRole, userEmail, onTaskUpdated, s
             {/* Lista de tareas */}
             <div className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'}`}>
               <div className="px-3 pb-3 space-y-2">
-                {statusTasks.map(task => (
+                {statusTasks.map((task, index) => (
                   <div
                     key={task.id}
-                    className="bg-gray-50 dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl p-4 hover:shadow-md hover:border-gray-200 dark:hover:border-neutral-600 transition-all duration-200 group cursor-pointer"
+                    className="bg-gray-50 dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 rounded-xl p-4 hover:shadow-md hover:border-gray-200 dark:hover:border-neutral-600 transition-all duration-200 group cursor-pointer animate-fade-in-up"
+                    style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
                     onClick={() => onOpenTask?.(task)}
                   >
                     <div className="flex items-start gap-3">

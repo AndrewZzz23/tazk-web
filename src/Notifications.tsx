@@ -21,14 +21,6 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
 
-  // ESC para cerrar
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{
     show: boolean
@@ -102,8 +94,17 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
 
   const handleClose = () => {
     setIsVisible(false)
-    setTimeout(onClose, 200)
+    setTimeout(onClose, 300)
   }
+
+  // ESC para cerrar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleClose])
 
   // Swipe to close gesture
   const { dragStyle, isDragging, containerProps } = useBottomSheetGesture({
@@ -423,46 +424,45 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
     )
   }
 
-  // Desktop: Modal centrado
+  // Desktop: Side Panel
   return (
     <>
       <div
-        className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ${
+        className={`fixed inset-0 z-50 transition-all duration-300 ${
           isVisible ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
         }`}
         onClick={handleClose}
+      />
+      <div
+        className={`fixed right-0 top-0 bottom-0 z-50 w-full max-w-xl bg-white dark:bg-neutral-800 shadow-2xl transition-transform duration-300 ${
+          isVisible ? 'translate-x-0' : 'translate-x-full'
+        }`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className={`bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] overflow-hidden transform transition-all duration-200 ${
-            isVisible ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-neutral-200 dark:border-neutral-700">
-            <div className="flex items-center gap-2">
-              <span className="text-yellow-400"><BellIcon size={24} /></span>
-              <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                Notificaciones
-              </h2>
-              {totalCount > 0 && (
-                <span className="bg-yellow-400 text-neutral-900 text-xs font-bold px-2 py-0.5 rounded-full">
-                  {totalCount}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={handleClose}
-              className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
-            >
-              <XIcon size={20} />
-            </button>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-neutral-200 dark:border-neutral-700">
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-400"><BellIcon size={24} /></span>
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
+              Notificaciones
+            </h2>
+            {totalCount > 0 && (
+              <span className="bg-yellow-400 text-neutral-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                {totalCount}
+              </span>
+            )}
           </div>
+          <button
+            onClick={handleClose}
+            className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700"
+          >
+            <XIcon size={20} />
+          </button>
+        </div>
 
-          {/* Content */}
-          <div className="overflow-y-auto max-h-[calc(80vh-80px)]">
-            {renderContent()}
-          </div>
+        {/* Content */}
+        <div className="overflow-y-auto h-[calc(100vh-80px)]">
+          {renderContent()}
         </div>
       </div>
 
