@@ -223,9 +223,13 @@ function Sidebar({
   ]
 
   // Herramientas que son vistas (no modales)
+  // Rutinas y contactos no están disponibles para miembros de equipo
+  const isMember = selectedRole === 'member' && !!selectedTeamId
   const toolViewItems = [
-    { id: 'routines', icon: <RepeatIcon size={20} />, label: 'Rutinas' },
-    { id: 'contacts', icon: <ContactsIcon size={20} />, label: 'Contactos' },
+    ...(!isMember ? [
+      { id: 'routines', icon: <RepeatIcon size={20} />, label: 'Rutinas' },
+      { id: 'contacts', icon: <ContactsIcon size={20} />, label: 'Contactos' },
+    ] : []),
     // Correos solo para owner (o si no hay equipo seleccionado = tareas personales)
     ...(selectedRole === 'owner' || !selectedTeamId ? [
       { id: 'emails', icon: <MailIcon size={20} />, label: 'Correos' },

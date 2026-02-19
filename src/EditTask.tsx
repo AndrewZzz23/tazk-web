@@ -71,6 +71,9 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
   const [notifyContacts, setNotifyContacts] = useState<Contact[]>([])
   const [viewingContact, setViewingContact] = useState<Contact | null>(null)
 
+  // Miembros de equipo solo pueden ver y comentar, no editar
+  const isReadOnly = !!task.team_id && userRole === 'member'
+
   useEffect(() => {
     // Animación de entrada
     setTimeout(() => setIsVisible(true), 10)
@@ -276,10 +279,9 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
         if (assignedTo) {
           const assignedUser = users.find(u => u.id === assignedTo)
           logTaskAssigned(task.id, title.trim(), task.team_id, currentUserId, assignedUser?.email || '', userEmail)
-          // Send push notification to assigned user (don't notify yourself)
+          // Notificar al nuevo asignado (si no es el usuario actual)
           if (assignedTo !== currentUserId) {
             notifyTaskAssigned(assignedTo, title.trim(), userEmail || 'Alguien', task.id)
-            // Insertar notificación en BD
             supabase.from('notifications').insert({
               user_id: assignedTo,
               type: 'task_assigned',
@@ -303,8 +305,29 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
               })
             }
           }
+          // Notificar al asignado anterior que perdió la tarea (si existe y es diferente al nuevo)
+          if (task.assigned_to && task.assigned_to !== currentUserId && task.assigned_to !== assignedTo) {
+            supabase.from('notifications').insert({
+              user_id: task.assigned_to,
+              type: 'task_unassigned',
+              title: `${userEmail || 'Alguien'} te quitó una tarea`,
+              body: title.trim(),
+              data: { task_id: task.id, team_id: task.team_id }
+            }).then(() => {})
+          }
         } else if (task.assigned_to) {
+          // Tarea desasignada completamente
           logTaskUnassigned(task.id, title.trim(), task.team_id, currentUserId, userEmail)
+          // Notificar al usuario desasignado (si no es el usuario actual)
+          if (task.assigned_to !== currentUserId) {
+            supabase.from('notifications').insert({
+              user_id: task.assigned_to,
+              type: 'task_unassigned',
+              title: `${userEmail || 'Alguien'} te quitó una tarea`,
+              body: title.trim(),
+              data: { task_id: task.id, team_id: task.team_id }
+            }).then(() => {})
+          }
         }
       }
 
@@ -488,6 +511,16 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
   // Contenido del formulario
   const renderForm = () => (
     <form onSubmit={handleSubmit} className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pt-4 pb-8' : 'p-6'}`}>
+      {/* Aviso de solo lectura para miembros */}
+      {isReadOnly && (
+        <div className="mb-4 flex items-center gap-2 px-3 py-2.5 bg-neutral-100 dark:bg-neutral-700/60 rounded-xl border border-neutral-200 dark:border-neutral-600">
+          <X className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            Solo puedes agregar comentarios y archivos. Los cambios en la tarea están reservados para administradores.
+          </p>
+        </div>
+      )}
+
       {/* Título */}
       <div className="mb-4">
         <label className="flex items-center justify-between text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
@@ -495,9 +528,11 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             <Type className="w-4 h-4" />
             Título *
           </span>
-          <span className={`text-xs ${title.length > 90 ? 'text-yellow-500' : 'text-neutral-400'}`}>
-            {title.length}/100
-          </span>
+          {!isReadOnly && (
+            <span className={`text-xs ${title.length > 90 ? 'text-yellow-500' : 'text-neutral-400'}`}>
+              {title.length}/100
+            </span>
+          )}
         </label>
         <input
           type="text"
@@ -505,7 +540,8 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
           placeholder="Título de la tarea"
-          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+          disabled={isReadOnly}
+          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base disabled:opacity-70 disabled:cursor-default"
           required
         />
       </div>
@@ -517,22 +553,25 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             <FileText className="w-4 h-4" />
             Descripción
           </span>
-          <button
-            type="button"
-            onClick={() => setShowDescriptionModal(true)}
-            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-yellow-500 transition-colors"
-            title="Expandir"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-            <span>Expandir</span>
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              onClick={() => setShowDescriptionModal(true)}
+              className="flex items-center gap-1 text-xs text-neutral-400 hover:text-yellow-500 transition-colors"
+              title="Expandir"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>Expandir</span>
+            </button>
+          )}
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Agrega más detalles..."
           rows={isMobile ? 2 : 3}
-          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none text-base"
+          disabled={isReadOnly}
+          className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all resize-none text-base disabled:opacity-70 disabled:cursor-default"
         />
       </div>
 
@@ -546,7 +585,8 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           <select
             value={statusId}
             onChange={(e) => setStatusId(e.target.value)}
-            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+            disabled={isReadOnly}
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base disabled:opacity-70 disabled:cursor-default"
           >
             {[...statuses]
               .sort((a, b) => a.order_position - b.order_position)
@@ -567,7 +607,8 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             <select
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
-              className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+              disabled={isReadOnly}
+              className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base disabled:opacity-70 disabled:cursor-default"
             >
               <option value="">Sin asignar</option>
               {users.map((user) => (
@@ -596,12 +637,13 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             <button
               key={opt.value}
               type="button"
-              onClick={() => setPriority(priority === opt.value ? '' : opt.value as TaskPriority)}
+              onClick={() => !isReadOnly && setPriority(priority === opt.value ? '' : opt.value as TaskPriority)}
+              disabled={isReadOnly}
               className={`flex-1 px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                 priority === opt.value
                   ? opt.color
                   : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500'
-              }`}
+              } disabled:opacity-70 disabled:cursor-default`}
             >
               {opt.label}
             </button>
@@ -627,8 +669,9 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             timeIntervals={15}
             dateFormat="dd/MM/yyyy HH:mm"
             placeholderText="Seleccionar fecha"
-            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base"
-            isClearable
+            disabled={isReadOnly}
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base disabled:opacity-70 disabled:cursor-default"
+            isClearable={!isReadOnly}
             popperPlacement="top-start"
             portalId="root"
             onFocus={(e) => isMobile && e.target.blur()}
@@ -650,9 +693,10 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             timeIntervals={15}
             dateFormat="dd/MM/yyyy HH:mm"
             placeholderText="Seleccionar fecha"
-            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base"
+            disabled={isReadOnly}
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-base disabled:opacity-70 disabled:cursor-default"
             minDate={startDate || undefined}
-            isClearable
+            isClearable={!isReadOnly}
             popperPlacement="top-start"
             portalId="root"
             onFocus={(e) => isMobile && e.target.blur()}
@@ -702,6 +746,9 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           teamId={task.team_id}
           userEmail={userEmail}
           canEdit={true}
+          taskTitle={task.title}
+          taskAssignedTo={task.assigned_to}
+          taskCreatedBy={task.created_by}
         />
       </div>
 
@@ -724,22 +771,24 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           onClick={handleClose}
           className="flex-1 px-4 py-3 bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-xl font-medium hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-all active:scale-[0.98]"
         >
-          Cancelar
+          {isReadOnly ? 'Cerrar' : 'Cancelar'}
         </button>
-        <button
-          type="submit"
-          disabled={loading || !title.trim()}
-          className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-xl font-bold hover:bg-yellow-300 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-yellow-400/20"
-        >
-          {loading ? (
-            <LoadingZapIcon size={20} />
-          ) : (
-            <>
-              <SaveIcon size={18} />
-              <span>Guardar</span>
-            </>
-          )}
-        </button>
+        {!isReadOnly && (
+          <button
+            type="submit"
+            disabled={loading || !title.trim()}
+            className="flex-1 px-4 py-3 bg-yellow-400 text-neutral-900 rounded-xl font-bold hover:bg-yellow-300 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-yellow-400/20"
+          >
+            {loading ? (
+              <LoadingZapIcon size={20} />
+            ) : (
+              <>
+                <SaveIcon size={18} />
+                <span>Guardar</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Info de creación */}
@@ -787,7 +836,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             <div className="flex items-center gap-2">
               <span className="text-yellow-400"><EditIcon size={24} /></span>
               <h2 className="text-lg font-bold text-neutral-900 dark:text-white">
-                Editar Tarea
+                {isReadOnly ? 'Ver Tarea' : 'Editar Tarea'}
               </h2>
             </div>
             <div className="flex items-center gap-1">
@@ -877,7 +926,7 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             <div className="flex items-center gap-2">
               <span className="text-yellow-400"><EditIcon size={24} /></span>
               <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                Editar Tarea
+                {isReadOnly ? 'Ver Tarea' : 'Editar Tarea'}
               </h2>
             </div>
             <div className="flex items-center gap-1">

@@ -242,13 +242,17 @@ function Dashboard() {
   // Verificar si el usuario puede acceder a estados y correos (solo owner o tareas personales)
   const canAccessOwnerFeatures = currentRole === 'owner' || !currentTeamId
 
+  const canAccessMemberOnlyFeatures = currentRole !== 'member' || !currentTeamId
+
   const features = [
     { id: 'new-task', icon: <PlusIcon size={20} />, label: 'Nueva tarea', keywords: ['crear', 'agregar', 'add', 'task'], action: () => setShowCreateTask(true) },
     { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', keywords: ['tareas', 'lista', 'list'], action: () => setViewMode('list') },
     { id: 'view-kanban', icon: <KanbanIcon size={20} />, label: 'Vista Kanban', keywords: ['tablero', 'board', 'columnas'], action: () => setViewMode('kanban') },
     { id: 'view-calendar', icon: <CalendarIcon size={20} />, label: 'Vista Calendario', keywords: ['calendar', 'fecha', 'mes'], action: () => setViewMode('calendar') },
-    { id: 'contacts', icon: <UserIcon size={20} />, label: 'Contactos', keywords: ['personas', 'clientes', 'contacts'], action: () => setViewMode('contacts') },
-    { id: 'routines', icon: <CalendarIcon size={20} />, label: 'Rutinas', keywords: ['recurrente', 'repetir', 'recurring'], action: () => setViewMode('routines') },
+    ...(canAccessMemberOnlyFeatures ? [
+      { id: 'contacts', icon: <UserIcon size={20} />, label: 'Contactos', keywords: ['personas', 'clientes', 'contacts'], action: () => setViewMode('contacts') },
+      { id: 'routines', icon: <CalendarIcon size={20} />, label: 'Rutinas', keywords: ['recurrente', 'repetir', 'recurring'], action: () => setViewMode('routines') },
+    ] : []),
     { id: 'metrics', icon: <ChartIcon size={20} />, label: 'Métricas', keywords: ['estadísticas', 'dashboard', 'stats', 'gráficos'], action: () => setViewMode('metrics') },
     { id: 'activity', icon: <ActivityIcon size={20} />, label: 'Actividad', keywords: ['historial', 'logs', 'registro'], action: () => setShowActivityLogs(true) },
     ...(canAccessOwnerFeatures ? [
@@ -386,6 +390,10 @@ function Dashboard() {
     setCurrentRole(role)
     setCurrentTeamName(teamName || null)
     setRefreshKey(prev => prev + 1)
+    // Si el usuario es miembro y estaba en una vista restringida, redirigir a lista
+    if (role === 'member' && teamId) {
+      setViewMode(prev => (prev === 'contacts' || prev === 'routines') ? 'list' : prev)
+    }
 
     // Si el usuario está en una vista restringida y no tiene permisos en el nuevo equipo, volver a lista
     const isOwnerOrPersonal = role === 'owner' || !teamId
@@ -428,46 +436,32 @@ function Dashboard() {
     loadNotificationCount()
   }, [])
 
-  // Suscripción realtime para notificaciones de invitaciones y notificaciones generales
+  // Suscripción realtime: invitaciones y notificaciones del usuario actual
+  // Usamos 'notifications' (que ya funciona) para disparar refresh de tareas,
+  // evitando depender del filtro por columna en 'tasks' (requiere replica identity FULL)
   useRealtimeSubscription({
     subscriptions: [
       { table: 'team_invitations' },
-      { table: 'notifications' }
-    ],
-    onchange: useCallback(() => {
-      console.log('[Dashboard] Cambio en invitaciones, actualizando contador...')
-      loadNotificationCount()
-    }, []),
-    enabled: !!user
-  })
-
-  // Suscripción realtime para notificaciones de tareas asignadas (UPDATE y INSERT)
-  useRealtimeSubscription({
-    subscriptions: [
-      { table: 'tasks', event: 'UPDATE', filter: user?.id ? `assigned_to=eq.${user.id}` : undefined },
-      { table: 'tasks', event: 'INSERT', filter: user?.id ? `assigned_to=eq.${user.id}` : undefined }
+      {
+        table: 'notifications',
+        event: 'INSERT',
+        filter: user?.id ? `user_id=eq.${user.id}` : undefined
+      }
     ],
     onchange: useCallback((payload: ExtendedPayload) => {
-      const newData = payload.new as unknown as Task | undefined
-      const oldData = payload.old as unknown as { assigned_to?: string, created_by?: string } | undefined
+      loadNotificationCount()
 
-      // No notificar si yo creé la tarea
-      if (newData?.created_by === user?.id) return
-
-      if (payload.eventType === 'INSERT' && newData && newData.assigned_to === user?.id) {
-        // Nueva tarea creada y asignada a mí
-        console.log('[Dashboard] Nueva tarea asignada (INSERT):', newData.title)
-        showToast(`Nueva tarea: "${newData.title}"`, 'info')
-        setRefreshKey(k => k + 1)
-      } else if (payload.eventType === 'UPDATE' && newData && oldData) {
-        // Tarea existente recién asignada a mí
-        if (newData.assigned_to === user?.id && oldData.assigned_to !== user?.id) {
-          console.log('[Dashboard] Tarea reasignada a mí (UPDATE):', newData.title)
-          showToast(`Te asignaron: "${newData.title}"`, 'info')
+      // Cuando llega notificación de cambio de asignación → refrescar lista y mostrar toast
+      if (payload.table === 'notifications' && payload.eventType === 'INSERT') {
+        const notif = payload.new as { type?: string; title?: string }
+        if (notif.type === 'task_assigned' || notif.type === 'task_unassigned') {
           setRefreshKey(k => k + 1)
+          if (notif.title && !openedTask && !showCreateTask) {
+            showToast(notif.title, 'info')
+          }
         }
       }
-    }, [user?.id]),
+    }, [user?.id, openedTask, showCreateTask]),
     enabled: !!user?.id
   })
 

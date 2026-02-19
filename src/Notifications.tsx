@@ -7,7 +7,7 @@ import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import { TeamInvitation, AppNotification } from './types/database.types'
 import Toast from './Toast'
 import { LoadingZapIcon, BellIcon, XIcon, UsersIcon, CheckIcon } from './components/iu/AnimatedIcons'
-import { BellOff, Clock, Shield, User, UserPlus, CheckCircle2, UserMinus, ArrowRightLeft, Trash2 } from 'lucide-react'
+import { BellOff, Clock, Shield, User, UserPlus, CheckCircle2, UserMinus, ArrowRightLeft, Trash2, MessageSquare } from 'lucide-react'
 
 interface NotificationsProps {
   onClose: () => void
@@ -190,6 +190,8 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
         return <UserMinus className="w-5 h-5 text-orange-400" />
       case 'task_status_changed':
         return <ArrowRightLeft className="w-5 h-5 text-purple-400" />
+      case 'task_comment':
+        return <MessageSquare className="w-5 h-5 text-cyan-400" />
       default:
         return <BellIcon size={20} />
     }
@@ -205,6 +207,8 @@ function Notifications({ onClose, onInvitationResponded }: NotificationsProps) {
         return 'from-orange-500/20 to-orange-500/5 border-orange-500/30'
       case 'task_status_changed':
         return 'from-purple-500/20 to-purple-500/5 border-purple-500/30'
+      case 'task_comment':
+        return 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/30'
       default:
         return 'from-neutral-500/20 to-neutral-500/5 border-neutral-500/30'
     }

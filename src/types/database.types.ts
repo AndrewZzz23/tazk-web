@@ -200,7 +200,7 @@ export interface EmailLog {
   created_at: string
 }
 
-export type NotificationType = 'task_assigned' | 'task_completed' | 'task_unassigned' | 'task_status_changed'
+export type NotificationType = 'task_assigned' | 'task_completed' | 'task_unassigned' | 'task_status_changed' | 'task_comment'
 
 export interface AppNotification {
   id: string

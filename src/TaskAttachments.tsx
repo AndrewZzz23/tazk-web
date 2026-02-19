@@ -11,11 +11,14 @@ interface TaskAttachmentsProps {
   teamId?: string | null
   userEmail?: string
   canEdit?: boolean
+  taskTitle?: string
+  taskAssignedTo?: string | null
+  taskCreatedBy?: string | null
 }
 
 type ProfileMap = Record<string, { full_name: string | null; email: string }>
 
-function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = true }: TaskAttachmentsProps) {
+function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = true, taskTitle, taskAssignedTo, taskCreatedBy }: TaskAttachmentsProps) {
   const [comments, setComments] = useState<TaskComment[]>([])
   const [profiles, setProfiles] = useState<ProfileMap>({})
   const [loading, setLoading] = useState(true)
@@ -157,6 +160,26 @@ function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = t
     }, 50)
 
     logCommentAdded(data.id, taskId, teamId || null, currentUserId, userEmail, !!filePath)
+
+    // Insertar notificación in-app para asignado y creador (excluyendo al que comenta)
+    const commenterName = userEmail || 'Alguien'
+    const notifyTitle = taskTitle || 'una tarea'
+    const notifBody = filePath
+      ? `${commenterName} adjuntó un archivo en "${notifyTitle}"`
+      : `${commenterName} comentó en "${notifyTitle}"`
+    const toNotify = [...new Set([taskAssignedTo, taskCreatedBy].filter(Boolean))] as string[]
+    for (const userId of toNotify) {
+      if (userId !== currentUserId) {
+        supabase.from('notifications').insert({
+          user_id: userId,
+          type: 'task_comment',
+          title: notifBody,
+          body: text || null,
+          data: { task_id: taskId },
+          is_read: false
+        })
+      }
+    }
   }
 
   const handleDelete = async (e?: React.MouseEvent) => {
@@ -411,6 +434,20 @@ function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = t
               className="flex-1 bg-transparent text-sm text-gray-700 dark:text-neutral-200 placeholder-gray-400 dark:placeholder-neutral-500 resize-none outline-none px-2 py-1.5 max-h-[120px]"
               onClick={(e) => e.stopPropagation()}
             />
+
+            {/* Cancel button - visible when there is draft content */}
+            {(newComment.trim() || pendingFile) && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setNewComment(''); setPendingFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                className="p-2 text-gray-400 dark:text-neutral-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg transition-colors flex-shrink-0"
+                title="Cancelar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
 
             {/* Attach button */}
             <label className="cursor-pointer p-2 text-gray-400 dark:text-neutral-500 hover:text-yellow-500 dark:hover:text-yellow-400 hover:bg-yellow-400/10 rounded-lg transition-colors flex-shrink-0" onClick={(e) => e.stopPropagation()}>
