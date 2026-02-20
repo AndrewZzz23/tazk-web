@@ -11,7 +11,7 @@ import TaskAttachments from './TaskAttachments'
 import TaskActivityLog from './TaskActivityLog'
 import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
-import { notifyTaskAssigned } from './lib/sendPushNotification'
+import { notifyTaskAssigned, notifyStatusChange, notifyTaskCompleted } from './lib/sendPushNotification'
 import { sendTaskAssignedEmail, sendTaskCompletedEmail } from './lib/emailNotifications'
 import { Calendar, Clock, User, Tag, FileText, Type, AlertCircle, History, Maximize2, X, Phone, Building2, MapPin, BookUser, Mail, Navigation, StickyNote } from 'lucide-react'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
@@ -267,6 +267,14 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
       // Status change (log separately for specific tracking)
       if (task.status_id !== statusId && oldStatus && newStatus) {
         logTaskStatusChanged(task.id, title.trim(), task.team_id, currentUserId, oldStatus.name, newStatus.name, userEmail)
+        // Push notification de cambio de estado al asignado o creador
+        const changerName = userEmail || 'Alguien'
+        const statusTargets = [...new Set([task.assigned_to, task.created_by].filter(Boolean))] as string[]
+        for (const targetId of statusTargets) {
+          if (targetId !== currentUserId) {
+            notifyStatusChange(targetId, title.trim(), newStatus.name, changerName, task.id)
+          }
+        }
       }
 
       // Log general update with all changes if any (besides status which is logged separately)
@@ -379,6 +387,13 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
             body: title.trim(),
             data: { task_id: task.id, team_id: task.team_id }
           }).then(() => {})
+        }
+        // Push notification de tarea completada
+        const completedTargets = [...new Set([task.assigned_to, task.created_by].filter(Boolean))] as string[]
+        for (const targetId of completedTargets) {
+          if (targetId !== currentUserId) {
+            notifyTaskCompleted(targetId, title.trim(), task.id)
+          }
         }
       }
 

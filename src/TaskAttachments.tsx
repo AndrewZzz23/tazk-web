@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient'
 import { TaskComment } from './types/database.types'
 import Toast from './Toast'
 import { logCommentAdded, logCommentRemoved } from './lib/activityLogger'
+import { notifyTaskComment } from './lib/sendPushNotification'
 
 interface TaskAttachmentsProps {
   taskId: string
@@ -178,6 +179,10 @@ function TaskAttachments({ taskId, currentUserId, teamId, userEmail, canEdit = t
           data: { task_id: taskId },
           is_read: false
         })
+        // Push notification
+        if (!filePath && taskTitle) {
+          notifyTaskComment(userId, taskTitle, commenterName, taskId)
+        }
       }
     }
   }

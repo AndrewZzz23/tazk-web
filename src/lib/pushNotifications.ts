@@ -64,7 +64,7 @@ export async function subscribeToPush(userId: string): Promise<PushSubscription 
     // Guardar suscripción en Supabase
     const subscriptionData = subscription.toJSON()
 
-    await supabase.from('push_subscriptions').upsert({
+    const { error: dbError } = await supabase.from('push_subscriptions').upsert({
       user_id: userId,
       endpoint: subscriptionData.endpoint,
       p256dh: subscriptionData.keys?.p256dh,
@@ -74,7 +74,13 @@ export async function subscribeToPush(userId: string): Promise<PushSubscription 
       onConflict: 'user_id,endpoint'
     })
 
-    console.log('Push subscription saved')
+    if (dbError) {
+      console.error('[Push] Error saving subscription to DB (possible RLS issue):', dbError)
+      await subscription.unsubscribe()
+      return null
+    }
+
+    console.log('[Push] Subscription saved to DB successfully')
     return subscription
   } catch (error) {
     console.error('Error subscribing to push:', error)

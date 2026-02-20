@@ -282,7 +282,7 @@ function Dashboard() {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, has_completed_profile_onboarding, has_seen_tour_desktop, has_seen_tour_mobile, show_start_date, show_due_date, show_priority, show_contact_in_edit')
+        .select('full_name, has_completed_profile_onboarding, has_seen_tour_desktop, has_seen_tour_mobile, show_start_date, show_due_date, show_priority, show_contact_in_edit, default_view, default_priority')
         .eq('id', user.id)
         .single()
 
@@ -295,6 +295,11 @@ function Dashboard() {
         showPriority: profile?.show_priority ?? true,
         showContactInEdit: profile?.show_contact_in_edit ?? true,
       })
+      // Aplicar vista predeterminada (solo si no hay valor guardado en localStorage)
+      const savedView = localStorage.getItem('tazk_view_mode')
+      if (!savedView && profile?.default_view && ['list', 'kanban', 'calendar'].includes(profile.default_view)) {
+        setViewMode(profile.default_view as 'list' | 'kanban' | 'calendar')
+      }
 
       // Mostrar profile onboarding solo si NO ha completado el onboarding (campo específico)
       const hasCompletedProfile = profile?.has_completed_profile_onboarding === true

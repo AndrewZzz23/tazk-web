@@ -12,21 +12,36 @@ interface PushNotificationPayload {
 
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<boolean> {
   try {
-    console.log('[Push] Invoking send-push-notification function with payload:', payload)
     const { data, error } = await supabase.functions.invoke('send-push-notification', {
       body: payload
     })
-
     if (error) {
       console.error('[Push] Error sending push notification:', error)
       return false
     }
-
     console.log('[Push] Function response:', data)
     return true
   } catch (err) {
     console.error('[Push] Error invoking push notification function:', err)
     return false
+  }
+}
+
+// Chequear si el usuario tiene habilitada una preferencia de notificación
+async function checkNotifPref(userId: string, field: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('notifications_enabled, notify_on_assign, notify_on_comment, notify_on_status_change, notify_on_due_soon, notify_on_complete')
+      .eq('id', userId)
+      .single()
+    if (!data) return true
+    if (!(data as any).notifications_enabled) return false
+    const val = (data as any)[field]
+    // Si la columna no existe aún (null/undefined), asumimos true por defecto
+    return val !== false
+  } catch {
+    return true
   }
 }
 
@@ -37,15 +52,15 @@ export async function notifyTaskAssigned(
   assignerName: string,
   taskId?: string
 ): Promise<void> {
-  console.log('[Push] Sending task assignment notification to:', assignedUserId)
-  const result = await sendPushNotification({
+  const allowed = await checkNotifPref(assignedUserId, 'notify_on_assign')
+  if (!allowed) return
+  await sendPushNotification({
     user_id: assignedUserId,
     title: 'Nueva tarea asignada',
     body: `${assignerName} te asignó: "${taskTitle}"`,
     url: taskId ? `/?task=${taskId}` : '/',
     tag: 'task-assigned'
   })
-  console.log('[Push] Task assignment notification result:', result)
 }
 
 // Notificar cuando una tarea está próxima a vencer
@@ -55,9 +70,11 @@ export async function notifyTaskDueSoon(
   dueDate: string,
   taskId?: string
 ): Promise<void> {
+  const allowed = await checkNotifPref(userId, 'notify_on_due_soon')
+  if (!allowed) return
   await sendPushNotification({
     user_id: userId,
-    title: 'Tarea próxima a vencer',
+    title: '⏰ Tarea próxima a vencer',
     body: `"${taskTitle}" vence ${dueDate}`,
     url: taskId ? `/?task=${taskId}` : '/',
     tag: 'task-due'
@@ -71,12 +88,50 @@ export async function notifyTaskComment(
   commenterName: string,
   taskId?: string
 ): Promise<void> {
+  const allowed = await checkNotifPref(userId, 'notify_on_comment')
+  if (!allowed) return
   await sendPushNotification({
     user_id: userId,
     title: 'Nuevo comentario',
     body: `${commenterName} comentó en "${taskTitle}"`,
     url: taskId ? `/?task=${taskId}` : '/',
     tag: 'task-comment'
+  })
+}
+
+// Notificar cuando cambia el estado de una tarea
+export async function notifyStatusChange(
+  userId: string,
+  taskTitle: string,
+  newStatusName: string,
+  changerName: string,
+  taskId?: string
+): Promise<void> {
+  const allowed = await checkNotifPref(userId, 'notify_on_status_change')
+  if (!allowed) return
+  await sendPushNotification({
+    user_id: userId,
+    title: 'Estado actualizado',
+    body: `"${taskTitle}" → ${newStatusName} (por ${changerName})`,
+    url: taskId ? `/?task=${taskId}` : '/',
+    tag: 'task-status'
+  })
+}
+
+// Notificar cuando se completa una tarea
+export async function notifyTaskCompleted(
+  userId: string,
+  taskTitle: string,
+  taskId?: string
+): Promise<void> {
+  const allowed = await checkNotifPref(userId, 'notify_on_complete')
+  if (!allowed) return
+  await sendPushNotification({
+    user_id: userId,
+    title: '✅ Tarea completada',
+    body: `"${taskTitle}" fue marcada como completada`,
+    url: taskId ? `/?task=${taskId}` : '/',
+    tag: 'task-complete'
   })
 }
 

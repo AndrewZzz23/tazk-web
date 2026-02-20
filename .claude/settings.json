@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python -c:*)",
       "Bash(node -e:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx supabase functions deploy:*)"
     ]
   }
 }
