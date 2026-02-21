@@ -22,6 +22,9 @@ import UserSettings from './UserSettings'
 import EmailSettings from './EmailSettings'
 import RecurringTasks from './RecurringTasks'
 import Contacts from './Contacts'
+import Sprints from './Sprints'
+import SprintBoard from './SprintBoard'
+import { Timer } from 'lucide-react'
 import EditTask from './EditTask'
 import KeyboardShortcuts from './KeyboardShortcuts'
 import GlobalSearch from './GlobalSearch'
@@ -65,7 +68,7 @@ function Dashboard() {
     onRefresh: () => setRefreshKey(prev => prev + 1)
   })
   const [profileName, setProfileName] = useState<string | null>(null)
-  const [taskPrefs, setTaskPrefs] = useState({ showStartDate: true, showDueDate: true, showPriority: true, showContactInEdit: true })
+  const [taskPrefs, setTaskPrefs] = useState({ showStartDate: true, showDueDate: true, showPriority: true, showContactInEdit: true, defaultPriority: null as string | null })
 
   // Tarea abierta via URL
   const [openedTask, setOpenedTask] = useState<Task | null>(null)
@@ -79,9 +82,9 @@ function Dashboard() {
 
   // UI
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails' | 'contacts'>(() => {
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails' | 'contacts' | 'sprints' | 'sprintboard'>(() => {
     const saved = localStorage.getItem('tazk_view_mode')
-    return (saved === 'list' || saved === 'kanban' || saved === 'calendar' || saved === 'routines' || saved === 'metrics' || saved === 'emails' || saved === 'contacts') ? saved : 'list'
+    return (saved === 'list' || saved === 'kanban' || saved === 'calendar' || saved === 'routines' || saved === 'metrics' || saved === 'emails' || saved === 'contacts' || saved === 'sprints' || saved === 'sprintboard') ? saved : 'list'
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -249,6 +252,8 @@ function Dashboard() {
     { id: 'view-list', icon: <ListIcon size={20} />, label: 'Vista Lista', keywords: ['tareas', 'lista', 'list'], action: () => setViewMode('list') },
     { id: 'view-kanban', icon: <KanbanIcon size={20} />, label: 'Vista Kanban', keywords: ['tablero', 'board', 'columnas'], action: () => setViewMode('kanban') },
     { id: 'view-calendar', icon: <CalendarIcon size={20} />, label: 'Vista Calendario', keywords: ['calendar', 'fecha', 'mes'], action: () => setViewMode('calendar') },
+    { id: 'sprints', icon: <Timer size={20} />, label: 'Sprints', keywords: ['scrum', 'sprint', 'backlog', 'ágil', 'agile'], action: () => setViewMode('sprints') },
+    { id: 'sprintboard', icon: <KanbanIcon size={20} />, label: 'Sprint Board', keywords: ['tablero sprint', 'activo', 'kanban sprint'], action: () => setViewMode('sprintboard') },
     ...(canAccessMemberOnlyFeatures ? [
       { id: 'contacts', icon: <UserIcon size={20} />, label: 'Contactos', keywords: ['personas', 'clientes', 'contacts'], action: () => setViewMode('contacts') },
       { id: 'routines', icon: <CalendarIcon size={20} />, label: 'Rutinas', keywords: ['recurrente', 'repetir', 'recurring'], action: () => setViewMode('routines') },
@@ -294,10 +299,10 @@ function Dashboard() {
         showDueDate: profile?.show_due_date ?? true,
         showPriority: profile?.show_priority ?? true,
         showContactInEdit: profile?.show_contact_in_edit ?? true,
+        defaultPriority: (profile as any)?.default_priority ?? null,
       })
-      // Aplicar vista predeterminada (solo si no hay valor guardado en localStorage)
-      const savedView = localStorage.getItem('tazk_view_mode')
-      if (!savedView && profile?.default_view && ['list', 'kanban', 'calendar'].includes(profile.default_view)) {
+      // Aplicar vista predeterminada del perfil siempre al iniciar
+      if (profile?.default_view && ['list', 'kanban', 'calendar'].includes(profile.default_view)) {
         setViewMode(profile.default_view as 'list' | 'kanban' | 'calendar')
       }
 
@@ -507,6 +512,8 @@ function Dashboard() {
         if (e.key === '1') setViewMode('list')
         if (e.key === '2') setViewMode('kanban')
         if (e.key === '3') setViewMode('calendar')
+        if (e.key === '4') setViewMode('sprints')
+        if (e.key === '5') setViewMode('sprintboard')
         // ? para atajos de teclado
         if (e.key === '?') setShowKeyboardShortcuts(true)
       }
@@ -538,7 +545,7 @@ function Dashboard() {
       <Sidebar
         currentUserId={user!.id}
         currentView={viewMode}
-        onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails' | 'contacts')}
+        onViewChange={(view) => setViewMode(view as 'list' | 'kanban' | 'calendar' | 'routines' | 'metrics' | 'emails' | 'contacts' | 'sprints' | 'sprintboard')}
         onTeamChange={handleTeamChange}
         notificationCount={notificationCount}
         onShowNotifications={() => setShowNotifications(true)}
@@ -813,6 +820,32 @@ function Dashboard() {
               showToast={showToast}
             />
           )}
+
+          {viewMode === 'sprints' && (
+            <Sprints
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              userRole={currentRole}
+              userEmail={userName}
+              showToast={showToast}
+              onOpenTask={openTask}
+            />
+          )}
+
+          {viewMode === 'sprintboard' && (
+            <SprintBoard
+              key={refreshKey}
+              currentUserId={user!.id}
+              teamId={currentTeamId}
+              userRole={currentRole}
+              userEmail={userName}
+              searchTerm={searchTerm}
+              showToast={showToast}
+              onOpenTask={openTask}
+              onNavigate={(view) => setViewMode(view as any)}
+            />
+          )}
         </div>
       </main>
 
@@ -845,6 +878,7 @@ function Dashboard() {
           showStartDate={taskPrefs.showStartDate}
           showDueDate={taskPrefs.showDueDate}
           showPriority={taskPrefs.showPriority}
+          defaultPriority={taskPrefs.defaultPriority}
           onTaskCreated={() => setRefreshKey(prev => prev + 1)}
           onClose={() => setShowCreateTask(false)}
           showToast={showToast}

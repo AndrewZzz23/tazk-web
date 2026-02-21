@@ -246,14 +246,16 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
     await supabase.from('profiles').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', user.id)
   }
 
-  const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
+  const tabsTop: { id: Tab; icon: React.ReactNode; label: string }[] = [
     { id: 'profile', icon: <UserIcon />, label: 'Perfil' },
     { id: 'appearance', icon: <SunMoonIcon />, label: 'Apariencia' },
+  ]
+  const tabsMid: { id: Tab; icon: React.ReactNode; label: string }[] = [
     { id: 'notifications', icon: <BellIcon />, label: 'Notificaciones' },
     { id: 'tasks', icon: <ListIcon />, label: 'Tareas' },
-    { id: 'shortcuts', icon: <RabbitIcon />, label: 'Atajos' },
-    { id: 'account', icon: <Shield className="w-5 h-5" />, label: 'Cuenta' },
   ]
+  const shortcutsTab = { id: 'shortcuts' as Tab, icon: <RabbitIcon />, label: 'Atajos' }
+  const accountTab = { id: 'account' as Tab, icon: <Shield className="w-5 h-5" />, label: 'Cuenta' }
 
   const shortcuts = [
     { keys: ['Ctrl', 'K'], description: 'Buscar tareas y funciones' },
@@ -736,7 +738,7 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
             <button onClick={handleClose} className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mt-2"><XIcon size={20} /></button>
           </div>
           <div className="flex justify-around items-end border-b border-gray-200 dark:border-neutral-700 px-2 py-2 bg-gray-50 dark:bg-neutral-900/50 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {tabs.filter(t => t.id !== 'shortcuts').map(tab => (
+            {[...tabsTop, ...tabsMid, accountTab].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all h-14 ${activeTab === tab.id ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-neutral-400'}`}
               >
@@ -770,15 +772,42 @@ function UserSettings({ user, onClose, onProfileUpdated, initialTab = 'profile' 
         </div>
 
         <div className="flex h-[calc(100vh-65px)]">
-          <div className="w-44 border-r border-gray-200 dark:border-neutral-700 py-2 px-2 flex-shrink-0">
-            {tabs.map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all mb-0.5 ${activeTab === tab.id ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-700 dark:text-yellow-400' : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'}`}
-              >
-                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
-                <span className="text-sm font-medium">{tab.label}</span>
-              </button>
-            ))}
+          <div className="w-44 border-r border-gray-200 dark:border-neutral-700 py-2 px-2 flex-shrink-0 flex flex-col">
+            {/* Grupo 1: Perfil + Apariencia */}
+            <div>
+              {tabsTop.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all mb-0.5 ${activeTab === tab.id ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-700 dark:text-yellow-400' : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'}`}
+                >
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
+                  <span className="text-sm font-medium">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Separador */}
+            <div className="border-t border-gray-200 dark:border-neutral-700 my-2" />
+            {/* Grupo 2: Notificaciones + Tareas */}
+            <div className="flex-1">
+              {tabsMid.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all mb-0.5 ${activeTab === tab.id ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-700 dark:text-yellow-400' : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'}`}
+                >
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
+                  <span className="text-sm font-medium">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+            {/* Atajos + Cuenta abajo */}
+            <div className="border-t border-gray-200 dark:border-neutral-700 pt-2 mt-2">
+              {[shortcutsTab, accountTab].map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all mb-0.5 ${activeTab === tab.id ? 'bg-yellow-100 dark:bg-yellow-400/10 text-yellow-700 dark:text-yellow-400' : 'text-gray-600 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 hover:text-gray-900 dark:hover:text-white'}`}
+                >
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">{tab.icon}</span>
+                  <span className="text-sm font-medium">{tab.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto p-6">
             {renderTabContent()}

@@ -5,10 +5,12 @@ import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { TaskStatus, Profile, TaskPriority } from './types/database.types'
+import { TaskStatus, Profile, TaskPriority, Sprint } from './types/database.types'
 import { ZapIcon, XIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import { notifyTaskAssigned } from './lib/sendPushNotification'
-import { Calendar, Clock, User, Tag, Mail, FileText, Type, AlertCircle, Maximize2, X } from 'lucide-react'
+import { Calendar, Clock, User, Tag, Mail, FileText, Type, AlertCircle, Maximize2, X, Timer } from 'lucide-react'
+
+const FIBONACCI = [1, 2, 3, 5, 8, 13, 21]
 import ContactPicker from './ContactPicker'
 import ConfirmDialog from './ConfirmDialog'
 
@@ -19,12 +21,14 @@ interface CreateTaskProps {
   showStartDate?: boolean
   showDueDate?: boolean
   showPriority?: boolean
+  defaultPriority?: string | null
+  activeSprint?: Sprint | null
   onTaskCreated: () => void
   onClose: () => void
   showToast?: (message: string, type: 'success' | 'error' | 'info') => void
 }
 
-function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, showDueDate = true, showPriority = true, onTaskCreated, onClose, showToast }: CreateTaskProps) {
+function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, showDueDate = true, showPriority = true, defaultPriority, activeSprint, onTaskCreated, onClose, showToast }: CreateTaskProps) {
   const isMobile = useIsMobile()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -34,9 +38,12 @@ function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, sh
   const [emailInput, setEmailInput] = useState('')
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [dueDate, setDueDate] = useState<Date | null>(null)
-  const [priority, setPriority] = useState<TaskPriority | ''>('')
+  const [priority, setPriority] = useState<TaskPriority | ''>((defaultPriority as TaskPriority) || '')
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [users, setUsers] = useState<Profile[]>([])
+  const [storyPoints, setStoryPoints] = useState<number | null>(null)
+  const [sprintId, setSprintId] = useState<string | null>(activeSprint?.id || null)
+  const [availableSprints, setAvailableSprints] = useState<Sprint[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
@@ -117,6 +124,22 @@ function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, sh
         setHasConnectedEmail(!!oauthToken)
       }
 
+      // Cargar sprints disponibles (planning + active)
+      let sprintQuery = supabase
+        .from('sprints')
+        .select('id,name,status')
+        .in('status', ['planning', 'active'])
+        .order('created_at', { ascending: false })
+
+      if (teamId) {
+        sprintQuery = sprintQuery.eq('team_id', teamId)
+      } else {
+        sprintQuery = sprintQuery.is('team_id', null).eq('created_by', currentUserId)
+      }
+
+      const { data: sprintData } = await sprintQuery
+      if (sprintData) setAvailableSprints(sprintData as Sprint[])
+
       setLoadingData(false)
     }
 
@@ -191,7 +214,9 @@ function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, sh
         priority: priority || null,
         start_date: startDate?.toISOString() || null,
         due_date: dueDate?.toISOString() || null,
-        notify_email: notifyEmails.length > 0 ? notifyEmails.join(',') : null
+        notify_email: notifyEmails.length > 0 ? notifyEmails.join(',') : null,
+        story_points: storyPoints,
+        sprint_id: sprintId || null
       })
       .select()
       .single()
@@ -572,6 +597,53 @@ function CreateTask({ currentUserId, teamId, userEmail, showStartDate = true, sh
           ))}
         </div>
       </div>
+      )}
+
+      {/* Story Points */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <span className="text-base font-bold text-neutral-500 dark:text-neutral-400">SP</span>
+          Story Points
+          <span className="text-xs text-neutral-400 font-normal">(opcional)</span>
+        </label>
+        <div className="flex gap-1.5 flex-wrap">
+          {FIBONACCI.map((val) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setStoryPoints(storyPoints === val ? null : val)}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                storyPoints === val
+                  ? 'bg-yellow-400 text-neutral-900 border-yellow-400 shadow-sm shadow-yellow-400/30'
+                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600 hover:border-yellow-400/60'
+              }`}
+            >
+              {val}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sprint */}
+      {availableSprints.length > 0 && (
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <Timer className="w-4 h-4" />
+            Sprint
+          </label>
+          <select
+            value={sprintId || ''}
+            onChange={(e) => setSprintId(e.target.value || null)}
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base"
+          >
+            <option value="">Sin sprint (Backlog)</option>
+            {availableSprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}{s.status === 'active' ? ' (Activo)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
 
       {/* Fechas */}

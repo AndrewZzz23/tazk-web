@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from './supabaseClient'
-import { Task, TaskStatus } from './types/database.types'
+import { Task, TaskStatus, Sprint } from './types/database.types'
 import {
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  AreaChart, Area
+  AreaChart, Area, LineChart, Line, BarChart, Bar
 } from 'recharts'
 import { LoadingZapIcon, ChartIcon, XIcon, CheckIcon, ClipboardIcon } from './components/iu/AnimatedIcons'
 import { useIsMobile } from './hooks/useIsMobile'
@@ -12,7 +12,7 @@ import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import {
   Clock, AlertTriangle, Calendar, Target, Zap,
   Flame, Award, GripVertical, RefreshCw, Sparkles,
-  ArrowUpRight, ArrowDownRight, Activity, PieChart as PieChartIcon, Users, CalendarDays
+  ArrowUpRight, ArrowDownRight, Activity, PieChart as PieChartIcon, Users, CalendarDays, Timer, TrendingDown
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
@@ -42,7 +42,7 @@ interface MetricsProps {
 }
 
 type DateRange = '7d' | '30d' | '90d' | 'all'
-type WidgetId = 'productivity' | 'completion' | 'status' | 'trend' | 'heatmap' | 'team' | 'streak' | 'alerts'
+type WidgetId = 'productivity' | 'completion' | 'status' | 'trend' | 'heatmap' | 'team' | 'streak' | 'alerts' | 'burndown' | 'velocity'
 
 // Animated number counter
 function AnimatedCounter({ value, duration = 1000, suffix = '' }: { value: number; duration?: number; suffix?: string }) {
@@ -445,6 +445,9 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
   const isViewMode = !onClose
   const [tasks, setTasks] = useState<Task[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
+  const [activeSprint, setActiveSprint] = useState<Sprint | null>(null)
+  const [sprintTasks, setSprintTasks] = useState<Task[]>([])
+  const [completedSprints, setCompletedSprints] = useState<(Sprint & { tasks?: Task[] })[]>([])
   const [loading, setLoading] = useState(true)
   const [isVisible, setIsVisible] = useState(false)
   const [dateRange, setDateRange] = useState<DateRange>('30d')
@@ -457,7 +460,7 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
       try {
         return JSON.parse(saved)
       } catch {
-        return ['productivity', 'completion', 'status', 'trend', 'heatmap', 'streak', 'alerts', 'team']
+        return ['productivity', 'completion', 'status', 'trend', 'heatmap', 'streak', 'alerts', 'team', 'burndown', 'velocity']
       }
     }
     return ['productivity', 'completion', 'status', 'trend', 'heatmap', 'streak', 'alerts', 'team']
@@ -517,6 +520,41 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
 
     const { data: statusData } = await statusQuery
     if (statusData) setStatuses(statusData)
+
+    // Cargar sprint activo y sus tareas
+    let activeSprintQuery = supabase.from('sprints').select('*').eq('status', 'active')
+    if (teamId) {
+      activeSprintQuery = activeSprintQuery.eq('team_id', teamId)
+    } else {
+      activeSprintQuery = activeSprintQuery.is('team_id', null).eq('created_by', currentUserId)
+    }
+    const { data: activeSprintData } = await activeSprintQuery.maybeSingle()
+    if (activeSprintData) {
+      setActiveSprint(activeSprintData as Sprint)
+      const { data: sprintTaskData } = await supabase
+        .from('tasks')
+        .select('*, task_statuses(*)')
+        .eq('sprint_id', activeSprintData.id)
+      if (sprintTaskData) setSprintTasks(sprintTaskData)
+    } else {
+      setActiveSprint(null)
+      setSprintTasks([])
+    }
+
+    // Cargar sprints completados (últimos 8) para velocity
+    let completedSprintsQuery = supabase
+      .from('sprints')
+      .select('*, tasks(*,task_statuses(*))')
+      .eq('status', 'completed')
+      .order('updated_at', { ascending: false })
+      .limit(8)
+    if (teamId) {
+      completedSprintsQuery = completedSprintsQuery.eq('team_id', teamId)
+    } else {
+      completedSprintsQuery = completedSprintsQuery.is('team_id', null).eq('created_by', currentUserId)
+    }
+    const { data: completedSprintsData } = await completedSprintsQuery
+    if (completedSprintsData) setCompletedSprints((completedSprintsData as any[]).reverse())
 
     setLoading(false)
   }
@@ -768,6 +806,8 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
     streak: { title: 'Racha', icon: <Flame className="w-5 h-5 text-orange-500" /> },
     alerts: { title: 'Alertas', icon: <AlertTriangle className="w-5 h-5 text-red-500" /> },
     team: { title: 'Equipo', icon: <Users className="w-5 h-5 text-cyan-500" /> },
+    burndown: { title: 'Burndown', icon: <TrendingDown className="w-5 h-5 text-yellow-500" /> },
+    velocity: { title: 'Velocidad', icon: <Zap className="w-5 h-5 text-yellow-500" /> },
   }
 
   // Render widget by ID
@@ -1064,6 +1104,112 @@ function Metrics({ currentUserId, teamId, onClose }: MetricsProps) {
             </div>
           </SortableWidget>
         ) : null
+
+      case 'burndown': {
+        if (!activeSprint) return (
+          <SortableWidget id="burndown" className="col-span-2">
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-700 h-full flex flex-col items-center justify-center py-12">
+              <Timer className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mb-3" />
+              <p className="text-neutral-500 dark:text-neutral-400 text-sm font-medium">Sin sprint activo</p>
+              <p className="text-neutral-400 dark:text-neutral-500 text-xs mt-1">Inicia un sprint para ver el burndown</p>
+            </div>
+          </SortableWidget>
+        )
+        const sprintStart = activeSprint.start_date ? new Date(activeSprint.start_date) : null
+        const sprintEnd = activeSprint.end_date ? new Date(activeSprint.end_date) : null
+        const totalPts = sprintTasks.reduce((s, t) => s + (t.story_points || 0), 0)
+        const burndownData: { day: string; ideal: number; real: number }[] = []
+        if (sprintStart && sprintEnd && totalPts > 0) {
+          const days = Math.max(1, Math.round((sprintEnd.getTime() - sprintStart.getTime()) / (1000 * 60 * 60 * 24)))
+          for (let i = 0; i <= days; i++) {
+            const dayDate = new Date(sprintStart)
+            dayDate.setDate(dayDate.getDate() + i)
+            const isToday = dayDate <= new Date()
+            const donePts = isToday
+              ? sprintTasks
+                  .filter(t => t.task_statuses?.category === 'completed')
+                  .reduce((s, t) => s + (t.story_points || 0), 0)
+              : null
+            burndownData.push({
+              day: dayDate.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }),
+              ideal: Math.round(totalPts - (totalPts / days) * i),
+              real: donePts !== null ? totalPts - donePts : null as any,
+            })
+          }
+        }
+        return (
+          <SortableWidget id="burndown" className="col-span-2">
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-700 h-full">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-4 flex items-center gap-2">
+                <TrendingDown className="w-5 h-5 text-yellow-500" />
+                Burndown — {activeSprint.name}
+              </h3>
+              {burndownData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={burndownData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#737373' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#737373' }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#262626', border: '1px solid #404040', borderRadius: 8 }}
+                      labelStyle={{ color: '#fff' }}
+                      itemStyle={{ color: '#a3a3a3' }}
+                    />
+                    <Line type="monotone" dataKey="ideal" stroke="#525252" strokeDasharray="4 4" dot={false} name="Ideal" />
+                    <Line type="monotone" dataKey="real" stroke="#facc15" strokeWidth={2} dot={false} name="Real" connectNulls={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-40 text-neutral-400 dark:text-neutral-500 text-sm">
+                  Agrega fechas y story points al sprint para ver el burndown
+                </div>
+              )}
+            </div>
+          </SortableWidget>
+        )
+      }
+
+      case 'velocity': {
+        if (completedSprints.length === 0) return (
+          <SortableWidget id="velocity" className="col-span-2">
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-700 h-full flex flex-col items-center justify-center py-12">
+              <Timer className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mb-3" />
+              <p className="text-neutral-500 dark:text-neutral-400 text-sm font-medium">Sin sprints completados</p>
+              <p className="text-neutral-400 dark:text-neutral-500 text-xs mt-1">Completa sprints para ver la velocidad del equipo</p>
+            </div>
+          </SortableWidget>
+        )
+        const velocityData = completedSprints.map(s => {
+          const pts = ((s.tasks as Task[]) || []).reduce((acc, t) => acc + (t.story_points || 0), 0)
+          return { name: s.name.length > 12 ? s.name.slice(0, 12) + '…' : s.name, pts }
+        })
+        const avgVelocity = velocityData.length > 0
+          ? Math.round(velocityData.reduce((s, d) => s + d.pts, 0) / velocityData.length)
+          : 0
+        return (
+          <SortableWidget id="velocity" className="col-span-2">
+            <div className="bg-white dark:bg-neutral-800 rounded-2xl p-6 border border-neutral-200 dark:border-neutral-700 h-full">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white mb-1 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-yellow-500" />
+                Velocidad del equipo
+              </h3>
+              <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-4">Promedio: <span className="font-semibold text-yellow-500">{avgVelocity} pts/sprint</span></p>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={velocityData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#737373' }} />
+                  <YAxis tick={{ fontSize: 11, fill: '#737373' }} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#262626', border: '1px solid #404040', borderRadius: 8 }}
+                    labelStyle={{ color: '#fff' }}
+                    itemStyle={{ color: '#a3a3a3' }}
+                    formatter={(v) => [`${v} pts`, 'Puntos']}
+                  />
+                  <Bar dataKey="pts" fill="#facc15" radius={[4, 4, 0, 0]} name="Puntos" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </SortableWidget>
+        )
+      }
 
       default:
         return null

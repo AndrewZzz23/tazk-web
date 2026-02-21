@@ -31,6 +31,8 @@ function KeyboardShortcuts({ onClose }: KeyboardShortcutsProps) {
     { keys: ['1'], description: 'Vista Lista' },
     { keys: ['2'], description: 'Vista Kanban' },
     { keys: ['3'], description: 'Vista Calendario' },
+    { keys: ['4'], description: 'Sprints' },
+    { keys: ['5'], description: 'Sprint Board' },
     { keys: ['?'], description: 'Atajos de teclado' },
     { keys: ['Esc'], description: 'Cerrar panel / modal' },
   ]

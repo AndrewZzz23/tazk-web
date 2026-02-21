@@ -445,3 +445,64 @@ export const logContactLabelDeleted = (
   userEmail,
   details: { name }
 })
+
+// ─── Sprint Logging ───────────────────────────────────────────────────────────
+
+export const logSprintCreated = (
+  sprintId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({ action: 'created', entityType: 'sprint' as any, entityId: sprintId, teamId, userId, userEmail, details: { name } })
+
+export const logSprintUpdated = (
+  sprintId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string,
+  changes?: Record<string, unknown>
+) => logActivity({ action: 'updated', entityType: 'sprint' as any, entityId: sprintId, teamId, userId, userEmail, details: { name, ...changes } })
+
+export const logSprintStarted = (
+  sprintId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({ action: 'activated', entityType: 'sprint' as any, entityId: sprintId, teamId, userId, userEmail, details: { name, started: true } })
+
+export const logSprintCompleted = (
+  sprintId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({ action: 'deactivated', entityType: 'sprint' as any, entityId: sprintId, teamId, userId, userEmail, details: { name, completed: true } })
+
+export const logSprintDeleted = (
+  sprintId: string,
+  name: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({ action: 'deleted', entityType: 'sprint' as any, entityId: sprintId, teamId, userId, userEmail, details: { name } })
+
+export const logTaskAddedToSprint = (
+  taskId: string,
+  taskTitle: string,
+  sprintName: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({ action: 'updated', entityType: 'task', entityId: taskId, teamId, userId, userEmail, details: { title: taskTitle, added_to_sprint: sprintName } })
+
+export const logTaskRemovedFromSprint = (
+  taskId: string,
+  taskTitle: string,
+  sprintName: string,
+  teamId: string | null,
+  userId: string,
+  userEmail?: string
+) => logActivity({ action: 'updated', entityType: 'task', entityId: taskId, teamId, userId, userEmail, details: { title: taskTitle, removed_from_sprint: sprintName } })

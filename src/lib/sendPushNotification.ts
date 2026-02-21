@@ -149,3 +149,39 @@ export async function notifyTeamInvite(
     tag: 'team-invite'
   })
 }
+
+// ─── Sprint Notifications ─────────────────────────────────────────────────────
+
+export async function notifySprintStarted(
+  teamMemberUserIds: string[],
+  sprintName: string,
+  starterName: string,
+  sprintId: string
+): Promise<void> {
+  if (!teamMemberUserIds.length) return
+  await sendPushNotification({
+    user_ids: teamMemberUserIds,
+    title: '🚀 Sprint iniciado',
+    body: `${starterName} inició el sprint "${sprintName}"`,
+    url: '/',
+    tag: `sprint-started-${sprintId}`,
+    data: { sprint_id: sprintId }
+  })
+}
+
+export async function notifyTaskAddedToSprint(
+  assignedUserId: string | null,
+  taskTitle: string,
+  sprintName: string,
+  taskId: string
+): Promise<void> {
+  if (!assignedUserId) return
+  await sendPushNotification({
+    user_id: assignedUserId,
+    title: 'Tarea añadida al sprint',
+    body: `"${taskTitle}" fue añadida al sprint "${sprintName}"`,
+    url: '/',
+    tag: `task-sprint-${taskId}`,
+    data: { task_id: taskId }
+  })
+}

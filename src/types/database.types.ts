@@ -72,6 +72,9 @@ export interface Task {
   task_statuses?: TaskStatus
   assigned_user?: Profile | null
   created_by_user?: Profile | null
+  // Scrum
+  story_points?: number | null
+  sprint_id?: string | null
 }
 
 export interface ActivityLog {
@@ -265,4 +268,23 @@ export interface RecurringTask {
   // Relations
   assigned_user?: Profile | null
   default_status?: TaskStatus | null
+}
+
+// ─── Sprint (Scrum) ───────────────────────────────────────────────────────────
+export type SprintStatus = 'planning' | 'active' | 'completed' | 'cancelled'
+
+export interface Sprint {
+  id: string
+  name: string
+  goal: string | null
+  team_id: string | null
+  created_by: string
+  status: SprintStatus
+  start_date: string | null
+  end_date: string | null
+  created_at: string
+  updated_at: string
+  // Relaciones
+  created_by_user?: Profile | null
+  tasks?: Task[]
 }

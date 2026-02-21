@@ -22,7 +22,7 @@ import {
   RepeatIcon,
   ContactsIcon
 } from './components/iu/AnimatedIcons';
-import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid } from 'lucide-react'
+import { ChevronDown, Check, Plus, Users, User, UserPlus, Crown, Shield, LayoutGrid, Timer } from 'lucide-react'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
 import Onboarding from './components/Onboarding'
@@ -226,6 +226,8 @@ function Sidebar({
   // Rutinas y contactos no están disponibles para miembros de equipo
   const isMember = selectedRole === 'member' && !!selectedTeamId
   const toolViewItems = [
+    { id: 'sprints', icon: <Timer size={20} />, label: 'Sprints' },
+    { id: 'sprintboard', icon: <KanbanIcon size={20} />, label: 'Sprint Board' },
     ...(!isMember ? [
       { id: 'routines', icon: <RepeatIcon size={20} />, label: 'Rutinas' },
       { id: 'contacts', icon: <ContactsIcon size={20} />, label: 'Contactos' },
@@ -337,7 +339,7 @@ function Sidebar({
               }`}
             >
               {/* Mostrar icono según la vista de tareas, por defecto lista */}
-              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics' || currentView === 'emails' || currentView === 'contacts') && <ListIcon size={22} />}
+              {(currentView === 'list' || currentView === 'routines' || currentView === 'metrics' || currentView === 'emails' || currentView === 'contacts' || currentView === 'sprints' || currentView === 'sprintboard') && <ListIcon size={22} />}
               {currentView === 'kanban' && <KanbanIcon size={22} />}
               {currentView === 'calendar' && <CalendarIcon size={22} />}
             </button>

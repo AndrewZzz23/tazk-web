@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react'
 import { supabase } from './supabaseClient'
 import { Task, Contact } from './types/database.types'
-import { Search, X, FileText, BookUser, RotateCcw } from 'lucide-react'
+import { Search, X, FileText, BookUser, RotateCcw, Timer } from 'lucide-react'
 
 export interface QuickAction {
   id: string
@@ -26,11 +26,19 @@ interface RecurringTask {
   frequency: string
 }
 
+interface SprintResult {
+  id: string
+  name: string
+  goal: string | null
+  status: string
+}
+
 type ResultItem =
   | { type: 'action'; item: QuickAction }
   | { type: 'task'; item: Task }
   | { type: 'contact'; item: Contact }
   | { type: 'recurring'; item: RecurringTask }
+  | { type: 'sprint'; item: SprintResult }
 
 function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onNavigate }: GlobalSearchProps) {
   const [query, setQuery] = useState('')
@@ -38,6 +46,7 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
   const [tasks, setTasks] = useState<Task[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [recurringTasks, setRecurringTasks] = useState<RecurringTask[]>([])
+  const [sprints, setSprints] = useState<SprintResult[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -77,6 +86,7 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
       setTasks([])
       setContacts([])
       setRecurringTasks([])
+      setSprints([])
       return
     }
 
@@ -111,25 +121,35 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
       .ilike('title', pattern)
       .limit(3)
 
+    let sprintQuery = supabase
+      .from('sprints')
+      .select('id, name, goal, status')
+      .or(`name.ilike.${pattern},goal.ilike.${pattern}`)
+      .limit(3)
+
     if (teamId) {
       taskQuery = taskQuery.eq('team_id', teamId)
       contactQuery = contactQuery.eq('team_id', teamId)
       recurringQuery = recurringQuery.eq('team_id', teamId)
+      sprintQuery = sprintQuery.eq('team_id', teamId)
     } else {
       taskQuery = taskQuery.eq('user_id', currentUserId).is('team_id', null)
       contactQuery = contactQuery.eq('user_id', currentUserId).is('team_id', null)
       recurringQuery = recurringQuery.eq('user_id', currentUserId).is('team_id', null)
+      sprintQuery = sprintQuery.is('team_id', null)
     }
 
-    const [tasksRes, contactsRes, recurringRes] = await Promise.all([
+    const [tasksRes, contactsRes, recurringRes, sprintsRes] = await Promise.all([
       taskQuery,
       contactQuery,
-      recurringQuery
+      recurringQuery,
+      sprintQuery
     ])
 
     setTasks(tasksRes.data || [])
     setContacts(contactsRes.data || [])
     setRecurringTasks(recurringRes.data || [])
+    setSprints(sprintsRes.data || [])
     setLoading(false)
   }
 
@@ -139,7 +159,8 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
     ...tasks.map(t => ({ type: 'task' as const, item: t })),
     ...contacts.map(c => ({ type: 'contact' as const, item: c })),
     ...recurringTasks.map(r => ({ type: 'recurring' as const, item: r })),
-  ], [filteredActions, tasks, contacts, recurringTasks])
+    ...sprints.map(s => ({ type: 'sprint' as const, item: s })),
+  ], [filteredActions, tasks, contacts, recurringTasks, sprints])
 
   // Reset selected index when results change
   useEffect(() => {
@@ -158,6 +179,9 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
       handleClose()
     } else if (result.type === 'recurring') {
       onNavigate('routines')
+      handleClose()
+    } else if (result.type === 'sprint') {
+      onNavigate('sprints')
       handleClose()
     }
   }, [onOpenTask, onNavigate, handleClose])
@@ -291,6 +315,29 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
       )
     }
 
+    if (result.type === 'sprint') {
+      const sprint = result.item as SprintResult
+      const statusLabel: Record<string, string> = { planning: 'Planificando', active: 'Activo', completed: 'Completado', cancelled: 'Cancelado' }
+      return (
+        <button
+          key={`sprint-${sprint.id}`}
+          data-selected={isSelected}
+          onClick={() => handleSelect(result)}
+          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+            isSelected
+              ? 'bg-yellow-50 dark:bg-yellow-400/10'
+              : 'hover:bg-neutral-50 dark:hover:bg-neutral-700/50'
+          }`}
+        >
+          <Timer className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-neutral-900 dark:text-white truncate">{sprint.name}</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">{statusLabel[sprint.status] || sprint.status}</p>
+          </div>
+        </button>
+      )
+    }
+
     return null
   }
 
@@ -321,7 +368,7 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleInputKeyDown}
-              placeholder="Buscar tareas, contactos, acciones..."
+              placeholder="Buscar tareas, contactos, sprints..."
               className="flex-1 bg-transparent text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 outline-none text-base"
             />
             {query && (
@@ -399,6 +446,19 @@ function GlobalSearch({ currentUserId, teamId, actions, onClose, onOpenTask, onN
                     {recurringTasks.map(rt => {
                       const idx = currentIdx++
                       return renderResultItem({ type: 'recurring', item: rt }, idx)
+                    })}
+                  </div>
+                )}
+
+                {/* Sprints section */}
+                {sprints.length > 0 && (
+                  <div>
+                    <p className="px-4 py-1.5 text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      Sprints
+                    </p>
+                    {sprints.map(s => {
+                      const idx = currentIdx++
+                      return renderResultItem({ type: 'sprint', item: s }, idx)
                     })}
                   </div>
                 )}

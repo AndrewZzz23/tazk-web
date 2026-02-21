@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient'
 import { useIsMobile } from './hooks/useIsMobile'
 import { useBottomSheetGesture } from './hooks/useBottomSheetGesture'
 import { useBodyScrollLock } from './hooks/useBodyScrollLock'
-import { Task, TaskStatus, Profile, UserRole, TaskPriority, Contact } from './types/database.types'
+import { Task, TaskStatus, Profile, UserRole, TaskPriority, Contact, Sprint } from './types/database.types'
 import { EditIcon, XIcon, TrashIcon, SaveIcon, LoadingZapIcon } from './components/iu/AnimatedIcons'
 import TaskAttachments from './TaskAttachments'
 import TaskActivityLog from './TaskActivityLog'
@@ -13,7 +13,9 @@ import ConfirmDialog from './ConfirmDialog'
 import { logTaskUpdated, logTaskDeleted, logTaskStatusChanged, logTaskAssigned, logTaskUnassigned } from './lib/activityLogger'
 import { notifyTaskAssigned, notifyStatusChange, notifyTaskCompleted } from './lib/sendPushNotification'
 import { sendTaskAssignedEmail, sendTaskCompletedEmail } from './lib/emailNotifications'
-import { Calendar, Clock, User, Tag, FileText, Type, AlertCircle, History, Maximize2, X, Phone, Building2, MapPin, BookUser, Mail, Navigation, StickyNote } from 'lucide-react'
+import { Calendar, Clock, User, Tag, FileText, Type, AlertCircle, History, Maximize2, X, Phone, Building2, MapPin, BookUser, Mail, Navigation, StickyNote, Timer } from 'lucide-react'
+
+const FIBONACCI = [1, 2, 3, 5, 8, 13, 21]
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import L from 'leaflet'
 
@@ -60,6 +62,9 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
     task.due_date ? new Date(task.due_date) : null
   )
   const [priority, setPriority] = useState<TaskPriority | ''>(task.priority || '')
+  const [storyPoints, setStoryPoints] = useState<number | null>(task.story_points ?? null)
+  const [sprintId, setSprintId] = useState<string | null>(task.sprint_id ?? null)
+  const [availableSprints, setAvailableSprints] = useState<Sprint[]>([])
   const [statuses, setStatuses] = useState<TaskStatus[]>([])
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
@@ -109,6 +114,22 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           setUsers(profiles)
         }
       }
+
+      // Cargar sprints disponibles
+      let sprintQuery = supabase
+        .from('sprints')
+        .select('id,name,status')
+        .in('status', ['planning', 'active'])
+        .order('created_at', { ascending: false })
+
+      if (task.team_id) {
+        sprintQuery = sprintQuery.eq('team_id', task.team_id)
+      } else {
+        sprintQuery = sprintQuery.is('team_id', null)
+      }
+
+      const { data: sprintData } = await sprintQuery
+      if (sprintData) setAvailableSprints(sprintData as Sprint[])
     }
 
     loadData()
@@ -213,6 +234,8 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
         priority: priority || null,
         start_date: startDate?.toISOString() || null,
         due_date: dueDate?.toISOString() || null,
+        story_points: storyPoints,
+        sprint_id: sprintId || null,
       })
       .eq('id', task.id)
 
@@ -665,6 +688,55 @@ function EditTask({ task, currentUserId, userEmail, userRole, showStartDate = tr
           ))}
         </div>
       </div>
+      )}
+
+      {/* Story Points */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+          <span className="text-base font-bold text-neutral-500 dark:text-neutral-400">SP</span>
+          Story Points
+          <span className="text-xs text-neutral-400 font-normal">(opcional)</span>
+        </label>
+        <div className="flex gap-1.5 flex-wrap">
+          {FIBONACCI.map((val) => (
+            <button
+              key={val}
+              type="button"
+              disabled={isReadOnly}
+              onClick={() => !isReadOnly && setStoryPoints(storyPoints === val ? null : val)}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                storyPoints === val
+                  ? 'bg-yellow-400 text-neutral-900 border-yellow-400 shadow-sm shadow-yellow-400/30'
+                  : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 border-neutral-300 dark:border-neutral-600 hover:border-yellow-400/60'
+              } disabled:opacity-70 disabled:cursor-default`}
+            >
+              {val}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sprint */}
+      {availableSprints.length > 0 && (
+        <div className="mb-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 mb-2">
+            <Timer className="w-4 h-4" />
+            Sprint
+          </label>
+          <select
+            value={sprintId || ''}
+            onChange={(e) => setSprintId(e.target.value || null)}
+            disabled={isReadOnly}
+            className="w-full px-4 py-3 bg-neutral-100 dark:bg-neutral-700 border border-neutral-300 dark:border-neutral-600 rounded-xl text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all text-base disabled:opacity-70 disabled:cursor-default"
+          >
+            <option value="">Sin sprint (Backlog)</option>
+            {availableSprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}{s.status === 'active' ? ' (Activo)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
 
       {/* Fechas */}
